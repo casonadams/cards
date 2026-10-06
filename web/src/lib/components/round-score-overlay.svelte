@@ -33,7 +33,7 @@
 							</div>
 							<span class="text-sm font-semibold">{playerNames[entry.playerId] ?? entry.playerId}</span>
 						</div>
-						<span class="font-mono text-sm font-black px-2.5 py-0.5 rounded-full {entry.points === 0 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-muted text-foreground'}">
+						<span class="font-mono text-xs font-black px-3 py-1 rounded-full {entry.points === 0 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-muted text-foreground'}">
 							{entry.points} pts
 						</span>
 					</div>

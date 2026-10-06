@@ -27,17 +27,36 @@
 	}: Props = $props();
 </script>
 
-<footer class="border-t border-border px-4 py-2 flex justify-between items-center">
-	<Button variant="ghost" size="sm" onclick={onLeave}>Leave</Button>
-	<div class="flex gap-2">
+<footer class="border-t border-border/80 bg-card/60 backdrop-blur-md px-4 py-2.5 flex justify-between items-center text-xs">
+	<Button
+		variant="ghost"
+		size="sm"
+		class="text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs h-9 px-3"
+		onclick={onLeave}
+	>
+		← Leave Game
+	</Button>
+	<div class="flex items-center gap-2">
 		{#if uiState.canPlay}
-			<Button variant="secondary" size="sm" onclick={onYield}>Yield</Button>
-			<Button size="sm" onclick={onPlay} disabled={!validCombo}>
-				{validCombo ? `Attack (${attackValue})` : 'Select cards'}
+			<Button variant="secondary" size="sm" class="text-xs h-9 px-3.5 font-semibold" onclick={onYield}>
+				Yield (Draw 1)
+			</Button>
+			<Button
+				size="sm"
+				class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-9 px-4 shadow-sm"
+				onclick={onPlay}
+				disabled={!validCombo}
+			>
+				{validCombo ? `⚔ Attack (${attackValue})` : 'Select Cards'}
 			</Button>
 		{:else if uiState.isDefending}
-			<Button size="sm" onclick={onDefend} disabled={!canDefend}>
-				Defend ({defenseValue})
+			<Button
+				size="sm"
+				class="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs h-9 px-4 shadow-sm"
+				onclick={onDefend}
+				disabled={!canDefend}
+			>
+				🛡 Defend ({defenseValue})
 			</Button>
 		{/if}
 	</div>

@@ -48,9 +48,9 @@
 	</div>
 	<div class="flex items-center gap-3">
 		{#if editing}
-			<div class="flex items-center gap-1 bg-background border border-emerald-500/60 rounded-full px-2 py-0.5 shadow-sm">
+			<div class="flex items-center gap-1.5 bg-background border border-emerald-500/70 rounded-full px-2.5 py-1 shadow-sm">
 				<input
-					class="bg-transparent border-none outline-none text-xs w-20 sm:w-28 px-1 text-foreground"
+					class="bg-transparent border-none outline-none text-xs w-24 sm:w-32 px-1 text-foreground font-semibold"
 					bind:value={editValue}
 					maxlength={MAX_NAME_LENGTH}
 					onkeydown={handleKeydown}
@@ -66,15 +66,15 @@
 			</div>
 		{:else}
 			<button
-				class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-background/50 border border-border/80 text-xs text-foreground hover:border-emerald-500/50 hover:bg-card transition-all cursor-pointer group"
+				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-emerald-500/60 hover:bg-card transition-all cursor-pointer group shadow-xs"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
-				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold">
+				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px] font-black">
 					{displayName.slice(0, 1).toUpperCase()}
 				</div>
-				<span class="font-medium truncate max-w-[90px] sm:max-w-[140px]">{displayName}</span>
-				<span class="text-[10px] text-muted-foreground group-hover:text-emerald-400 opacity-60">✎</span>
+				<span class="font-semibold truncate max-w-[100px] sm:max-w-[150px]">{displayName}</span>
+				<span class="text-[10px] text-muted-foreground group-hover:text-emerald-400 opacity-70">✎</span>
 			</button>
 		{/if}
 		{#if showAdmin}

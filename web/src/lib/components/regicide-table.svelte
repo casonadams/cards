@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { cn } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge/index';
 	import PlayingCard from './playing-card.svelte';
 	import RegicideRules from './regicide-rules.svelte';
@@ -78,36 +79,62 @@
 	}
 </script>
 
-<nav class="border-b border-border px-4 py-2 flex justify-between items-center gap-2">
-	<h1 class="text-sm font-bold whitespace-nowrap">Regicide</h1>
-	<button class="cursor-pointer" onclick={() => (showRules = !showRules)}>
-		<Badge variant="outline" class="whitespace-nowrap text-center"
-			>{showRules ? 'Hide Rules' : 'Rules'}</Badge
+<div class="border-b border-border/80 bg-card/60 backdrop-blur-md px-4 py-2.5 flex justify-between items-center gap-3">
+	<div class="flex items-center gap-2">
+		<button
+			class="cursor-pointer inline-flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
+			onclick={() => (showRules = !showRules)}
 		>
-	</button>
-	<div class="flex gap-2 text-xs text-muted-foreground">
-		<span>Castle: {uiState.castleRemaining}</span><span>Tavern: {uiState.tavernSize}</span><span
-			>Discard: {uiState.discardSize}</span
-		>
+			<Badge variant="outline" class="whitespace-nowrap font-medium text-xs py-1.5 px-3.5 bg-background/50 hover:bg-accent border-border/80">
+				{showRules ? 'Hide Rules' : 'Regicide Rules ⓘ'}
+			</Badge>
+		</button>
+		<div class="hidden sm:flex items-center gap-2 text-xs text-muted-foreground ml-2">
+			<span class="px-2.5 py-0.5 rounded-full bg-muted/60 font-medium">Castle: {uiState.castleRemaining}</span>
+			<span class="px-2.5 py-0.5 rounded-full bg-muted/60 font-medium">Tavern: {uiState.tavernSize}</span>
+			<span class="px-2.5 py-0.5 rounded-full bg-muted/60 font-medium">Discard: {uiState.discardSize}</span>
+		</div>
 	</div>
-	{#if uiState.canPlay || uiState.isDefending}<Badge variant="success" class="whitespace-nowrap"
-			>Your Turn</Badge
-		>
-	{:else}<Badge variant="secondary" class="whitespace-nowrap">Waiting...</Badge>{/if}
-</nav>
+	<div class="flex items-center gap-2">
+		{#if uiState.canPlay || uiState.isDefending}
+			<Badge variant="success" class="whitespace-nowrap px-3.5 py-1.5 text-xs font-bold shadow-sm shadow-emerald-500/20">
+				<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+				{uiState.isDefending ? 'Defend!' : 'Your Turn'}
+			</Badge>
+		{:else}
+			<Badge variant="secondary" class="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary/60">
+				Waiting...
+			</Badge>
+		{/if}
+	</div>
+</div>
 
 {#if showRules}<RegicideRules />{/if}
 
-<main class="flex-1 flex flex-col justify-between p-2">
-	<div class="flex flex-wrap justify-center gap-x-4 gap-y-1 px-1 py-1">
+<main class="flex-1 flex flex-col justify-between p-2 sm:p-4 max-w-5xl self-center mx-auto w-full gap-3">
+	<div class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-4 px-2 py-1 max-w-4xl mx-auto w-full shrink-0">
 		{#each otherPlayers as other (other.id)}
 			{@const idx = playerIds.indexOf(other.id)}
-			<div class="flex flex-col items-center min-w-[60px]">
-				<span
-					class="text-xs truncate max-w-[80px]"
-					class:text-success={currentTurnIndex === idx}
-					class:text-muted-foreground={currentTurnIndex !== idx}>{other.displayName}</span
+			{@const isTurn = currentTurnIndex === idx}
+			<div
+				class={cn(
+					'flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl border transition-all duration-200 text-xs backdrop-blur-md shadow-md',
+					isTurn
+						? 'bg-emerald-500/20 border-emerald-500/70 text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.35)] ring-2 ring-emerald-500/50 scale-105'
+						: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
+				)}
+			>
+				<div
+					class={cn(
+						'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-inner',
+						isTurn ? 'bg-emerald-400 text-zinc-950 font-black' : 'bg-muted text-foreground'
+					)}
 				>
+					{other.displayName.slice(0, 2).toUpperCase()}
+				</div>
+				<span class={cn('font-semibold truncate max-w-[85px] sm:max-w-[120px]', isTurn && 'text-emerald-300 font-bold')}>
+					{other.displayName}
+				</span>
 			</div>
 		{/each}
 	</div>
@@ -151,15 +178,17 @@
 		</div>
 	{/if}
 
-	<div class="border-t border-border pt-1">
-		<div class="flex flex-wrap justify-center gap-1 p-2">
+	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible pt-3 pb-2 rounded-t-xl">
+		<div class="flex flex-wrap justify-center gap-2 p-2">
 			{#each myCards as card (cardKey(card))}
-				<PlayingCard
-					{card}
-					playable={uiState.canPlay || uiState.isDefending}
-					selected={selectedCards.has(cardKey(card))}
-					onclick={() => toggleCard(card)}
-				/>
+				<div class="transform transition-transform hover:-translate-y-2">
+					<PlayingCard
+						{card}
+						playable={uiState.canPlay || uiState.isDefending}
+						selected={selectedCards.has(cardKey(card))}
+						onclick={() => toggleCard(card)}
+					/>
+				</div>
 			{/each}
 		</div>
 	</div>

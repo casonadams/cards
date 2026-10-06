@@ -203,7 +203,7 @@
 	</div>
 
 	<!-- Bottom Player Hand Container -->
-	<div class="w-full border-t border-border/80 bg-background/30 backdrop-blur-sm shrink-0 rounded-t-2xl">
+	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible">
 		<HandDisplay cards={myCards} {playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />
 	</div>
 </main>

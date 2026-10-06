@@ -27,9 +27,17 @@ build: ## Build all crates in debug mode
 	$(CARGO) build --workspace
 
 .PHONY: build-wasm
-build-wasm: ## Build wasm32 target
+build-wasm: ## Build wasm32 target and generate web bindings
 	$(CARGO) build --package cards-wasm --target wasm32-unknown-unknown --release
+	wasm-bindgen --target web --out-dir web/src/wasm target/wasm32-unknown-unknown/release/cards_wasm.wasm
 
+.PHONY: dev
+dev: ## Run web dev server locally
+	cd web && pnpm dev
+
+.PHONY: preview
+preview: build-wasm ## Build and preview production site locally
+	cd web && pnpm build && pnpm preview
 .PHONY: check
 check: ## Type check all targets
 	$(CARGO) check --workspace --all-targets

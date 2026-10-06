@@ -37,10 +37,9 @@ export const rookTextColors = {
 };
 
 export const sizes = {
-	sm: 'w-[54px] h-[78px] sm:w-[66px] sm:h-[96px]',
-	md: 'w-[62px] h-[90px] sm:w-[84px] sm:h-[122px]'
+	sm: 'w-[48px] h-[70px] sm:w-[60px] sm:h-[88px]',
+	md: 'w-[56px] h-[82px] sm:w-[74px] sm:h-[108px]'
 };
-
 export const cornerSizes = { sm: 'text-[10px] sm:text-xs', md: 'text-xs sm:text-sm' };
 export const centerSuitSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
 export const faceLetterSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };

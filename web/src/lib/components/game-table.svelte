@@ -76,28 +76,29 @@
 	}
 </script>
 
-<div class="border-b border-border/80 bg-card/60 backdrop-blur-md px-4 py-2 flex justify-between items-center gap-3">
+<div class="border-b border-border/80 bg-card/60 backdrop-blur-md px-4 py-2.5 flex justify-between items-center gap-3">
 	<div class="flex items-center gap-2">
 		<button
 			class="cursor-pointer inline-flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
 			onclick={() => (showRules = !showRules)}
 			title="Click to view hand rules"
 		>
-			<Badge variant="outline" class="whitespace-nowrap font-medium text-xs py-1 px-2.5 bg-background/50 hover:bg-accent">
+			<Badge variant="outline" class="whitespace-nowrap font-medium text-xs py-1.5 px-3.5 bg-background/50 hover:bg-accent border-border/80">
 				<span class="opacity-70">Hand {currentRound + 1}:</span>
-				<span class="font-bold">{roundLabel}</span>
-				<span class="text-[10px] ml-0.5 opacity-60">ⓘ</span>
+				<span class="font-bold ml-1">{roundLabel}</span>
+				<span class="text-[11px] ml-1 opacity-70">ⓘ</span>
 			</Badge>
 		</button>
 	</div>
 
 	<div class="flex items-center gap-2">
 		{#if isMyTurn}
-			<Badge variant="success" class="whitespace-nowrap px-3 py-1 text-xs font-bold animate-pulse shadow-sm shadow-emerald-500/20">
-				● Your Turn
+			<Badge variant="success" class="whitespace-nowrap px-3.5 py-1.5 text-xs font-bold shadow-sm shadow-emerald-500/20">
+				<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+				Your Turn
 			</Badge>
 		{:else}
-			<Badge variant="secondary" class="whitespace-nowrap px-2.5 py-1 text-xs font-medium text-muted-foreground">
+			<Badge variant="secondary" class="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary/60">
 				Waiting for turn...
 			</Badge>
 		{/if}

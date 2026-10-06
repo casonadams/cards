@@ -23,20 +23,20 @@
 </script>
 
 <div
-	class="bg-card/60 backdrop-blur-sm border-b border-border/80 px-4 py-2 flex flex-wrap gap-2 items-center text-xs justify-center sm:justify-start"
+	class="bg-card/60 backdrop-blur-sm border-b border-border/80 px-4 py-2.5 flex flex-wrap gap-2.5 items-center text-xs justify-center sm:justify-start"
 >
 	<span class="text-muted-foreground font-semibold">Trump Suit:</span>
 	{#if trumpSuit}
-		<Badge variant="warning" class="gap-1.5 py-0.5 font-bold bg-amber-500/15 text-amber-300 border-amber-500/30">
+		<Badge variant="warning" class="gap-2 px-3 py-1 font-bold bg-amber-500/15 text-amber-300 border-amber-500/30">
 			<span class="capitalize text-xs">{trumpSuit} {suitSymbols[trumpSuit]}</span>
 			{#if trumpCard}
-				<span class="font-normal text-[11px] opacity-80 border-l border-amber-500/30 pl-1.5 ml-0.5">
+				<span class="font-normal text-[11px] opacity-80 border-l border-amber-500/30 pl-2 ml-1">
 					Cut: <span class={suitColors[trumpCard.suit]}>{cardLabel}</span>
 				</span>
 			{/if}
 		</Badge>
 	{:else}
-		<Badge variant="secondary" class="gap-1.5 py-0.5 text-xs font-semibold">
+		<Badge variant="secondary" class="gap-1.5 px-3 py-1 text-xs font-semibold">
 			<span>No Trump</span>
 		</Badge>
 	{/if}

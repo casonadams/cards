@@ -27,12 +27,11 @@
 			? sortRookHand(cards, trumpSuit)
 			: sortHand(cards, trumpSuit as Suit | null | undefined)
 	);
-	const overlapClass = $derived(
-		sorted.length > 8
-			? '-space-x-4 sm:-space-x-5'
-			: sorted.length > 4
-				? '-space-x-2 sm:-space-x-3'
-				: 'gap-2 sm:gap-3'
+	const cardOverlap = $derived(
+		sorted.length > 10 ? '-28px' : sorted.length > 7 ? '-20px' : sorted.length > 4 ? '-12px' : '8px'
+	);
+	const cardOverlapMobile = $derived(
+		sorted.length > 10 ? '-22px' : sorted.length > 7 ? '-16px' : sorted.length > 4 ? '-8px' : '6px'
 	);
 
 	function isPlayable(card: Card): boolean {
@@ -40,8 +39,12 @@
 	}
 </script>
 
-<div class="w-full max-w-4xl mx-auto px-4 overflow-x-auto sm:overflow-visible card-fan-scroll">
-	<div class="flex items-end justify-center min-w-max pt-6 pb-2 {overlapClass}">
+<div class="w-full max-w-5xl mx-auto px-4 overflow-x-auto sm:overflow-visible card-fan-scroll">
+	<div
+		class="flex items-end justify-center w-max mx-auto pt-6 pb-2"
+		style:--card-overlap={cardOverlap}
+		style:--card-overlap-mobile={cardOverlapMobile}
+	>
 		{#each sorted as card, index (`${card.suit}-${card.rank}`)}
 			<div
 				class="card-hand-slot relative transition-transform duration-150 ease-out"
@@ -61,6 +64,14 @@
 </div>
 
 <style>
+	.card-hand-slot + .card-hand-slot {
+		margin-left: var(--card-overlap, -28px);
+	}
+	@media (max-width: 639px) {
+		.card-hand-slot + .card-hand-slot {
+			margin-left: var(--card-overlap-mobile, -22px);
+		}
+	}
 	.card-hand-slot:hover,
 	.card-hand-slot:focus-within {
 		transform: translateY(-14px);

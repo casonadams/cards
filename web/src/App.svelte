@@ -347,15 +347,15 @@
 					<div class="grid grid-cols-2 gap-3">
 						{#each games as game (game.id)}
 							<button
-								class="rounded-2xl border p-4 sm:p-5 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
-									? 'border-emerald-500 bg-emerald-500/15 shadow-[0_0_16px_rgba(16,185,129,0.2)] ring-2 ring-emerald-500/40'
+								class="rounded-2xl border-2 p-4 sm:p-5 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
+									? 'border-emerald-500 bg-emerald-950/30'
 									: 'border-border/80 bg-background/50 hover:border-border hover:bg-card'}"
 								onclick={() => (selectedGameId = game.id)}
 							>
 								<div class="flex items-center justify-between">
 									<span class="block text-base font-extrabold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
 									{#if selectedGameId === game.id}
-										<span class="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">✓</span>
+										<span class="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">✓</span>
 									{/if}
 								</div>
 								<span class="block text-xs text-muted-foreground mt-1 font-medium">
@@ -373,7 +373,7 @@
 							{#each playerOptions as n (n)}
 								<button
 									class="rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer {playerCount === n
-										? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm'
+										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
 										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}
 								>
@@ -401,7 +401,7 @@
 						bind:value={joinCode}
 						placeholder="ROOM CODE"
 						maxlength={6}
-						class="text-center font-mono tracking-[0.25em] text-2xl font-black uppercase h-14 rounded-xl border-2 border-border/80 focus:border-emerald-500 bg-background/70"
+						class="text-center font-mono tracking-[0.25em] text-2xl font-black uppercase h-14 rounded-xl border-2 border-border/80 focus:border-emerald-500 focus:outline-none bg-background/70"
 					/>
 					<Button
 						variant="secondary"

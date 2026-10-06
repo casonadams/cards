@@ -118,9 +118,9 @@
 			{@const isTurn = currentTurnIndex === idx}
 			<div
 				class={cn(
-					'flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl border transition-all duration-200 text-xs backdrop-blur-md shadow-md',
+					'flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl border transition-all duration-150 text-xs backdrop-blur-md shadow-sm',
 					isTurn
-						? 'bg-emerald-500/20 border-emerald-500/70 text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.35)] ring-2 ring-emerald-500/50 scale-105'
+						? 'bg-emerald-950/40 border-2 border-emerald-400 text-emerald-100 shadow-md'
 						: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
 				)}
 			>

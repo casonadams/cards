@@ -79,8 +79,8 @@
 							<button
 								class="w-10 h-10 rounded-lg border text-sm font-bold transition-all flex items-center justify-center cursor-pointer
 									{selectedBid === n
-									? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500/30 shadow-sm'
-									: 'border-border/80 bg-background/50 text-foreground hover:border-emerald-500/50'}
+									? 'border-2 border-emerald-400 bg-emerald-500 text-zinc-950 font-black shadow-md'
+									: 'border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card'}
 									{isHook ? 'opacity-35 cursor-not-allowed line-through hover:border-border/80' : ''}"
 								onclick={() => {
 									if (!isHook) selectedBid = n;

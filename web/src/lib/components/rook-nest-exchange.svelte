@@ -98,8 +98,8 @@
 				<div class="grid grid-cols-4 gap-2">
 					{#each ROOK_COLORS as color (color)}
 						<button
-							class="rounded-xl border-2 p-2 text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 {selectedTrump === color
-								? 'border-emerald-500 bg-emerald-500/15 text-emerald-300 shadow-sm ring-2 ring-emerald-500/20'
+							class="rounded-xl border-2 p-2.5 text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 {selectedTrump === color
+								? 'border-emerald-400 bg-emerald-950/40 text-emerald-100 shadow-sm'
 								: 'border-border/80 bg-background/50 text-muted-foreground hover:border-border hover:bg-card'}"
 							onclick={() => (selectedTrump = color)}
 						>

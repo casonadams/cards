@@ -66,7 +66,7 @@
 			</div>
 		{:else}
 			<button
-				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-emerald-500/60 hover:bg-card transition-all cursor-pointer group shadow-xs"
+				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>

@@ -93,7 +93,7 @@
 
 	<div class="flex items-center gap-2">
 		{#if isMyTurn}
-			<Badge variant="success" class="whitespace-nowrap px-4 py-1.5 text-xs sm:text-sm font-black shadow-md shadow-emerald-500/20">
+			<Badge variant="success" class="whitespace-nowrap px-4 py-1.5 text-xs sm:text-sm font-black shadow-sm">
 				<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
 				Your Turn
 			</Badge>
@@ -148,9 +148,9 @@
 			{@const partner = isPartner(other.id)}
 			<div
 				class={cn(
-					'flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-200 text-xs sm:text-sm backdrop-blur-md shadow-md',
+					'flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
 					isTurn
-						? 'bg-emerald-500/20 border-emerald-500/70 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-2 ring-emerald-500/50 scale-105'
+						? 'bg-emerald-950/40 border-2 border-emerald-400 text-emerald-100 shadow-md'
 						: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
 				)}
 			>

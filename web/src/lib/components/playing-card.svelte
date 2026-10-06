@@ -83,9 +83,9 @@
 		sizes[size],
 		bgClass,
 		playable &&
-			'cursor-pointer hover:shadow-2xl hover:border-emerald-500 hover:ring-2 hover:ring-emerald-500/30',
+			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80',
 		!playable && !faceDown && 'brightness-[0.75] saturate-50 cursor-default shadow-xs',
-		selected && '-translate-y-3.5 ring-2 ring-emerald-500 shadow-xl'
+		selected && '-translate-y-3.5 border-2 border-emerald-500 shadow-2xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}
 	disabled={!playable}

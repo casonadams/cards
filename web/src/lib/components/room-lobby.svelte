@@ -61,7 +61,7 @@
 					<span class="bg-muted px-2 py-0.5 rounded-full">{room.players.length} of {room.maxPlayers}</span>
 				</div>
 				<div class="grid gap-2">
-					{#each room.players as player (player.id)}
+					{#each room.players as player, index (`${player.id}-${index}`)}
 						<div class="flex items-center justify-between p-2.5 rounded-lg bg-background/50 border border-border/60 transition-all">
 							<div class="flex items-center gap-2.5">
 								<div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-300">

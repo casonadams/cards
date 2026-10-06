@@ -13,8 +13,13 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 		const room = rooms.get(id) ?? null;
 		listeners.get(id)?.forEach((cb) => cb(room));
 		if (broadcast && room) {
-			channel?.postMessage({ type: 'sync_room', room });
-			broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_room', room })).catch(() => {});
+			try {
+				const serialized = JSON.parse(JSON.stringify({ type: 'sync_room', room }));
+				channel?.postMessage(serialized);
+				broadcaster?.()?.broadcast(JSON.stringify(serialized)).catch(() => {});
+			} catch {
+				// Ignore serialization errors
+			}
 		}
 	}
 
@@ -28,7 +33,11 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 			const clean = data.code.trim().toUpperCase();
 			for (const r of rooms.values()) {
 				if (r.code.trim().toUpperCase() === clean) {
-					channel.postMessage({ type: 'sync_room', room: r });
+					try {
+						channel.postMessage(JSON.parse(JSON.stringify({ type: 'sync_room', room: r })));
+					} catch {
+						// Ignore
+					}
 					break;
 				}
 			}
@@ -108,11 +117,15 @@ export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): 
 		docs.set(roomId, doc);
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (broadcast) {
-			channel?.postMessage({ type: 'sync_doc', roomId, doc });
-			broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_doc', roomId, doc })).catch(() => {});
+			try {
+				const serialized = JSON.parse(JSON.stringify({ type: 'sync_doc', roomId, doc }));
+				channel?.postMessage(serialized);
+				broadcaster?.()?.broadcast(JSON.stringify(serialized)).catch(() => {});
+			} catch {
+				// Ignore serialization errors
+			}
 		}
 	}
-
 	channel?.addEventListener('message', (event) => {
 		const data = event.data;
 		if (data?.type === 'sync_doc' && data.roomId && data.doc) {

@@ -119,7 +119,17 @@ export interface AddAiParams {
 
 export async function handleAddAi(params: AddAiParams): Promise<number> {
 	if (!params.room || params.isFull) return params.aiCounter;
-	const np = [...params.room.players, makeAiPlayer(params.aiCounter)];
+	const existing = new Set(
+		params.room.players
+			.filter((p) => p.id.startsWith('ai-'))
+			.map((p) => parseInt(p.id.replace('ai-', ''), 10))
+			.filter((n) => !isNaN(n))
+	);
+	let nextIndex = params.aiCounter;
+	while (existing.has(nextIndex)) {
+		nextIndex++;
+	}
+	const np = [...params.room.players, makeAiPlayer(nextIndex)];
 	await params.roomRepo.update(params.roomId, { players: np, playerIds: np.map((p) => p.id) });
-	return params.aiCounter + 1;
+	return nextIndex + 1;
 }

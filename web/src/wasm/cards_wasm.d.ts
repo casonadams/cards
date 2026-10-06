@@ -41,12 +41,9 @@ export class IrohNode {
     free(): void;
     [Symbol.dispose](): void;
     create_room(): Promise<IrohRoom>;
-    create_room_with_code(code: string): Promise<IrohRoom>;
     endpoint_id(): string;
     join_room(ticket_str: string): Promise<IrohRoom>;
-    join_room_with_code(code: string): Promise<IrohRoom>;
     static spawn(): Promise<IrohNode>;
-    static spawn_host(code: string): Promise<IrohNode>;
 }
 
 export class IrohRoom {
@@ -105,12 +102,9 @@ export interface InitOutput {
     readonly intounderlyingsource_cancel: (a: number) => void;
     readonly intounderlyingsource_pull: (a: number, b: number) => number;
     readonly irohnode_create_room: (a: number) => number;
-    readonly irohnode_create_room_with_code: (a: number, b: number, c: number) => number;
     readonly irohnode_endpoint_id: (a: number, b: number) => void;
     readonly irohnode_join_room: (a: number, b: number, c: number) => number;
-    readonly irohnode_join_room_with_code: (a: number, b: number, c: number) => number;
     readonly irohnode_spawn: () => number;
-    readonly irohnode_spawn_host: (a: number, b: number) => number;
     readonly irohroom_broadcast: (a: number, b: number, c: number) => number;
     readonly irohroom_take_stream: (a: number, b: number) => void;
     readonly irohroom_ticket: (a: number, b: number) => void;
@@ -127,14 +121,14 @@ export interface InitOutput {
     readonly wasmohwell_play_card: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly wasmohwell_start_round: (a: number, b: number) => void;
     readonly ring_core_0_17_14__bn_mul_mont: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
-    readonly __wasm_bindgen_func_elem_7493: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_7508: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_2151: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_3551: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_4400: (a: number, b: number, c: number) => void;
-    readonly __wasm_bindgen_func_elem_3464: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_3934: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_7433: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_7464: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_7479: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_2123: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_3522: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_4371: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_3435: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_3905: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_7404: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

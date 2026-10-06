@@ -9,14 +9,34 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
+	if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+		const sse = new EventSource('/api/events');
+		sse.addEventListener('sync_room', (e) => {
+			try {
+				const r = JSON.parse(e.data) as GameRoom;
+				if (r && typeof r === 'object' && 'id' in r) {
+					rooms.set(r.id, r);
+					notify(r.id, false);
+				}
+			} catch {
+				// Ignore
+			}
+		});
+	}
+
 	function notify(id: string, broadcast = true) {
 		const room = rooms.get(id) ?? null;
 		listeners.get(id)?.forEach((cb) => cb(room));
 		if (broadcast && room) {
 			try {
-				const serialized = JSON.parse(JSON.stringify({ type: 'sync_room', room }));
-				channel?.postMessage(serialized);
-				broadcaster?.()?.broadcast(JSON.stringify(serialized)).catch(() => {});
+				const serialized = JSON.parse(JSON.stringify(room)) as GameRoom;
+				channel?.postMessage({ type: 'sync_room', room: serialized });
+				broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_room', room: serialized })).catch(() => {});
+				fetch('/api/rooms', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(serialized)
+				}).catch(() => {});
 			} catch {
 				// Ignore serialization errors
 			}
@@ -61,6 +81,18 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 			const clean = code.trim().toUpperCase();
 			for (const r of rooms.values()) {
 				if (r.code.trim().toUpperCase() === clean) return r;
+			}
+			try {
+				const res = await fetch('/api/rooms');
+				if (res.ok) {
+					const all = (await res.json()) as GameRoom[];
+					for (const r of all) {
+						rooms.set(r.id, r);
+						if (r.code.trim().toUpperCase() === clean) return r;
+					}
+				}
+			} catch {
+				// Fallback to channel
 			}
 			if (channel) {
 				channel.postMessage({ type: 'query_room', code: clean });
@@ -113,14 +145,33 @@ export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): 
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
+	if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+		const sse = new EventSource('/api/events');
+		sse.addEventListener('sync_doc', (e) => {
+			try {
+				const payload = JSON.parse(e.data) as { roomId: string; doc: GameDocument };
+				if (payload && payload.roomId && payload.doc) {
+					notify(payload.roomId, payload.doc, false);
+				}
+			} catch {
+				// Ignore
+			}
+		});
+	}
+
 	function notify(roomId: string, doc: GameDocument, broadcast = true) {
 		docs.set(roomId, doc);
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (broadcast) {
 			try {
-				const serialized = JSON.parse(JSON.stringify({ type: 'sync_doc', roomId, doc }));
+				const serialized = JSON.parse(JSON.stringify({ roomId, doc }));
 				channel?.postMessage(serialized);
 				broadcaster?.()?.broadcast(JSON.stringify(serialized)).catch(() => {});
+				fetch('/api/docs', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(serialized)
+				}).catch(() => {});
 			} catch {
 				// Ignore serialization errors
 			}

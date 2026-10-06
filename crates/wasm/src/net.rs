@@ -46,24 +46,6 @@ impl IrohNode {
         Ok(Self { router, gossip })
     }
 
-    pub async fn spawn_host(code: String) -> Result<IrohNode, JsError> {
-        let clean_code = code.trim().to_uppercase();
-        let seed = blake3::hash(format!("cards:host:v1:{clean_code}").as_bytes());
-        let secret_key = iroh::SecretKey::from_bytes(seed.as_bytes());
-
-        let endpoint = iroh::Endpoint::builder(iroh::endpoint::presets::N0)
-            .secret_key(secret_key)
-            .alpns(vec![GOSSIP_ALPN.to_vec()])
-            .bind()
-            .await
-            .map_err(to_js_err)?;
-
-        let gossip = Gossip::builder().spawn(endpoint.clone());
-        let router = Router::builder(endpoint).accept(GOSSIP_ALPN, gossip.clone()).spawn();
-
-        Ok(Self { router, gossip })
-    }
-
     pub fn endpoint_id(&self) -> String {
         self.router.endpoint().id().to_string()
     }
@@ -78,28 +60,6 @@ impl IrohNode {
 
     pub async fn join_room(&self, ticket_str: String) -> Result<IrohRoom, JsError> {
         let ticket = GameTicket::deserialize(&ticket_str).map_err(to_js_err)?;
-        self.join_inner(ticket).await
-    }
-
-    pub async fn create_room_with_code(&self, code: String) -> Result<IrohRoom, JsError> {
-        let clean_code = code.trim().to_uppercase();
-        let topic_hash = blake3::hash(format!("cards:topic:v1:{clean_code}").as_bytes());
-        let topic_id = TopicId::from_bytes(*topic_hash.as_bytes());
-        let ticket = GameTicket::new(topic_id);
-        self.join_inner(ticket).await
-    }
-
-    pub async fn join_room_with_code(&self, code: String) -> Result<IrohRoom, JsError> {
-        let clean_code = code.trim().to_uppercase();
-        let host_seed = blake3::hash(format!("cards:host:v1:{clean_code}").as_bytes());
-        let host_secret_key = iroh::SecretKey::from_bytes(host_seed.as_bytes());
-        let host_endpoint_id: EndpointId = host_secret_key.public();
-
-        let topic_hash = blake3::hash(format!("cards:topic:v1:{clean_code}").as_bytes());
-        let topic_id = TopicId::from_bytes(*topic_hash.as_bytes());
-
-        let mut ticket = GameTicket::new(topic_id);
-        ticket.bootstrap.insert(host_endpoint_id);
         self.join_inner(ticket).await
     }
 

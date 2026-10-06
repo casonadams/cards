@@ -181,16 +181,6 @@
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
-		init()
-			.then(async () => {
-				const hostNode = await IrohNode.spawn_host(code);
-				irohRoom = await hostNode.create_room_with_code(code);
-				listenIroh(irohRoom);
-			})
-			.catch((e) => {
-				console.log('Iroh host spawn fallback to local', e);
-			});
-
 		try {
 			const newRoom = await roomRepo.create({
 				code,
@@ -230,16 +220,6 @@
 		if (typeof window !== 'undefined') {
 			window.location.hash = '#code=' + code;
 		}
-		init()
-			.then(async () => {
-				const guestNode = await IrohNode.spawn();
-				irohRoom = await guestNode.join_room_with_code(code);
-				listenIroh(irohRoom);
-			})
-			.catch((e) => {
-				console.log('Iroh join fallback to local', e);
-			});
-
 		try {
 			let target = await roomRepo.getByCode(code);
 			if (!target) {

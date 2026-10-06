@@ -52,16 +52,4 @@ mod tests {
         let parsed = GameTicket::deserialize(&serialized).unwrap();
         assert_eq!(ticket, parsed);
     }
-
-    #[test]
-    fn test_derive_from_code() {
-        let hash = blake3::hash(b"cards:code:v1:ABCD");
-        let secret = iroh::SecretKey::from_bytes(hash.as_bytes());
-        let public: EndpointId = secret.public();
-        let topic_hash = blake3::hash(b"cards:topic:v1:ABCD");
-        let topic_id = TopicId::from_bytes(*topic_hash.as_bytes());
-        let mut ticket = GameTicket::new(topic_id);
-        ticket.bootstrap.insert(public);
-        assert_eq!(ticket.bootstrap.len(), 1);
-    }
 }

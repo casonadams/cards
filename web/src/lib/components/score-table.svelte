@@ -1,9 +1,5 @@
 <script lang="ts">
-	export interface RoundScore {
-		round: number;
-		label: string;
-		scores: readonly { playerId: string; points: number }[];
-	}
+	import type { RoundScore } from '$lib/platform/engine/index';
 
 	interface Props {
 		playerNames: Record<string, string>;

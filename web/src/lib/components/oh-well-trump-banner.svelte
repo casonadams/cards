@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge/index';
-	import type { Card, Suit } from '$lib/types/card';
-	import { RANK_NAMES } from '$lib/types/card';
+	import type { Card, Suit } from '$lib/platform/types/index';
+	import { RANK_NAMES } from '$lib/platform/types/card';
 
 	interface Props {
 		trumpSuit: Suit | null;

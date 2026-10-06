@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge/index';
+	import { Button } from '$lib/components/ui/button/index';
 
 	interface Props {
 		displayName: string;
-		networkStatus?: string;
+		onSignOut?: () => void;
 		onNameChange?: (name: string) => void;
+		showAdmin?: boolean;
+		onAdmin?: () => void;
 	}
 
-	let { displayName, networkStatus = 'P2P Ready', onNameChange }: Props = $props();
+	let { displayName, onSignOut, onNameChange, showAdmin = false, onAdmin }: Props = $props();
 
-	const MAX_NAME_LENGTH = 12;
+	const MAX_NAME_LENGTH = 10;
 	let editing = $state(false);
 	let editValue = $state('');
 
@@ -18,11 +20,13 @@
 		editing = true;
 	}
 
+	function hasNameChanged(trimmed: string): boolean {
+		return trimmed.length > 0 && trimmed !== displayName;
+	}
+
 	function confirmEdit() {
 		const trimmed = editValue.trim().slice(0, MAX_NAME_LENGTH);
-		if (trimmed.length > 0 && trimmed !== displayName) {
-			onNameChange?.(trimmed);
-		}
+		if (hasNameChanged(trimmed)) onNameChange?.(trimmed);
 		editing = false;
 	}
 
@@ -33,16 +37,11 @@
 </script>
 
 <nav class="border-b border-border px-6 py-3 flex justify-between items-center">
-	<div class="flex items-center gap-3">
-		<h1 class="text-lg font-bold tracking-tight">Cards</h1>
-		<Badge variant="outline" class="text-[11px] font-mono opacity-80">
-			{networkStatus}
-		</Badge>
-	</div>
+	<h1 class="text-lg font-bold">Garden Salad</h1>
 	<div class="flex items-center gap-4">
 		{#if editing}
 			<input
-				class="bg-background border border-input rounded px-2 py-0.5 text-sm w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+				class="bg-background border border-input rounded px-2 py-0.5 text-sm w-28"
 				bind:value={editValue}
 				maxlength={MAX_NAME_LENGTH}
 				onkeydown={handleKeydown}
@@ -50,13 +49,18 @@
 			/>
 		{:else}
 			<button
-				class="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5"
+				class="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
 				onclick={startEdit}
-				title="Click to edit player name"
+				title="Click to edit name"
 			>
-				<span>👤 {displayName}</span>
-				<span class="text-[10px] text-muted-foreground/60">(edit)</span>
+				{displayName}
 			</button>
+		{/if}
+		{#if showAdmin}
+			<Button variant="ghost" size="sm" onclick={() => onAdmin?.()}>Users</Button>
+		{/if}
+		{#if onSignOut}
+			<Button variant="ghost" size="sm" onclick={onSignOut}>Sign Out</Button>
 		{/if}
 	</div>
 </nav>

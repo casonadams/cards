@@ -2,16 +2,17 @@
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Badge } from '$lib/components/ui/badge/index';
-	import ScoreTable, { type RoundScore } from './score-table.svelte';
+	import ScoreTable from './score-table.svelte';
+	import type { RoundScore } from '$lib/platform/engine/index';
 
 	interface Props {
 		playerNames: Record<string, string>;
 		playerIds: readonly string[];
 		rounds: readonly RoundScore[];
-		onRestart: () => void;
+		onBackToLobby: () => void;
 	}
 
-	let { playerNames, playerIds, rounds, onRestart }: Props = $props();
+	let { playerNames, playerIds, rounds, onBackToLobby }: Props = $props();
 
 	const totals = $derived(
 		playerIds
@@ -35,7 +36,7 @@
 			{#if winnerId}
 				<p class="text-lg mt-2">
 					<Badge variant="success" class="text-base px-3 py-1">
-						{playerNames[winnerId] ?? winnerId} wins!
+						{playerNames[winnerId]} wins!
 					</Badge>
 				</p>
 			{/if}
@@ -49,14 +50,14 @@
 					<div class="flex justify-between items-center py-1">
 						<span>
 							<span class="text-muted-foreground mr-2">{i + 1}.</span>
-							{playerNames[entry.id] ?? entry.id}
+							{playerNames[entry.id]}
 						</span>
 						<span class="font-mono font-bold">{entry.total} pts</span>
 					</div>
 				{/each}
 			</div>
 
-			<Button class="w-full" onclick={onRestart}>Play Again</Button>
+			<Button class="w-full" onclick={onBackToLobby}>Back to Lobby</Button>
 		</CardContent>
 	</Card>
 </div>

@@ -1,20 +1,26 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import { RANK_NAMES, type Card } from '$lib/types/card';
+	import { RANK_NAMES } from '$lib/platform/types/card';
+	import { cardToRook } from '$lib/games/rook/card-adapter';
+	import type { Card } from '$lib/platform/types/index';
+	import { getCardPenalty } from '$lib/games/canadian-salad';
+	import type { HandType } from '$lib/games/canadian-salad';
 	import {
 		suitSymbols,
 		suitBgColors,
 		suitTextColors,
 		faceLetters,
+		rookTextColors,
 		sizes,
 		cornerSizes,
 		centerSuitSizes,
 		faceLetterSizes,
 		aceSuitSizes,
+		rookValueSizes,
+		getRookCardPoints,
 		FACE_DOWN_BG,
-		getCanadianPenalty
+		resolveRookBg
 	} from './playing-card-styles';
-
 	interface Props {
 		card: Card;
 		gameId?: string;
@@ -40,16 +46,35 @@
 	}: Props = $props();
 
 	const penaltyPoints = $derived(
-		gameId === 'canadian-salad' && handType ? getCanadianPenalty(card, handType) : 0
+		gameId === 'canadian-salad' && handType ? getCardPenalty(card, handType as HandType) : 0
 	);
-	const isTrump = $derived(trumpSuit !== null && card.suit === trumpSuit);
-	const isFaceCard = $derived(card.rank >= 11 && card.rank <= 13);
-	const isAce = $derived(card.rank === 14);
+	const isRook = $derived(gameId === 'rook');
+	const rookCard = $derived(isRook ? cardToRook(card) : null);
+	const rookPoints = $derived(rookCard ? getRookCardPoints(rookCard) : 0);
+	const isTrump = $derived(
+		gameId === 'oh-well'
+			? trumpSuit !== null && card.suit === trumpSuit
+			: isRook && trumpSuit !== null
+				? rookCard?.type === 'bird' || (rookCard?.type === 'number' && rookCard.color === trumpSuit)
+				: false
+	);
+	const isFaceCard = $derived(!isRook && card.rank >= 11 && card.rank <= 13);
+	const isAce = $derived(!isRook && card.rank === 14);
 	const symbol = $derived(suitSymbols[card.suit]);
 	const color = $derived(suitTextColors[card.suit]);
-	const label = $derived(`${RANK_NAMES[card.rank]} of ${card.suit}`);
+	const label = $derived(
+		isRook && rookCard
+			? rookCard.type === 'bird'
+				? 'Rook Bird'
+				: `${rookCard.value} ${rookCard.color}`
+			: `${RANK_NAMES[card.rank]} of ${card.suit}`
+	);
+
+	const rookBg = $derived(
+		rookCard ? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '') : ''
+	);
 	const suitBg = $derived(`${suitBgColors[card.suit]} border-border`);
-	const bgClass = $derived(faceDown ? FACE_DOWN_BG : suitBg);
+	const bgClass = $derived(faceDown ? FACE_DOWN_BG : isRook ? rookBg : suitBg);
 </script>
 
 <button
@@ -67,6 +92,29 @@
 >
 	{#if faceDown}
 		<div class="absolute inset-1 rounded border border-blue-600 bg-blue-800"></div>
+	{:else if isRook && rookCard}
+		{#if rookCard.type === 'bird'}
+			<span
+				class="absolute inset-0 flex items-center justify-center text-purple-200 {rookValueSizes[
+					size
+				]} font-black">R</span
+			>
+		{:else}
+			<span
+				class="absolute top-0.5 left-1 {cornerSizes[size]} {rookTextColors[
+					rookCard.color
+				]} font-bold opacity-70"
+			>
+				{rookCard.value}
+			</span>
+			<span
+				class="absolute inset-0 flex items-center justify-center {rookTextColors[
+					rookCard.color
+				]} {rookValueSizes[size]} font-black"
+			>
+				{rookCard.value}
+			</span>
+		{/if}
 	{:else if isFaceCard}
 		<span
 			class="absolute top-0.5 left-1 {cornerSizes[size]} {suitTextColors[
@@ -127,6 +175,13 @@
 			class="absolute top-1 right-1 text-[8px] sm:text-[9px] bg-destructive text-destructive-foreground rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
 		>
 			{penaltyPoints}
+		</span>
+	{/if}
+	{#if !faceDown && rookPoints > 0}
+		<span
+			class="absolute top-1 right-1 text-[8px] sm:text-[9px] bg-emerald-700 text-emerald-100 rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-emerald-500/20"
+		>
+			+{rookPoints}
 		</span>
 	{/if}
 	{#if !faceDown && isTrump}

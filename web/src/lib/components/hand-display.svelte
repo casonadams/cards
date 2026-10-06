@@ -1,7 +1,8 @@
 <script lang="ts">
 	import PlayingCard from './playing-card.svelte';
-	import { sortHand } from '$lib/engine/sort-hand';
-	import type { Card, Suit } from '$lib/types/card';
+	import { sortHand } from '$lib/platform/engine/sort-hand';
+	import { sortRookHand } from '$lib/games/rook/sort-hand';
+	import type { Card, Suit } from '$lib/platform/types/index';
 
 	interface Props {
 		cards: readonly Card[];
@@ -21,7 +22,11 @@
 		onCardPlayed
 	}: Props = $props();
 
-	const sorted = $derived(sortHand(cards, trumpSuit as Suit | null | undefined));
+	const sorted = $derived(
+		gameId === 'rook'
+			? sortRookHand(cards, trumpSuit)
+			: sortHand(cards, trumpSuit as Suit | null | undefined)
+	);
 
 	function isPlayable(card: Card): boolean {
 		return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);

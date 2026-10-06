@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Suit } from '$lib/types/card';
+	import type { Suit } from '$lib/platform/types/index';
 
 	interface Props {
 		suit: Suit;

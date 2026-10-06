@@ -1,11 +1,6 @@
 <script lang="ts">
 	import PlayingCard from './playing-card.svelte';
-	import type { Card } from '$lib/types/card';
-
-	export interface TrickPlay {
-		playerId: string;
-		card: Card;
-	}
+	import type { TrickPlay } from '$lib/platform/engine/index';
 
 	interface Props {
 		plays: readonly TrickPlay[];
@@ -29,7 +24,7 @@
 	let prevTrickLen = $state(0);
 
 	const shouldFade = $derived(prevTrickLen > 0 && lastCompleteTrick.length > 0);
-	const fadeDuration = 3500;
+	const fadeDuration = 5000;
 
 	$effect(() => {
 		if (plays.length > 0) {
@@ -60,7 +55,7 @@
 				<div class="flex flex-col items-center gap-0.5 max-w-[66px] sm:max-w-[80px]">
 					<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="sm" />
 					<span class="text-[10px] text-muted-foreground truncate w-full text-center">
-						{playerNames[play.playerId] ?? play.playerId}
+						{playerNames[play.playerId] ?? '?'}
 					</span>
 				</div>
 			{/each}
@@ -70,7 +65,7 @@
 
 <style>
 	.trick-fade-out {
-		animation: fadeOut 3.5s ease-out forwards;
+		animation: fadeOut 5s ease-out forwards;
 	}
 	@keyframes fadeOut {
 		0% {

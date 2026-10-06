@@ -67,7 +67,7 @@
 
 	// Platform state
 	let irohRoom = $state<any>(null);
-	const roomRepo = createLocalP2pRoomRepo();
+	const roomRepo = createLocalP2pRoomRepo(() => irohRoom);
 	const sync = createLocalP2pSync(() => irohRoom);
 	let roomId = $state('');
 	let room = $state<GameRoom | null>(null);
@@ -153,6 +153,7 @@
 							} else if (data.type === 'sync_room' && data.room) {
 								room = data.room;
 								roomId = data.room.id;
+								await roomRepo.update(data.room.id, data.room);
 							}
 						} catch {
 							// Ignore non-json
@@ -170,13 +171,15 @@
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
-		if (typeof window !== 'undefined') {
-			window.location.hash = '#code=' + code;
-		}
 		try {
-			await init();
-			const hostNode = await IrohNode.spawn_host(code);
-			irohRoom = await hostNode.create_room_with_code(code);
+			const { promise: timeoutPromise, reject } = Promise.withResolvers<never>();
+			const timer = setTimeout(() => reject(new Error('Iroh spawn timeout')), 1000);
+			const irohPromise = init().then(async () => {
+				const hostNode = await IrohNode.spawn_host(code);
+				return hostNode.create_room_with_code(code);
+			});
+			irohRoom = await Promise.race([irohPromise, timeoutPromise]);
+			clearTimeout(timer);
 			listenIroh(irohRoom);
 		} catch (e) {
 			console.log('Iroh host spawn fallback to local', e);
@@ -201,7 +204,11 @@
 				phase: 'lobby',
 				createdAt: Date.now()
 			});
+			room = newRoom;
 			roomId = newRoom.id;
+			if (typeof window !== 'undefined') {
+				window.location.hash = '#code=' + code;
+			}
 		} catch (e: unknown) {
 			lobbyError = (e as Error).message;
 		} finally {
@@ -219,9 +226,14 @@
 		}
 
 		try {
-			await init();
-			const guestNode = await IrohNode.spawn();
-			irohRoom = await guestNode.join_room_with_code(code);
+			const { promise: timeoutPromise, reject } = Promise.withResolvers<never>();
+			const timer = setTimeout(() => reject(new Error('Iroh join timeout')), 1000);
+			const irohPromise = init().then(async () => {
+				const guestNode = await IrohNode.spawn();
+				return guestNode.join_room_with_code(code);
+			});
+			irohRoom = await Promise.race([irohPromise, timeoutPromise]);
+			clearTimeout(timer);
 			listenIroh(irohRoom);
 		} catch (e) {
 			console.log('Iroh join fallback to local', e);
@@ -252,10 +264,13 @@
 					lastSeen: Date.now()
 				}
 			];
-			await roomRepo.update(target.id, {
+			const updatedRoom = {
+				...target,
 				players: updatedPlayers,
 				playerIds: updatedPlayers.map((p) => p.id)
-			});
+			};
+			await roomRepo.update(target.id, updatedRoom);
+			room = updatedRoom;
 			roomId = target.id;
 		} catch (e: unknown) {
 			lobbyError = (e as Error).message;
@@ -265,13 +280,21 @@
 	}
 
 	$effect(() => {
-		if (typeof window !== 'undefined' && window.location.hash.includes('code=')) {
-			const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
-			if (match && match[1] && !roomId) {
-				joinCode = match[1].toUpperCase();
-				handleJoinRoom();
+		function syncHash() {
+			if (typeof window !== 'undefined' && window.location.hash.includes('code=')) {
+				const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
+				if (match && match[1] && !roomId && !room && !loading) {
+					const targetCode = match[1].toUpperCase();
+					if (joinCode !== targetCode) {
+						joinCode = targetCode;
+						handleJoinRoom();
+					}
+				}
 			}
 		}
+		syncHash();
+		window.addEventListener('hashchange', syncHash);
+		return () => window.removeEventListener('hashchange', syncHash);
 	});
 
 	const handleAddAiPlayer = async () => {
@@ -295,6 +318,9 @@
 		roomId = '';
 		room = null;
 		gameDoc = null;
+		if (typeof window !== 'undefined') {
+			window.location.hash = '';
+		}
 	};
 </script>
 

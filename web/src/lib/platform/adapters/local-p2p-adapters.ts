@@ -3,14 +3,37 @@ import type { GameDocument, Move } from '$lib/platform/engine/index';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
-export function createLocalP2pRoomRepo(): GameRoomRepository {
+export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | null): GameRoomRepository {
 	const rooms = new Map<string, GameRoom>();
 	const listeners = new Map<string, Set<(r: GameRoom | null) => void>>();
+	const channel =
+		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
-	function notify(id: string) {
+	function notify(id: string, broadcast = true) {
 		const room = rooms.get(id) ?? null;
 		listeners.get(id)?.forEach((cb) => cb(room));
+		if (broadcast && room) {
+			channel?.postMessage({ type: 'sync_room', room });
+			broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_room', room })).catch(() => {});
+		}
 	}
+
+	channel?.addEventListener('message', (event) => {
+		const data = event.data;
+		if (!data) return;
+		if (data.type === 'sync_room' && data.room) {
+			rooms.set(data.room.id, data.room);
+			notify(data.room.id, false);
+		} else if (data.type === 'query_room' && data.code) {
+			const clean = data.code.trim().toUpperCase();
+			for (const r of rooms.values()) {
+				if (r.code.trim().toUpperCase() === clean) {
+					channel.postMessage({ type: 'sync_room', room: r });
+					break;
+				}
+			}
+		}
+	});
 
 	return {
 		async create(room: Omit<GameRoom, 'id'>): Promise<GameRoom> {
@@ -26,8 +49,18 @@ export function createLocalP2pRoomRepo(): GameRoomRepository {
 		},
 
 		async getByCode(code: string): Promise<GameRoom | null> {
+			const clean = code.trim().toUpperCase();
 			for (const r of rooms.values()) {
-				if (r.code === code) return r;
+				if (r.code.trim().toUpperCase() === clean) return r;
+			}
+			if (channel) {
+				channel.postMessage({ type: 'query_room', code: clean });
+				const { promise, resolve } = Promise.withResolvers<void>();
+				setTimeout(resolve, 150);
+				await promise;
+				for (const r of rooms.values()) {
+					if (r.code.trim().toUpperCase() === clean) return r;
+				}
 			}
 			return null;
 		},
@@ -68,16 +101,24 @@ export interface IrohBroadcaster {
 export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): RealtimeSync<GameDocument> {
 	const docs = new Map<string, GameDocument>();
 	const listeners = new Map<string, Set<(doc: GameDocument) => void>>();
+	const channel =
+		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-	function notify(roomId: string, doc: GameDocument) {
+	function notify(roomId: string, doc: GameDocument, broadcast = true) {
 		docs.set(roomId, doc);
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
-		const bc = broadcaster?.();
-		if (bc) {
-			bc.broadcast(JSON.stringify({ type: 'sync_doc', roomId, doc })).catch(() => {});
+		if (broadcast) {
+			channel?.postMessage({ type: 'sync_doc', roomId, doc });
+			broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_doc', roomId, doc })).catch(() => {});
 		}
 	}
 
+	channel?.addEventListener('message', (event) => {
+		const data = event.data;
+		if (data?.type === 'sync_doc' && data.roomId && data.doc) {
+			notify(data.roomId, data.doc, false);
+		}
+	});
 	return {
 		subscribe(roomId: string, callback: (doc: GameDocument) => void): () => void {
 			if (!listeners.has(roomId)) {

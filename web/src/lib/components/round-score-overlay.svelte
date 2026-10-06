@@ -23,8 +23,8 @@
 			<CardTitle class="text-xl font-black">{handLabel}</CardTitle>
 			<p class="text-xs text-muted-foreground">Round Completed — Score Summary</p>
 		</CardHeader>
-		<CardContent class="space-y-5 pt-2">
-			<div class="space-y-2">
+		<CardContent class="gap-5 pt-2">
+			<div class="flex flex-col gap-2">
 				{#each sorted as entry (entry.playerId)}
 					<div class="flex justify-between items-center p-2.5 rounded-lg bg-background/50 border border-border/60">
 						<div class="flex items-center gap-2.5">

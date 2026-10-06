@@ -324,8 +324,8 @@
 	/>
 
 	{#if !room}
-		<main class="max-w-lg self-center mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full flex flex-col justify-center">
-			<div class="text-center space-y-1 mb-1">
+		<main class="max-w-lg self-center mx-auto p-4 sm:p-6 flex flex-col gap-6 flex-1 w-full justify-center">
+			<div class="text-center flex flex-col gap-1.5 mb-1">
 				<h2 class="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
 					Tabletop Card Arena
 				</h2>
@@ -343,22 +343,22 @@
 						<span class="text-xs text-muted-foreground font-normal">Step 1: Choose game</span>
 					</CardTitle>
 				</CardHeader>
-				<CardContent class="space-y-4">
-					<div class="grid grid-cols-2 gap-2.5">
+				<CardContent class="gap-5">
+					<div class="grid grid-cols-2 gap-3">
 						{#each games as game (game.id)}
 							<button
-								class="rounded-xl border p-3 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
-									? 'border-emerald-500/80 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30'
+								class="rounded-2xl border p-4 sm:p-5 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
+									? 'border-emerald-500 bg-emerald-500/15 shadow-[0_0_16px_rgba(16,185,129,0.2)] ring-2 ring-emerald-500/40'
 									: 'border-border/80 bg-background/50 hover:border-border hover:bg-card'}"
 								onclick={() => (selectedGameId = game.id)}
 							>
 								<div class="flex items-center justify-between">
-									<span class="block text-sm font-bold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
+									<span class="block text-base font-extrabold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
 									{#if selectedGameId === game.id}
-										<span class="text-xs text-emerald-400">✓</span>
+										<span class="text-xs font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">✓</span>
 									{/if}
 								</div>
-								<span class="block text-[11px] text-muted-foreground mt-0.5">
+								<span class="block text-xs text-muted-foreground mt-1 font-medium">
 									{game.minPlayers === game.maxPlayers
 										? `${game.minPlayers} players`
 										: `${game.minPlayers}–${game.maxPlayers} players`}
@@ -367,14 +367,14 @@
 						{/each}
 					</div>
 
-					<div class="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border border-border/80">
-						<span class="text-xs font-medium text-muted-foreground px-2">Table Size</span>
-						<div class="flex gap-1">
+					<div class="flex items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80">
+						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2">Table Size</span>
+						<div class="flex gap-1.5">
 							{#each playerOptions as n (n)}
 								<button
-									class="rounded-md px-3 py-1 text-xs font-bold transition-all cursor-pointer {playerCount === n
-										? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-										: 'text-muted-foreground hover:text-foreground'}"
+									class="rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer {playerCount === n
+										? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm'
+										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}
 								>
 									{n} Players
@@ -384,7 +384,7 @@
 					</div>
 
 					<Button
-						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-md shadow-emerald-950/40 text-sm"
+						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 h-12 shadow-lg shadow-emerald-950/40 text-base rounded-xl"
 						onclick={handleCreateRoom}
 						disabled={loading}
 					>
@@ -392,21 +392,20 @@
 					</Button>
 				</CardContent>
 			</Card>
-
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
 					<CardTitle class="text-base font-bold">Join Existing Table</CardTitle>
 				</CardHeader>
-				<CardContent class="space-y-3">
+				<CardContent class="gap-4">
 					<Input
 						bind:value={joinCode}
 						placeholder="ROOM CODE"
 						maxlength={6}
-						class="text-center font-mono tracking-widest text-lg font-black uppercase h-11 border-border/80 focus:border-emerald-500"
+						class="text-center font-mono tracking-[0.25em] text-xl font-black uppercase h-13 rounded-xl border-2 border-border/80 focus:border-emerald-500 bg-background/70"
 					/>
 					<Button
 						variant="secondary"
-						class="w-full font-semibold text-xs h-10 border border-border/80 hover:bg-card"
+						class="w-full font-bold text-xs h-11 rounded-xl border border-border/80 hover:bg-card"
 						onclick={handleJoinRoom}
 						disabled={loading || joinCode.length < 4}
 					>

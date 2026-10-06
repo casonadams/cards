@@ -69,7 +69,7 @@
 				Select exactly {NEST_SIZE} cards to discard and declare trump
 			</p>
 		</CardHeader>
-		<CardContent class="space-y-4 pt-1">
+		<CardContent class="gap-4 pt-1">
 			<div class="p-3 rounded-xl bg-background/50 border border-border/60">
 				<div class="flex items-center justify-between text-xs text-muted-foreground font-medium mb-2 px-1">
 					<span>Your Cards & Nest</span>
@@ -93,7 +93,7 @@
 				</div>
 			</div>
 
-			<div class="space-y-2">
+			<div class="flex flex-col gap-2">
 				<p class="text-xs font-semibold text-muted-foreground px-1">Choose Trump Color</p>
 				<div class="grid grid-cols-4 gap-2">
 					{#each ROOK_COLORS as color (color)}

@@ -46,9 +46,9 @@
 				<p class="text-xs text-muted-foreground">No Trump Round</p>
 			{/if}
 		</CardHeader>
-		<CardContent class="space-y-4 pt-1">
+		<CardContent class="gap-4 pt-1">
 			{#if uiState.bids.length > 0}
-				<div class="space-y-1.5 p-2.5 rounded-lg bg-background/50 border border-border/60">
+				<div class="flex flex-col gap-1.5 p-2.5 rounded-lg bg-background/50 border border-border/60">
 					<p class="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Bids</p>
 					{#each uiState.bids as bid (bid.playerId)}
 						<div class="flex justify-between items-center text-xs">
@@ -71,7 +71,7 @@
 			</div>
 
 			{#if uiState.canBid}
-				<div class="space-y-3 pt-1">
+				<div class="flex flex-col gap-3 pt-1">
 					<p class="text-xs text-muted-foreground font-semibold text-center">How many tricks will you take?</p>
 					<div class="flex flex-wrap justify-center gap-1.5">
 						{#each bidOptions as n (n)}

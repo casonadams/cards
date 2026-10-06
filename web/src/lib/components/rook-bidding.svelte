@@ -27,7 +27,7 @@
 				<Badge variant="outline" class="text-amber-400 border-amber-500/30 bg-amber-500/10 font-bold">Team 2: {rookState.team2Score}</Badge>
 			</div>
 		</CardHeader>
-		<CardContent class="space-y-4 pt-2">
+		<CardContent class="gap-4 pt-2">
 			{#if rookState.highBid > 0}
 				<div class="p-3 rounded-lg bg-background/50 border border-border/60 text-center">
 					<span class="text-xs text-muted-foreground block mb-0.5">Current High Bid</span>
@@ -46,7 +46,7 @@
 			{/if}
 
 			{#if rookState.canBid}
-				<div class="space-y-3 pt-1">
+				<div class="flex flex-col gap-3 pt-1">
 					<div class="flex items-center justify-center gap-3 p-3 rounded-xl bg-background/60 border border-border/70">
 						<Button
 							variant="outline"

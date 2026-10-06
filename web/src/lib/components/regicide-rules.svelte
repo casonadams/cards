@@ -8,7 +8,7 @@
 </script>
 
 <div
-	class="bg-muted/50 border-b border-border px-4 py-3 text-xs text-muted-foreground space-y-2 max-h-64 overflow-y-auto"
+	class="bg-muted/50 border-b border-border px-4 py-3 text-xs text-muted-foreground flex flex-col gap-2.5 max-h-64 overflow-y-auto"
 >
 	<p class="font-semibold text-foreground">How to Play Regicide</p>
 	<p>
@@ -16,7 +16,7 @@
 		40, ATK 20).
 	</p>
 	<p class="font-semibold text-foreground">On Your Turn</p>
-	<ul class="list-disc list-inside space-y-1">
+	<ul class="list-disc list-inside flex flex-col gap-1.5">
 		<li>
 			<strong>Play cards</strong> to attack the current enemy. Play a single card or a combo of cards
 			with the same rank (e.g., two 5s).
@@ -26,7 +26,7 @@
 		</li>
 	</ul>
 	<p class="font-semibold text-foreground">Suit Powers</p>
-	<ul class="list-disc list-inside space-y-1">
+	<ul class="list-disc list-inside flex flex-col gap-1.5">
 		<li><span class={suitColors.clubs}>Clubs</span> -- Double Damage</li>
 		<li><span class={suitColors.spades}>Spades</span> -- Reduce enemy attack</li>
 		<li><span class={suitColors.hearts}>Hearts</span> -- Recycle cards from discard to tavern</li>

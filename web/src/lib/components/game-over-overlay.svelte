@@ -46,10 +46,10 @@
 				</div>
 			{/if}
 		</CardHeader>
-		<CardContent class="space-y-6 pt-2">
+		<CardContent class="gap-6 pt-2">
 			<ScoreTable {playerNames} {rounds} {playerIds} />
 
-			<div class="space-y-2">
+			<div class="flex flex-col gap-2.5">
 				<h3 class="text-xs uppercase tracking-wider font-bold text-muted-foreground px-1">Final Standings</h3>
 				<div class="grid gap-1.5">
 					{#each totals as entry, i (entry.id)}

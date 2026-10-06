@@ -29,7 +29,7 @@
 	}
 </script>
 
-<main class="max-w-md self-center mx-auto p-4 sm:p-8 space-y-6 flex-1 w-full flex flex-col justify-center">
+<main class="max-w-md self-center mx-auto p-4 sm:p-8 flex flex-col gap-6 flex-1 w-full justify-center">
 	<Card class="border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden">
 		<div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500"></div>
 		<CardHeader class="pb-2 text-center">
@@ -39,8 +39,8 @@
 			<CardTitle class="text-2xl font-black">{gameName}</CardTitle>
 			<p class="text-xs text-muted-foreground">Invite friends or add AI opponents</p>
 		</CardHeader>
-		<CardContent class="space-y-6 pt-2">
-			<div class="rounded-xl bg-background/70 border border-border/80 p-4 text-center space-y-2.5">
+		<CardContent class="gap-6 pt-2">
+			<div class="rounded-xl bg-background/70 border border-border/80 p-4 text-center flex flex-col gap-2.5">
 				<p class="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Room Code</p>
 				<p class="text-4xl font-mono font-black tracking-widest text-emerald-400 drop-shadow-sm">{room.code}</p>
 				<div class="flex items-center justify-center gap-2 pt-1">
@@ -55,7 +55,7 @@
 				</div>
 			</div>
 
-			<div class="space-y-2.5">
+			<div class="flex flex-col gap-2.5">
 				<div class="flex items-center justify-between text-xs text-muted-foreground font-medium px-1">
 					<span>Players</span>
 					<span class="bg-muted px-2 py-0.5 rounded-full">{room.players.length} of {room.maxPlayers}</span>
@@ -92,7 +92,7 @@
 			</div>
 
 			{#if isHost}
-				<div class="space-y-2 pt-2">
+				<div class="flex flex-col gap-2.5 pt-2">
 					{#if !isFull}
 						<Button variant="outline" class="w-full border-border/80 hover:bg-card text-xs font-semibold py-2" onclick={onAddAi}>
 							+ Add AI Player

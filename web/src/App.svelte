@@ -4,7 +4,7 @@
 	import { getGame, listGames, createGameSyncManager } from '$lib/platform/engine/index';
 	import { generateRoomCode } from '$lib/platform/engine/room-code';
 	import { createRoomActions } from '$lib/platform/stores/room-store';
-	import type { GameRoom, Player, Card as CardType } from '$lib/platform/types/index';
+	import type { GameRoom, Player, RoomPlayer, Card as CardType } from '$lib/platform/types/index';
 	import type { GameDocument } from '$lib/platform/engine/index';
 	import {
 		createLocalP2pRoomRepo,
@@ -47,14 +47,24 @@
 	registerAllGames();
 	const games = listGames();
 
-	// Persistent player profile
+	// Persistent player profile (per-tab unique ID, global display name)
+	function getOrCreatePlayerId(): string {
+		if (typeof window === 'undefined') return 'player-host';
+		let id = sessionStorage.getItem('cards_player_id');
+		if (!id) {
+			id = 'player-' + Math.random().toString(36).slice(2, 9);
+			sessionStorage.setItem('cards_player_id', id);
+		}
+		return id;
+	}
+	const playerId = getOrCreatePlayerId();
 	let playerName = $state(
 		typeof window !== 'undefined'
 			? localStorage.getItem('cards_player_name') || 'Player'
 			: 'Player'
 	);
 	const myPlayer = $derived<Player>({
-		id: 'human-player',
+		id: playerId,
 		displayName: playerName
 	});
 
@@ -171,19 +181,15 @@
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
-		try {
-			const { promise: timeoutPromise, reject } = Promise.withResolvers<never>();
-			const timer = setTimeout(() => reject(new Error('Iroh spawn timeout')), 1000);
-			const irohPromise = init().then(async () => {
+		init()
+			.then(async () => {
 				const hostNode = await IrohNode.spawn_host(code);
-				return hostNode.create_room_with_code(code);
+				irohRoom = await hostNode.create_room_with_code(code);
+				listenIroh(irohRoom);
+			})
+			.catch((e) => {
+				console.log('Iroh host spawn fallback to local', e);
 			});
-			irohRoom = await Promise.race([irohPromise, timeoutPromise]);
-			clearTimeout(timer);
-			listenIroh(irohRoom);
-		} catch (e) {
-			console.log('Iroh host spawn fallback to local', e);
-		}
 
 		try {
 			const newRoom = await roomRepo.create({
@@ -224,28 +230,22 @@
 		if (typeof window !== 'undefined') {
 			window.location.hash = '#code=' + code;
 		}
-
-		try {
-			const { promise: timeoutPromise, reject } = Promise.withResolvers<never>();
-			const timer = setTimeout(() => reject(new Error('Iroh join timeout')), 1000);
-			const irohPromise = init().then(async () => {
+		init()
+			.then(async () => {
 				const guestNode = await IrohNode.spawn();
-				return guestNode.join_room_with_code(code);
+				irohRoom = await guestNode.join_room_with_code(code);
+				listenIroh(irohRoom);
+			})
+			.catch((e) => {
+				console.log('Iroh join fallback to local', e);
 			});
-			irohRoom = await Promise.race([irohPromise, timeoutPromise]);
-			clearTimeout(timer);
-			listenIroh(irohRoom);
-		} catch (e) {
-			console.log('Iroh join fallback to local', e);
-		}
 
 		try {
 			let target = await roomRepo.getByCode(code);
 			if (!target) {
-				// Create placeholder room for guest joining via P2P
 				target = await roomRepo.create({
 					code,
-					gameDefinitionId: 'oh-well',
+					gameDefinitionId: 'canadian-salad',
 					hostId: 'host-player',
 					maxPlayers: 4,
 					players: [],
@@ -254,16 +254,29 @@
 					createdAt: Date.now()
 				});
 			}
-			const updatedPlayers = [
-				...target.players,
-				{
+			const existingIndex = target.players.findIndex((p) => p.id === myPlayer.id);
+			let updatedPlayers: RoomPlayer[];
+			if (existingIndex >= 0) {
+				updatedPlayers = [...target.players];
+				updatedPlayers[existingIndex] = {
 					id: myPlayer.id,
 					displayName: myPlayer.displayName,
 					isHost: false,
 					isConnected: true,
 					lastSeen: Date.now()
-				}
-			];
+				};
+			} else {
+				updatedPlayers = [
+					...target.players,
+					{
+						id: myPlayer.id,
+						displayName: myPlayer.displayName,
+						isHost: false,
+						isConnected: true,
+						lastSeen: Date.now()
+					}
+				];
+			}
 			const updatedRoom = {
 				...target,
 				players: updatedPlayers,

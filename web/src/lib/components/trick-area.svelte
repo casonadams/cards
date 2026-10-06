@@ -42,14 +42,14 @@
 	const visible = $derived(plays.length > 0 ? plays : fading ? lastCompleteTrick : []);
 </script>
 
-<div class="relative w-full max-w-2xl mx-auto rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-emerald-950/25 via-emerald-950/15 to-transparent p-4 sm:p-6 shadow-inner flex flex-col items-center justify-center min-h-[160px] sm:min-h-[190px]">
-	<div class="absolute inset-3 rounded-2xl border border-dashed border-emerald-500/15 pointer-events-none"></div>
+<div class="relative w-full max-w-2xl mx-auto rounded-[2.5rem] border-2 border-emerald-500/25 bg-radial from-emerald-900/30 via-emerald-950/20 to-transparent p-5 sm:p-8 shadow-[inset_0_2px_24px_rgba(0,0,0,0.5),0_12px_32px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px]">
+	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
 	{#if visible.length === 0}
-		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/50">
-			<div class="w-10 h-14 rounded border border-dashed border-emerald-500/30 flex items-center justify-center bg-emerald-950/10">
-				<span class="text-xs">♠</span>
+		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/60 select-none">
+			<div class="w-12 h-16 rounded-xl border-2 border-dashed border-emerald-500/30 flex items-center justify-center bg-emerald-950/20 shadow-inner">
+				<span class="text-sm font-bold opacity-75">♠</span>
 			</div>
-			<span class="text-xs font-medium tracking-wide">Waiting for lead...</span>
+			<span class="text-xs font-semibold tracking-wider uppercase text-emerald-300/70">Waiting for lead</span>
 		</div>
 	{:else}
 		<div
@@ -58,11 +58,11 @@
 			style:animation-duration={fading ? `${fadeDuration}ms` : undefined}
 		>
 			{#each visible as play (play.playerId)}
-				<div class="flex flex-col items-center gap-1.5">
-					<div class="transform transition-transform hover:scale-105 duration-150 drop-shadow-md">
+				<div class="flex flex-col items-center gap-1.5 transition-all">
+					<div class="transform transition-transform hover:scale-110 duration-200 drop-shadow-xl">
 						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="sm" />
 					</div>
-					<span class="bg-card/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-foreground border border-border shadow-sm max-w-[85px] sm:max-w-[110px] truncate text-center">
+					<span class="bg-card/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-bold text-foreground border border-border/80 shadow-md max-w-[85px] sm:max-w-[110px] truncate text-center">
 						{playerNames[play.playerId] ?? '?'}
 					</span>
 				</div>

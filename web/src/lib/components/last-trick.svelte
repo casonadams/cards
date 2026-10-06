@@ -46,16 +46,20 @@
 </script>
 
 {#if plays.length > 0}
-	<div class="flex items-center justify-center gap-1.5 px-2 py-0.5">
-		<span class="text-[10px] text-muted-foreground">Last:</span>
-		{#each plays as play (play.playerId)}
-			{@const fmt = formatCard(play.card)}
-			<span class={cn('text-[10px]', fmt.colorClass)}>
-				{fmt.label}
-			</span>
-		{/each}
+	<div class="flex flex-wrap items-center justify-center gap-2 px-3 py-1 mt-1 rounded-full bg-background/50 border border-border/60 backdrop-blur-sm text-xs shadow-sm">
+		<span class="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">Last Trick:</span>
+		<div class="flex items-center gap-1.5">
+			{#each plays as play (play.playerId)}
+				{@const fmt = formatCard(play.card)}
+				<span class={cn('font-bold font-mono text-[11px] px-1.5 py-0.5 rounded bg-card/70 border border-border/50', fmt.colorClass)}>
+					{fmt.label}
+				</span>
+			{/each}
+		</div>
 		{#if winnerName}
-			<span class="text-[10px] text-success font-medium">- {winnerName}</span>
+			<span class="text-[11px] text-emerald-400 font-bold border-l border-border/80 pl-2">
+				👑 {winnerName}
+			</span>
 		{/if}
 	</div>
 {/if}

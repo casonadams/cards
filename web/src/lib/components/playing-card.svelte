@@ -83,8 +83,8 @@
 		sizes[size],
 		bgClass,
 		playable &&
-			'cursor-pointer hover:-translate-y-2.5 hover:shadow-xl hover:border-emerald-500/70 hover:ring-2 hover:ring-emerald-500/20 active:scale-95',
-		!playable && !faceDown && 'opacity-65 saturate-75 cursor-default',
+			'cursor-pointer hover:shadow-2xl hover:border-emerald-500 hover:ring-2 hover:ring-emerald-500/30',
+		!playable && !faceDown && 'opacity-60 saturate-75 cursor-default',
 		selected && '-translate-y-3.5 ring-2 ring-emerald-500 shadow-xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}

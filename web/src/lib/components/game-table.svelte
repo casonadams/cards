@@ -140,59 +140,70 @@
 	</div>
 {/if}
 
-<main class="flex-1 flex flex-col justify-between p-2 sm:p-4 max-w-5xl self-center mx-auto w-full gap-2">
-	<div class="flex flex-wrap justify-center items-center gap-2 sm:gap-3 px-2 py-2 max-w-4xl mx-auto w-full">
+<main class="flex-1 flex flex-col justify-between p-2 sm:p-4 max-w-5xl self-center mx-auto w-full gap-3">
+	<div class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-4 px-2 py-1 max-w-4xl mx-auto w-full shrink-0">
 		{#each otherPlayers as other (other.id)}
 			{@const isTurn = currentTurnIndex === playerIds.indexOf(other.id)}
 			{@const team = teamFor(rookUi, other.id)}
 			{@const partner = isPartner(other.id)}
 			<div
 				class={cn(
-					'flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-200 text-xs backdrop-blur-sm',
+					'flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl border transition-all duration-200 text-xs backdrop-blur-md shadow-md',
 					isTurn
-						? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30'
-						: 'bg-card/70 border-border/80 text-muted-foreground hover:border-border'
+						? 'bg-emerald-500/20 border-emerald-500/70 text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.35)] ring-2 ring-emerald-500/50 scale-105'
+						: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
 				)}
 			>
-				<div
-					class={cn(
-						'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-						isTurn ? 'bg-emerald-500 text-black' : 'bg-muted text-foreground'
-					)}
-				>
-					{other.displayName.slice(0, 2).toUpperCase()}
+				<div class="relative">
+					<div
+						class={cn(
+							'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 shadow-inner',
+							isTurn ? 'bg-emerald-400 text-zinc-950 font-black' : 'bg-muted text-foreground'
+						)}
+					>
+						{other.displayName.slice(0, 2).toUpperCase()}
+					</div>
+					{#if isTurn}
+						<span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-background animate-ping"></span>
+					{/if}
 				</div>
 				<div class="flex flex-col min-w-0 leading-tight">
-					<div class="flex items-center gap-1">
+					<div class="flex items-center gap-1.5">
 						{#if isRook && team}
-							<span class="text-[9px] font-bold {team === 1 ? 'text-blue-400' : 'text-amber-400'}">
+							<span class="text-[9px] font-black px-1 rounded {team === 1 ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}">
 								T{team}
 							</span>
 						{/if}
 						<span
 							class={cn(
-								'font-medium truncate max-w-[80px] sm:max-w-[110px]',
-								isTurn && 'text-emerald-300 font-semibold',
+								'font-bold truncate max-w-[85px] sm:max-w-[120px]',
+								isTurn && 'text-emerald-300 font-extrabold',
 								partner && !isTurn && 'text-foreground'
 							)}
 						>
 							{other.displayName}
 						</span>
 					</div>
-					<span class="text-[10px] opacity-75">{playerStatLine(ctx, other.id)}</span>
+					<span class="text-[10px] font-mono text-muted-foreground/90 font-medium">
+						{playerStatLine(ctx, other.id)}
+					</span>
 				</div>
 			</div>
 		{/each}
 	</div>
 
-	<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} />
-	<LastTrick
-		plays={lastCompleteTrick}
-		winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
-		{gameId}
-	/>
+	<!-- Centered Playing Arena -->
+	<div class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-3xl mx-auto px-2 py-1 gap-2">
+		<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} />
+		<LastTrick
+			plays={lastCompleteTrick}
+			winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
+			{gameId}
+		/>
+	</div>
 
-	<div class="border-t border-border/80 pt-2 pb-2">
+	<!-- Bottom Player Hand Container -->
+	<div class="w-full border-t border-border/80 bg-background/30 backdrop-blur-sm shrink-0 rounded-t-2xl">
 		<HandDisplay cards={myCards} {playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />
 	</div>
 </main>

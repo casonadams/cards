@@ -38,14 +38,22 @@
 	function isPlayable(card: Card): boolean {
 		return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);
 	}
+
+	function getFanRotation(index: number, total: number): number {
+		if (total <= 3) return 0;
+		const center = (total - 1) / 2;
+		const normalized = (index - center) / (center || 1);
+		return Number((normalized * 4.5).toFixed(1));
+	}
 </script>
 
-<div class="w-full max-w-4xl mx-auto px-2 py-2 overflow-x-auto card-fan-scroll">
-	<div class="flex items-end justify-center min-w-max py-3 px-4 {overlapClass} transition-all">
+<div class="w-full max-w-4xl mx-auto px-2 overflow-x-auto card-fan-scroll">
+	<div class="flex items-end justify-center min-w-max pt-8 pb-3 px-6 {overlapClass} transition-all">
 		{#each sorted as card, index (`${card.suit}-${card.rank}`)}
 			<div
-				class="relative transition-all duration-150 hover:z-30 hover:-translate-y-3 focus-within:z-30 drop-shadow-sm"
+				class="card-fan-item relative transition-all duration-200 origin-bottom"
 				style:z-index={index}
+				style:--fan-rot="{getFanRotation(index, sorted.length)}deg"
 			>
 				<PlayingCard
 					{card}
@@ -59,3 +67,14 @@
 		{/each}
 	</div>
 </div>
+
+<style>
+	.card-fan-item {
+		transform: rotate(var(--fan-rot, 0deg));
+	}
+	.card-fan-item:hover,
+	.card-fan-item:focus-within {
+		transform: translateY(-16px) scale(1.06) rotate(0deg) !important;
+		z-index: 40 !important;
+	}
+</style>

@@ -18,29 +18,45 @@
 		$props();
 </script>
 
-<footer class="border-t border-border px-4 py-2 flex justify-between items-center">
-	<Button variant="ghost" size="sm" onclick={onLeave}>Leave Game</Button>
-	<div class="flex gap-4 text-xs text-muted-foreground">
+<footer class="border-t border-border/80 bg-card/60 backdrop-blur-md px-4 py-2.5 flex justify-between items-center text-xs">
+	<Button
+		variant="ghost"
+		size="sm"
+		class="text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs h-8"
+		onclick={onLeave}
+	>
+		← Leave Game
+	</Button>
+	<div class="flex items-center gap-2 sm:gap-3">
 		{#if isOhWell}
-			<span
-				>Tricks/Bid: <span class="text-foreground font-medium">{myStatLine(ctx, myId)}</span></span
-			>
-			<span
-				>Score: <span class="text-foreground font-medium">{previousTotals[myId] ?? 0}</span></span
-			>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="text-muted-foreground">Tricks/Bid:</span>
+				<span class="font-bold text-foreground">{myStatLine(ctx, myId)}</span>
+			</div>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="text-muted-foreground">Score:</span>
+				<span class="font-bold text-foreground">{previousTotals[myId] ?? 0}</span>
+			</div>
 		{:else if isRook}
-			<span class="{myTeam === 1 ? 'text-blue-400' : 'text-amber-400'} font-medium"
-				>Team {myTeam}</span
-			>
-			<span>Tricks: <span class="text-foreground font-medium">{myStatLine(ctx, myId)}</span></span>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="{myTeam === 1 ? 'text-blue-400' : 'text-amber-400'} font-bold">Team {myTeam}</span>
+			</div>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="text-muted-foreground">Tricks:</span>
+				<span class="font-bold text-foreground">{myStatLine(ctx, myId)}</span>
+			</div>
 		{:else}
-			<span>Tricks: <span class="text-foreground font-medium">{myStatLine(ctx, myId)}</span></span>
-			<span
-				>Points: <span class="text-foreground font-medium"
-					>{(previousTotals[myId] ?? 0) +
-						(allPlayerStats.find((s) => s.playerId === myId)?.currentScore ?? 0)}</span
-				></span
-			>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="text-muted-foreground">Tricks:</span>
+				<span class="font-bold text-foreground">{myStatLine(ctx, myId)}</span>
+			</div>
+			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
+				<span class="text-muted-foreground">Points:</span>
+				<span class="font-bold text-foreground">
+					{(previousTotals[myId] ?? 0) +
+						(allPlayerStats.find((s) => s.playerId === myId)?.currentScore ?? 0)}
+				</span>
+			</div>
 		{/if}
 	</div>
 </footer>

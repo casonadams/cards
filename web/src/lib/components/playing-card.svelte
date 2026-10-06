@@ -98,6 +98,7 @@
 				<span class="text-indigo-300/40 text-xs">◆</span>
 			</div>
 		</div>
+	{:else if isRook && rookCard}
 		{#if rookCard.type === 'bird'}
 			<span
 				class="absolute inset-0 flex items-center justify-center text-purple-200 {rookValueSizes[

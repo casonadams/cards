@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { cn } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge/index';
 	import HandDisplay from './hand-display.svelte';
 	import TrickArea from './trick-area.svelte';
@@ -75,16 +76,33 @@
 	}
 </script>
 
-<nav class="border-b border-border px-4 py-2 flex justify-between items-center gap-2">
-	<h1 class="text-sm font-bold whitespace-nowrap">Garden Salad</h1>
-	<button class="cursor-pointer" onclick={() => (showRules = !showRules)}>
-		<Badge variant="outline" class="whitespace-nowrap text-center">
-			Hand {currentRound + 1}: {roundLabel}
-		</Badge>
-	</button>
-	{#if isMyTurn}<Badge variant="success" class="whitespace-nowrap">Your Turn</Badge>
-	{:else}<Badge variant="secondary" class="whitespace-nowrap">Waiting...</Badge>{/if}
-</nav>
+<div class="border-b border-border/80 bg-card/60 backdrop-blur-md px-4 py-2 flex justify-between items-center gap-3">
+	<div class="flex items-center gap-2">
+		<button
+			class="cursor-pointer inline-flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
+			onclick={() => (showRules = !showRules)}
+			title="Click to view hand rules"
+		>
+			<Badge variant="outline" class="whitespace-nowrap font-medium text-xs py-1 px-2.5 bg-background/50 hover:bg-accent">
+				<span class="opacity-70">Hand {currentRound + 1}:</span>
+				<span class="font-bold">{roundLabel}</span>
+				<span class="text-[10px] ml-0.5 opacity-60">ⓘ</span>
+			</Badge>
+		</button>
+	</div>
+
+	<div class="flex items-center gap-2">
+		{#if isMyTurn}
+			<Badge variant="success" class="whitespace-nowrap px-3 py-1 text-xs font-bold animate-pulse shadow-sm shadow-emerald-500/20">
+				● Your Turn
+			</Badge>
+		{:else}
+			<Badge variant="secondary" class="whitespace-nowrap px-2.5 py-1 text-xs font-medium text-muted-foreground">
+				Waiting for turn...
+			</Badge>
+		{/if}
+	</div>
+</div>
 
 {#if showRules}
 	<div class="bg-muted/50 border-b border-border px-4 py-2 text-xs text-muted-foreground">
@@ -122,27 +140,47 @@
 	</div>
 {/if}
 
-<main class="flex-1 flex flex-col justify-between p-2">
-	<div class="flex flex-wrap justify-center gap-x-4 gap-y-1 px-1 py-1">
+<main class="flex-1 flex flex-col justify-between p-2 sm:p-4 max-w-5xl self-center mx-auto w-full gap-2">
+	<div class="flex flex-wrap justify-center items-center gap-2 sm:gap-3 px-2 py-2 max-w-4xl mx-auto w-full">
 		{#each otherPlayers as other (other.id)}
 			{@const isTurn = currentTurnIndex === playerIds.indexOf(other.id)}
 			{@const team = teamFor(rookUi, other.id)}
 			{@const partner = isPartner(other.id)}
-			<div class="flex flex-col items-center min-w-[60px]">
-				<span class="flex items-center gap-1">
-					{#if isRook && team}
-						<span class="text-[9px] font-bold {team === 1 ? 'text-blue-400' : 'text-amber-400'}"
-							>T{team}</span
+			<div
+				class={cn(
+					'flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-200 text-xs backdrop-blur-sm',
+					isTurn
+						? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30'
+						: 'bg-card/70 border-border/80 text-muted-foreground hover:border-border'
+				)}
+			>
+				<div
+					class={cn(
+						'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
+						isTurn ? 'bg-emerald-500 text-black' : 'bg-muted text-foreground'
+					)}
+				>
+					{other.displayName.slice(0, 2).toUpperCase()}
+				</div>
+				<div class="flex flex-col min-w-0 leading-tight">
+					<div class="flex items-center gap-1">
+						{#if isRook && team}
+							<span class="text-[9px] font-bold {team === 1 ? 'text-blue-400' : 'text-amber-400'}">
+								T{team}
+							</span>
+						{/if}
+						<span
+							class={cn(
+								'font-medium truncate max-w-[80px] sm:max-w-[110px]',
+								isTurn && 'text-emerald-300 font-semibold',
+								partner && !isTurn && 'text-foreground'
+							)}
 						>
-					{/if}
-					<span
-						class="text-xs truncate max-w-[70px] sm:max-w-[100px]"
-						class:text-success={isTurn}
-						class:text-muted-foreground={!isTurn && !partner}
-						class:text-foreground={partner && !isTurn}>{other.displayName}</span
-					>
-				</span>
-				<span class="text-[10px] text-muted-foreground">{playerStatLine(ctx, other.id)}</span>
+							{other.displayName}
+						</span>
+					</div>
+					<span class="text-[10px] opacity-75">{playerStatLine(ctx, other.id)}</span>
+				</div>
 			</div>
 		{/each}
 	</div>
@@ -154,7 +192,7 @@
 		{gameId}
 	/>
 
-	<div class="border-t border-border pt-1">
+	<div class="border-t border-border/80 pt-2 pb-2">
 		<HandDisplay cards={myCards} {playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />
 	</div>
 </main>

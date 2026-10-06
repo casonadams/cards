@@ -15,10 +15,10 @@
 
 	const suitSymbols = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' };
 	const suitColors: Record<string, string> = {
-		hearts: 'text-red-400',
-		diamonds: 'text-amber-400',
-		clubs: 'text-sky-400',
-		spades: 'text-slate-300'
+		hearts: 'text-rose-400',
+		diamonds: 'text-blue-400',
+		clubs: 'text-emerald-400',
+		spades: 'text-slate-200'
 	};
 	const rookColors = {
 		black: 'text-foreground',

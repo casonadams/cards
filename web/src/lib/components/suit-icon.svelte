@@ -9,10 +9,10 @@
 	let { suit, class: className = '' }: Props = $props();
 
 	const colors: Record<Suit, string> = {
-		hearts: '#ef4444',
-		diamonds: '#ef4444',
-		clubs: '#e5e5e5',
-		spades: '#e5e5e5'
+		hearts: '#e11d48',
+		diamonds: '#2563eb',
+		clubs: '#059669',
+		spades: '#cbd5e1'
 	};
 </script>
 

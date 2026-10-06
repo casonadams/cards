@@ -31,74 +31,84 @@
 	const bidOptions = $derived(Array.from({ length: uiState.cardsPerPlayer + 1 }, (_, i) => i));
 </script>
 
-<div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto p-4">
-	<Card class="w-full max-w-md">
-		<CardHeader>
-			<CardTitle class="text-center">
-				{uiState.cardsPerPlayer}-Card Round
+<div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto p-4 animate-in fade-in duration-200">
+	<Card class="w-full max-w-md border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto">
+		<div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500"></div>
+		<CardHeader class="pb-2 text-center">
+			<CardTitle class="text-xl font-black">
+				{uiState.cardsPerPlayer}-Card Round — Bidding
 			</CardTitle>
 			{#if uiState.trumpSuit}
-				<p class="text-center text-sm text-muted-foreground">
-					Trump: <span class="font-bold capitalize">{uiState.trumpSuit}</span>
+				<p class="text-xs text-muted-foreground">
+					Trump: <span class="font-bold text-amber-300 capitalize">{uiState.trumpSuit}</span>
 				</p>
 			{:else}
-				<p class="text-center text-sm text-muted-foreground">No Trump</p>
+				<p class="text-xs text-muted-foreground">No Trump Round</p>
 			{/if}
 		</CardHeader>
-		<CardContent class="space-y-4">
+		<CardContent class="space-y-4 pt-1">
 			{#if uiState.bids.length > 0}
-				<div class="space-y-1">
+				<div class="space-y-1.5 p-2.5 rounded-lg bg-background/50 border border-border/60">
+					<p class="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Bids</p>
 					{#each uiState.bids as bid (bid.playerId)}
-						<div class="flex justify-between text-sm">
-							<span>{playerNames[bid.playerId] ?? bid.playerId}</span>
-							<Badge variant="outline">{bid.bid}</Badge>
+						<div class="flex justify-between items-center text-xs">
+							<span class="font-medium">{playerNames[bid.playerId] ?? bid.playerId}</span>
+							<Badge variant="outline" class="font-mono font-bold bg-background/60">{bid.bid} {bid.bid === 1 ? 'trick' : 'tricks'}</Badge>
 						</div>
 					{/each}
 				</div>
 			{/if}
 
-			<div class="flex flex-wrap justify-center gap-1">
-				{#each sortHand(myHand, uiState.trumpSuit as Suit | null) as card (`${card.suit}-${card.rank}`)}
-					<PlayingCard {card} size="sm" />
-				{/each}
+			<div class="p-2 rounded-xl bg-background/30 border border-border/40">
+				<p class="text-[11px] text-muted-foreground font-medium text-center mb-1.5">Your Hand</p>
+				<div class="flex flex-wrap justify-center gap-1.5 py-1">
+					{#each sortHand(myHand, uiState.trumpSuit as Suit | null) as card (`${card.suit}-${card.rank}`)}
+						<div class="transform transition-transform hover:-translate-y-1">
+							<PlayingCard {card} size="sm" />
+						</div>
+					{/each}
+				</div>
 			</div>
 
 			{#if uiState.canBid}
-				<div class="space-y-2">
-					<p class="text-sm text-muted-foreground text-center">How many tricks will you take?</p>
-					<div class="flex flex-wrap justify-center gap-1">
+				<div class="space-y-3 pt-1">
+					<p class="text-xs text-muted-foreground font-semibold text-center">How many tricks will you take?</p>
+					<div class="flex flex-wrap justify-center gap-1.5">
 						{#each bidOptions as n (n)}
 							{@const isHook = uiState.hookBid === n}
 							<button
-								class="rounded-md border px-3 py-1.5 text-sm font-medium transition-all
+								class="w-10 h-10 rounded-lg border text-sm font-bold transition-all flex items-center justify-center cursor-pointer
 									{selectedBid === n
-									? 'border-primary bg-primary/10 text-primary'
-									: 'border-border text-muted-foreground hover:border-muted-foreground'}
-									{isHook ? 'opacity-30 cursor-not-allowed' : ''}"
+									? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500/30 shadow-sm'
+									: 'border-border/80 bg-background/50 text-foreground hover:border-emerald-500/50'}
+									{isHook ? 'opacity-35 cursor-not-allowed line-through hover:border-border/80' : ''}"
 								onclick={() => {
 									if (!isHook) selectedBid = n;
 								}}
 								disabled={isHook}
+								title={isHook ? `Hook rule: cannot bid ${n}` : `Bid ${n}`}
 							>
 								{n}
 							</button>
 						{/each}
 					</div>
 					{#if uiState.hookBid !== null}
-						<p class="text-xs text-muted-foreground text-center">
-							You cannot bid {uiState.hookBid} (hook rule)
+						<p class="text-[11px] text-amber-400/90 text-center font-medium bg-amber-500/10 py-1 px-2 rounded-md border border-amber-500/20">
+							⚠️ Dealer Hook: Total bids cannot equal {uiState.cardsPerPlayer}. You cannot bid {uiState.hookBid}.
 						</p>
 					{/if}
 					<Button
-						class="w-full"
+						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-md shadow-emerald-950/40 text-sm"
 						onclick={() => onBid(selectedBid)}
 						disabled={selectedBid === uiState.hookBid}
 					>
-						Bid {selectedBid}
+						Confirm Bid: {selectedBid} {selectedBid === 1 ? 'Trick' : 'Tricks'}
 					</Button>
 				</div>
 			{:else}
-				<p class="text-center text-sm text-muted-foreground">Waiting for other players to bid...</p>
+				<div class="p-3 rounded-lg bg-background/40 border border-border/50 text-center">
+					<p class="text-xs text-muted-foreground animate-pulse">Waiting for other players to place their bids...</p>
+				</div>
 			{/if}
 		</CardContent>
 	</Card>

@@ -298,80 +298,100 @@
 	};
 </script>
 
-<div class="min-h-screen bg-background text-foreground flex flex-col">
+<div class="min-h-screen bg-background text-foreground flex flex-col felt-table-surface">
 	<NavBar
 		displayName={myPlayer.displayName}
 		onNameChange={handleNameChange}
 	/>
 
 	{#if !room}
-		<main class="max-w-lg mx-auto p-6 space-y-6 flex-1 w-full">
+		<main class="max-w-lg self-center mx-auto p-4 sm:p-6 space-y-5 flex-1 w-full flex flex-col justify-center">
+			<div class="text-center space-y-1 mb-1">
+				<h2 class="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
+					Tabletop Card Arena
+				</h2>
+				<p class="text-xs text-muted-foreground">Select a game, invite friends, or test against AI bots</p>
+			</div>
+
 			{#if lobbyError}
-				<p class="text-destructive text-sm bg-destructive/10 p-3 rounded-lg border border-destructive/20">{lobbyError}</p>
+				<p class="text-destructive text-xs bg-destructive/10 p-3 rounded-lg border border-destructive/20">{lobbyError}</p>
 			{/if}
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Create Game</CardTitle>
+			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
+				<CardHeader class="pb-3">
+					<CardTitle class="text-base font-bold flex items-center justify-between">
+						<span>Create a Match</span>
+						<span class="text-xs text-muted-foreground font-normal">Step 1: Choose game</span>
+					</CardTitle>
 				</CardHeader>
 				<CardContent class="space-y-4">
-					<div class="grid grid-cols-2 gap-2">
+					<div class="grid grid-cols-2 gap-2.5">
 						{#each games as game (game.id)}
 							<button
-								class="rounded-lg border-2 p-3 text-left transition-all cursor-pointer {selectedGameId === game.id
-									? 'border-primary bg-primary/10'
-									: 'border-border hover:border-muted-foreground'}"
+								class="rounded-xl border p-3 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
+									? 'border-emerald-500/80 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30'
+									: 'border-border/80 bg-background/50 hover:border-border hover:bg-card'}"
 								onclick={() => (selectedGameId = game.id)}
 							>
-								<span class="block text-sm font-semibold">{game.name}</span>
-								<span class="block text-xs text-muted-foreground">
+								<div class="flex items-center justify-between">
+									<span class="block text-sm font-bold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
+									{#if selectedGameId === game.id}
+										<span class="text-xs text-emerald-400">✓</span>
+									{/if}
+								</div>
+								<span class="block text-[11px] text-muted-foreground mt-0.5">
 									{game.minPlayers === game.maxPlayers
 										? `${game.minPlayers} players`
-										: `${game.minPlayers}-${game.maxPlayers} players`}
+										: `${game.minPlayers}–${game.maxPlayers} players`}
 								</span>
 							</button>
 						{/each}
 					</div>
 
-					<div class="flex items-center gap-2">
-						<span class="text-sm text-muted-foreground">Players</span>
+					<div class="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border border-border/80">
+						<span class="text-xs font-medium text-muted-foreground px-2">Table Size</span>
 						<div class="flex gap-1">
 							{#each playerOptions as n (n)}
 								<button
-									class="rounded-md border px-3 py-1 text-sm font-medium transition-all cursor-pointer {playerCount === n
-										? 'border-primary bg-primary/10 text-primary'
-										: 'border-border text-muted-foreground hover:border-muted-foreground'}"
+									class="rounded-md px-3 py-1 text-xs font-bold transition-all cursor-pointer {playerCount === n
+										? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+										: 'text-muted-foreground hover:text-foreground'}"
 									onclick={() => (playerCount = n)}
 								>
-									{n}
+									{n} Players
 								</button>
 							{/each}
 						</div>
 					</div>
 
-					<Button class="w-full" onclick={handleCreateRoom} disabled={loading}>
-						{loading ? 'Creating...' : 'Create Room'}
+					<Button
+						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-md shadow-emerald-950/40 text-sm"
+						onclick={handleCreateRoom}
+						disabled={loading}
+					>
+						{loading ? 'Creating...' : 'Create Table'}
 					</Button>
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Join Game</CardTitle>
+			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
+				<CardHeader class="pb-3">
+					<CardTitle class="text-base font-bold">Join Existing Table</CardTitle>
 				</CardHeader>
 				<CardContent class="space-y-3">
 					<Input
 						bind:value={joinCode}
-						placeholder="Enter room code (e.g. ABCDEF)"
+						placeholder="ROOM CODE"
 						maxlength={6}
+						class="text-center font-mono tracking-widest text-lg font-black uppercase h-11 border-border/80 focus:border-emerald-500"
 					/>
 					<Button
 						variant="secondary"
-						class="w-full"
+						class="w-full font-semibold text-xs h-10 border border-border/80 hover:bg-card"
 						onclick={handleJoinRoom}
 						disabled={loading || joinCode.length < 4}
 					>
-						{loading ? 'Joining...' : 'Join Room'}
+						{loading ? 'Joining...' : 'Join Game'}
 					</Button>
 				</CardContent>
 			</Card>

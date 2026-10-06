@@ -36,31 +36,52 @@
 	}
 </script>
 
-<nav class="border-b border-border px-6 py-3 flex justify-between items-center">
-	<h1 class="text-lg font-bold">Garden Salad</h1>
-	<div class="flex items-center gap-4">
+<nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-4 sm:px-6 py-2.5 flex justify-between items-center sticky top-0 z-40">
+	<div class="flex items-center gap-2">
+		<span class="text-base font-black tracking-tight flex items-center gap-1.5">
+			<span class="text-emerald-400">♠</span>
+			<span>Garden Salad</span>
+		</span>
+		<span class="hidden sm:inline-block text-[10px] text-muted-foreground/70 uppercase tracking-widest border border-border/70 rounded px-1.5 py-0.5">
+			Cards
+		</span>
+	</div>
+	<div class="flex items-center gap-3">
 		{#if editing}
-			<input
-				class="bg-background border border-input rounded px-2 py-0.5 text-sm w-28"
-				bind:value={editValue}
-				maxlength={MAX_NAME_LENGTH}
-				onkeydown={handleKeydown}
-				onblur={confirmEdit}
-			/>
+			<div class="flex items-center gap-1 bg-background border border-emerald-500/60 rounded-full px-2 py-0.5 shadow-sm">
+				<input
+					class="bg-transparent border-none outline-none text-xs w-20 sm:w-28 px-1 text-foreground"
+					bind:value={editValue}
+					maxlength={MAX_NAME_LENGTH}
+					onkeydown={handleKeydown}
+					onblur={confirmEdit}
+				/>
+				<button
+					class="text-emerald-400 hover:text-emerald-300 text-xs px-1 font-bold cursor-pointer"
+					onclick={confirmEdit}
+					title="Save name"
+				>
+					✓
+				</button>
+			</div>
 		{:else}
 			<button
-				class="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+				class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-background/50 border border-border/80 text-xs text-foreground hover:border-emerald-500/50 hover:bg-card transition-all cursor-pointer group"
 				onclick={startEdit}
-				title="Click to edit name"
+				title="Click to edit player name"
 			>
-				{displayName}
+				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold">
+					{displayName.slice(0, 1).toUpperCase()}
+				</div>
+				<span class="font-medium truncate max-w-[90px] sm:max-w-[140px]">{displayName}</span>
+				<span class="text-[10px] text-muted-foreground group-hover:text-emerald-400 opacity-60">✎</span>
 			</button>
 		{/if}
 		{#if showAdmin}
-			<Button variant="ghost" size="sm" onclick={() => onAdmin?.()}>Users</Button>
+			<Button variant="ghost" size="sm" class="text-xs h-8" onclick={() => onAdmin?.()}>Users</Button>
 		{/if}
 		{#if onSignOut}
-			<Button variant="ghost" size="sm" onclick={onSignOut}>Sign Out</Button>
+			<Button variant="ghost" size="sm" class="text-xs h-8" onclick={onSignOut}>Sign Out</Button>
 		{/if}
 	</div>
 </nav>

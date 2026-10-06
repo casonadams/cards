@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/engine",
+    "crates/wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Cason Adams"]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+rand = "0.9"
+rand_chacha = "0.9"

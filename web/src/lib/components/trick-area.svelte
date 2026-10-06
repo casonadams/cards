@@ -42,8 +42,8 @@
 	const visible = $derived(plays.length > 0 ? plays : fading ? lastCompleteTrick : []);
 </script>
 
-<div class="relative w-full max-w-2xl mx-auto rounded-[2.5rem] border-2 border-emerald-500/25 bg-radial from-emerald-900/30 via-emerald-950/20 to-transparent p-5 sm:p-8 shadow-[inset_0_2px_24px_rgba(0,0,0,0.5),0_12px_32px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px]">
-	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
+<div class="relative w-full max-w-3xl mx-auto rounded-[3rem] border-2 border-emerald-500/25 bg-radial from-emerald-900/35 via-emerald-950/20 to-transparent p-6 sm:p-10 shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center min-h-[200px] sm:min-h-[240px]">
+	<div class="absolute inset-3 rounded-[2.6rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
 	{#if visible.length === 0}
 		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/60 select-none">
 			<div class="w-12 h-16 rounded-xl border-2 border-dashed border-emerald-500/30 flex items-center justify-center bg-emerald-950/20 shadow-inner">
@@ -62,7 +62,7 @@
 					<div class="transform transition-transform hover:scale-110 duration-200 drop-shadow-xl">
 						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="sm" />
 					</div>
-					<span class="bg-card/90 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-bold text-foreground border border-border/80 shadow-md max-w-[85px] sm:max-w-[110px] truncate text-center">
+					<span class="bg-card/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[95px] sm:max-w-[125px] truncate text-center">
 						{playerNames[play.playerId] ?? '?'}
 					</span>
 				</div>

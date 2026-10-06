@@ -29,25 +29,25 @@
 	}
 </script>
 
-<main class="max-w-md self-center mx-auto p-4 sm:p-8 flex flex-col gap-6 flex-1 w-full justify-center">
+<main class="max-w-lg self-center mx-auto p-4 sm:p-8 flex flex-col gap-6 flex-1 w-full justify-center">
 	<Card class="border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden">
-		<div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500"></div>
-		<CardHeader class="pb-2 text-center">
-			<div class="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold mx-auto mb-1 border border-emerald-500/20">
+		<div class="h-2 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500"></div>
+		<CardHeader class="pb-3 text-center">
+			<div class="inline-flex items-center justify-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold mx-auto mb-1 border border-emerald-500/20">
 				<span>Waiting Room</span>
 			</div>
-			<CardTitle class="text-2xl font-black">{gameName}</CardTitle>
-			<p class="text-xs text-muted-foreground">Invite friends or add AI opponents</p>
+			<CardTitle class="text-3xl font-black">{gameName}</CardTitle>
+			<p class="text-sm text-muted-foreground">Invite friends or add AI opponents</p>
 		</CardHeader>
 		<CardContent class="gap-6 pt-2">
-			<div class="rounded-xl bg-background/70 border border-border/80 p-4 text-center flex flex-col gap-2.5">
-				<p class="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Room Code</p>
-				<p class="text-4xl font-mono font-black tracking-widest text-emerald-400 drop-shadow-sm">{room.code}</p>
+			<div class="rounded-2xl bg-background/70 border border-border/80 p-5 text-center flex flex-col gap-3">
+				<p class="text-xs uppercase tracking-wider text-muted-foreground font-bold">Room Code</p>
+				<p class="text-5xl font-mono font-black tracking-widest text-emerald-400 drop-shadow-md">{room.code}</p>
 				<div class="flex items-center justify-center gap-2 pt-1">
 					<Button
 						variant="outline"
 						size="sm"
-						class="text-xs h-8 px-3 border-border/80 hover:border-emerald-500/50"
+						class="text-xs h-9 px-4 font-bold border-border/80 hover:border-emerald-500/50"
 						onclick={copyInviteLink}
 					>
 						{copied ? '✓ Link Copied' : '🔗 Copy Invite Link'}
@@ -55,52 +55,52 @@
 				</div>
 			</div>
 
-			<div class="flex flex-col gap-2.5">
-				<div class="flex items-center justify-between text-xs text-muted-foreground font-medium px-1">
-					<span>Players</span>
-					<span class="bg-muted px-2 py-0.5 rounded-full">{room.players.length} of {room.maxPlayers}</span>
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center justify-between text-xs text-muted-foreground font-semibold px-1">
+					<span class="text-sm font-bold text-foreground">Players</span>
+					<span class="bg-muted px-2.5 py-1 rounded-full text-xs font-mono font-bold">{room.players.length} of {room.maxPlayers}</span>
 				</div>
-				<div class="grid gap-2">
+				<div class="grid gap-2.5">
 					{#each room.players as player, index (`${player.id}-${index}`)}
-						<div class="flex items-center justify-between p-2.5 rounded-lg bg-background/50 border border-border/60 transition-all">
-							<div class="flex items-center gap-2.5">
-								<div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-300">
+						<div class="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60 transition-all shadow-xs">
+							<div class="flex items-center gap-3">
+								<div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-black text-emerald-300 shadow-inner">
 									{player.displayName.slice(0, 2).toUpperCase()}
 								</div>
-								<span class="text-sm font-semibold text-foreground">{player.displayName}</span>
+								<span class="text-base font-bold text-foreground">{player.displayName}</span>
 							</div>
 							{#if player.isHost}
-								<Badge variant="secondary" class="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[11px] font-bold">
+								<Badge variant="secondary" class="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-xs font-bold px-2.5 py-0.5">
 									👑 Host
 								</Badge>
 							{:else if isAiPlayer(player.id)}
-								<Badge variant="outline" class="text-[11px] font-medium border-border/80">
+								<Badge variant="outline" class="text-xs font-medium border-border/80 px-2.5 py-0.5">
 									🤖 AI
 								</Badge>
 							{/if}
 						</div>
 					{/each}
 					{#each Array.from({ length: Math.max(0, room.maxPlayers - room.players.length) }) as _, i (i)}
-						<div class="flex items-center gap-2.5 p-2.5 rounded-lg border border-dashed border-border/60 text-muted-foreground/60 text-xs">
-							<div class="w-8 h-8 rounded-full border border-dashed border-border/60 flex items-center justify-center text-xs opacity-50">
+						<div class="flex items-center gap-3 p-3 rounded-xl border border-dashed border-border/60 text-muted-foreground/60 text-sm">
+							<div class="w-9 h-9 rounded-full border border-dashed border-border/60 flex items-center justify-center text-xs opacity-50">
 								+
 							</div>
-							<span>Waiting for player...</span>
+							<span class="font-medium">Waiting for player...</span>
 						</div>
 					{/each}
 				</div>
 			</div>
 
 			{#if isHost}
-				<div class="flex flex-col gap-2.5 pt-2">
+				<div class="flex flex-col gap-3 pt-2">
 					{#if !isFull}
-						<Button variant="outline" class="w-full border-border/80 hover:bg-card text-xs font-semibold py-2" onclick={onAddAi}>
+						<Button variant="outline" class="w-full border-border/80 hover:bg-card text-xs sm:text-sm font-bold h-11 rounded-xl" onclick={onAddAi}>
 							+ Add AI Player
 						</Button>
 					{/if}
 					{#if !hideStart}
 						<Button
-							class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-lg shadow-emerald-950/40 text-sm"
+							class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 h-13 shadow-xl shadow-emerald-950/50 text-base rounded-xl"
 							onclick={onStart}
 							disabled={!isFull}
 						>

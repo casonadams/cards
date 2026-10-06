@@ -324,12 +324,12 @@
 	/>
 
 	{#if !room}
-		<main class="max-w-lg self-center mx-auto p-4 sm:p-6 flex flex-col gap-6 flex-1 w-full justify-center">
-			<div class="text-center flex flex-col gap-1.5 mb-1">
-				<h2 class="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
+		<main class="max-w-xl self-center mx-auto p-4 sm:p-8 flex flex-col gap-6 flex-1 w-full justify-center">
+			<div class="text-center flex flex-col gap-1.5 mb-2">
+				<h2 class="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
 					Tabletop Card Arena
 				</h2>
-				<p class="text-xs text-muted-foreground">Select a game, invite friends, or test against AI bots</p>
+				<p class="text-sm text-muted-foreground">Select a game, invite friends, or test against AI bots</p>
 			</div>
 
 			{#if lobbyError}
@@ -338,9 +338,9 @@
 
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
-					<CardTitle class="text-base font-bold flex items-center justify-between">
+					<CardTitle class="text-lg font-black flex items-center justify-between">
 						<span>Create a Match</span>
-						<span class="text-xs text-muted-foreground font-normal">Step 1: Choose game</span>
+						<span class="text-xs text-muted-foreground font-semibold">Step 1: Choose game</span>
 					</CardTitle>
 				</CardHeader>
 				<CardContent class="gap-5">
@@ -394,18 +394,18 @@
 			</Card>
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
-					<CardTitle class="text-base font-bold">Join Existing Table</CardTitle>
+					<CardTitle class="text-lg font-black">Join Existing Table</CardTitle>
 				</CardHeader>
 				<CardContent class="gap-4">
 					<Input
 						bind:value={joinCode}
 						placeholder="ROOM CODE"
 						maxlength={6}
-						class="text-center font-mono tracking-[0.25em] text-xl font-black uppercase h-13 rounded-xl border-2 border-border/80 focus:border-emerald-500 bg-background/70"
+						class="text-center font-mono tracking-[0.25em] text-2xl font-black uppercase h-14 rounded-xl border-2 border-border/80 focus:border-emerald-500 bg-background/70"
 					/>
 					<Button
 						variant="secondary"
-						class="w-full font-bold text-xs h-11 rounded-xl border border-border/80 hover:bg-card"
+						class="w-full font-bold text-sm h-12 rounded-xl border border-border/80 hover:bg-card"
 						onclick={handleJoinRoom}
 						disabled={loading || joinCode.length < 4}
 					>

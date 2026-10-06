@@ -123,18 +123,18 @@
 		{/if}
 	{:else if isFaceCard}
 		<span
-			class="absolute top-0.5 left-1 {cornerSizes[size]} {suitTextColors[
+			class="absolute top-1 left-1.5 {cornerSizes[size]} {suitTextColors[
 				card.suit
-			]} font-bold leading-none"
+			]} font-black leading-tight"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<span
-			class="absolute bottom-0.5 right-1 rotate-180 {cornerSizes[size]} {suitTextColors[
+			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[size]} {suitTextColors[
 				card.suit
-			]} font-bold leading-none"
+			]} font-black leading-tight"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<div class="absolute inset-0 flex items-center justify-center">
 			<span class="absolute text-2xl sm:text-3xl opacity-15 {suitTextColors[card.suit]}">{symbol}</span>
@@ -143,15 +143,15 @@
 			</span>
 		</div>
 	{:else if isAce}
-		<span class="absolute top-0.5 left-1 {cornerSizes[size]} {color} font-bold leading-none">
-			A<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-tight">
+			A<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<span
-			class="absolute bottom-0.5 right-1 rotate-180 {cornerSizes[
+			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-bold leading-none"
+			]} {color} font-black leading-tight"
 		>
-			A<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+			A<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<span
 			class={cn('absolute inset-0 flex items-center justify-center', color, aceSuitSizes[size])}
@@ -159,15 +159,15 @@
 			{symbol}
 		</span>
 	{:else}
-		<span class="absolute top-0.5 left-1 {cornerSizes[size]} {color} font-bold leading-none">
-			{RANK_NAMES[card.rank]}<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-tight">
+			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<span
-			class="absolute bottom-0.5 right-1 rotate-180 {cornerSizes[
+			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-bold leading-none"
+			]} {color} font-black leading-tight"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
+			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
 		</span>
 		<span
 			class={cn('absolute inset-0 flex items-center justify-center', color, centerSuitSizes[size])}
@@ -177,21 +177,21 @@
 	{/if}
 	{#if !faceDown && penaltyPoints > 0}
 		<span
-			class="absolute top-1 right-1 text-[8px] sm:text-[9px] bg-destructive text-destructive-foreground rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
+			class="absolute top-1 right-1 text-[10px] sm:text-xs bg-destructive text-destructive-foreground rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
 		>
 			{penaltyPoints}
 		</span>
 	{/if}
 	{#if !faceDown && rookPoints > 0}
 		<span
-			class="absolute top-1 right-1 text-[8px] sm:text-[9px] bg-emerald-700 text-emerald-100 rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-emerald-500/20"
+			class="absolute top-1 right-1 text-[10px] sm:text-xs bg-emerald-700 text-emerald-100 rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-emerald-500/20"
 		>
 			+{rookPoints}
 		</span>
 	{/if}
 	{#if !faceDown && isTrump}
 		<span
-			class="absolute bottom-1 left-1 text-[8px] sm:text-[9px] bg-amber-500 text-amber-950 rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-amber-400/20"
+			class="absolute bottom-1 left-1 text-[10px] sm:text-xs bg-amber-500 text-amber-950 rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-amber-400/20"
 		>
 			T
 		</span>

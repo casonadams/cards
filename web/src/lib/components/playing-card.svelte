@@ -73,26 +73,31 @@
 	const rookBg = $derived(
 		rookCard ? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '') : ''
 	);
-	const suitBg = $derived(`${suitBgColors[card.suit]} border-border`);
+	const suitBg = 'bg-white border-zinc-200 text-zinc-900 shadow-md';
 	const bgClass = $derived(faceDown ? FACE_DOWN_BG : isRook ? rookBg : suitBg);
 </script>
 
 <button
 	class={cn(
-		'relative rounded-lg border-2 font-bold transition-all select-none overflow-hidden',
+		'relative rounded-lg border font-bold transition-all select-none overflow-hidden duration-150',
 		sizes[size],
 		bgClass,
-		playable && 'cursor-pointer hover:-translate-y-2 hover:shadow-lg',
-		!playable && 'cursor-default',
-		selected && '-translate-y-3 ring-2 ring-success'
+		playable &&
+			'cursor-pointer hover:-translate-y-2.5 hover:shadow-xl hover:border-emerald-500/70 hover:ring-2 hover:ring-emerald-500/20 active:scale-95',
+		!playable && !faceDown && 'opacity-65 saturate-75 cursor-default',
+		selected && '-translate-y-3.5 ring-2 ring-emerald-500 shadow-xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}
 	disabled={!playable}
 	{onclick}
 >
 	{#if faceDown}
-		<div class="absolute inset-1 rounded border border-blue-600 bg-blue-800"></div>
-	{:else if isRook && rookCard}
+		<div class="absolute inset-1 rounded-md border border-indigo-400/30 bg-gradient-to-br from-indigo-950 via-blue-950 to-slate-950 flex items-center justify-center overflow-hidden">
+			<div class="w-full h-full opacity-20 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:6px_6px]"></div>
+			<div class="absolute inset-1.5 rounded border border-indigo-400/25 flex items-center justify-center">
+				<span class="text-indigo-300/40 text-xs">◆</span>
+			</div>
+		</div>
 		{#if rookCard.type === 'bird'}
 			<span
 				class="absolute inset-0 flex items-center justify-center text-purple-200 {rookValueSizes[
@@ -130,13 +135,12 @@
 		>
 			{RANK_NAMES[card.rank]}<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>
 		</span>
-		<span
-			class="absolute inset-0 flex items-center justify-center {suitTextColors[
-				card.suit
-			]} {faceLetterSizes[size]} font-black"
-		>
-			{faceLetters[card.rank]}
-		</span>
+		<div class="absolute inset-0 flex items-center justify-center">
+			<span class="absolute text-2xl sm:text-3xl opacity-15 {suitTextColors[card.suit]}">{symbol}</span>
+			<span class="{suitTextColors[card.suit]} {faceLetterSizes[size]} font-black tracking-tight drop-shadow-sm">
+				{faceLetters[card.rank]}
+			</span>
+		</div>
 	{:else if isAce}
 		<span class="absolute top-0.5 left-1 {cornerSizes[size]} {color} font-bold leading-none">
 			A<br /><span class="text-[8px] sm:text-[10px]">{symbol}</span>

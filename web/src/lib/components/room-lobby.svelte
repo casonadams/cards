@@ -19,6 +19,14 @@
 	let { room, isHost, isFull, onStart, onLeave, onAddAi, hideStart = false }: Props = $props();
 
 	const gameName = $derived(getGame(room.gameDefinitionId).name);
+	let copied = $state(false);
+
+	function copyInviteLink() {
+		const url = window.location.origin + window.location.pathname + '#code=' + room.code;
+		navigator.clipboard.writeText(url);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 </script>
 
 <main class="max-w-md mx-auto p-8 space-y-6 flex-1">
@@ -29,8 +37,16 @@
 		</CardHeader>
 		<CardContent class="space-y-4">
 			<div class="text-center">
-				<p class="text-sm text-muted-foreground mb-1">Share this code</p>
-				<p class="text-3xl font-mono font-bold tracking-widest">{room.code}</p>
+				<p class="text-sm text-muted-foreground mb-1">Share this room code</p>
+				<p class="text-3xl font-mono font-bold tracking-widest text-primary">{room.code}</p>
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-2 text-xs h-7"
+					onclick={copyInviteLink}
+				>
+					{copied ? '✓ Link Copied' : '🔗 Copy 1-Click Invite Link'}
+				</Button>
 			</div>
 
 			<div class="space-y-2">

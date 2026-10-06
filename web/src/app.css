@@ -3,30 +3,30 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-	--color-border: hsl(240 3.7% 15.9%);
-	--color-input: hsl(240 3.7% 15.9%);
-	--color-ring: hsl(240 4.9% 83.9%);
-	--color-background: hsl(240 10% 3.9%);
-	--color-foreground: hsl(0 0% 98%);
-	--color-primary: hsl(0 0% 98%);
-	--color-primary-foreground: hsl(240 5.9% 10%);
-	--color-secondary: hsl(240 3.7% 15.9%);
-	--color-secondary-foreground: hsl(0 0% 98%);
-	--color-destructive: hsl(0 62.8% 30.6%);
-	--color-destructive-foreground: hsl(0 0% 98%);
-	--color-muted: hsl(240 3.7% 15.9%);
-	--color-muted-foreground: hsl(240 5% 64.9%);
-	--color-accent: hsl(240 3.7% 15.9%);
-	--color-accent-foreground: hsl(0 0% 98%);
-	--color-card: hsl(240 10% 3.9%);
-	--color-card-foreground: hsl(0 0% 98%);
-	--color-popover: hsl(240 10% 3.9%);
-	--color-popover-foreground: hsl(0 0% 98%);
-	--color-success: hsl(142 76% 36%);
-	--color-success-foreground: hsl(0 0% 98%);
-	--color-warning: hsl(48 96% 53%);
-	--color-warning-foreground: hsl(240 5.9% 10%);
-	--radius: 0.5rem;
+	--color-border: hsl(220 20% 18%);
+	--color-input: hsl(220 20% 18%);
+	--color-ring: hsl(158 64% 45%);
+	--color-background: hsl(220 30% 7%);
+	--color-foreground: hsl(210 30% 96%);
+	--color-primary: hsl(158 64% 42%);
+	--color-primary-foreground: hsl(0 0% 100%);
+	--color-secondary: hsl(220 22% 16%);
+	--color-secondary-foreground: hsl(210 30% 96%);
+	--color-destructive: hsl(354 70% 54%);
+	--color-destructive-foreground: hsl(0 0% 100%);
+	--color-muted: hsl(220 20% 13%);
+	--color-muted-foreground: hsl(218 15% 65%);
+	--color-accent: hsl(220 22% 18%);
+	--color-accent-foreground: hsl(210 30% 98%);
+	--color-card: hsl(220 26% 10%);
+	--color-card-foreground: hsl(210 30% 96%);
+	--color-popover: hsl(220 26% 10%);
+	--color-popover-foreground: hsl(210 30% 96%);
+	--color-success: hsl(152 76% 40%);
+	--color-success-foreground: hsl(0 0% 100%);
+	--color-warning: hsl(38 92% 50%);
+	--color-warning-foreground: hsl(24 9.8% 10%);
+	--radius: 0.625rem;
 }
 
 @layer base {
@@ -36,4 +36,14 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+}
+
+/* Card table felt backdrop */
+.felt-table-surface {
+	background: radial-gradient(ellipse at 50% 40%, hsl(160 48% 13%) 0%, hsl(220 30% 8%) 85%);
+}
+
+.card-fan-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: hsl(220 20% 25%) transparent;
 }

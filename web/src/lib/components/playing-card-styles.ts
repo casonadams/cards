@@ -1,40 +1,39 @@
 import type { Suit, Rank } from '$lib/platform/types/index';
 import type { RookCard } from '$lib/games/rook/types';
 export const suitSymbols: Record<Suit, string> = {
-	hearts: '\u2665',
-	diamonds: '\u2666',
-	clubs: '\u2663',
-	spades: '\u2660'
+	hearts: '♥',
+	diamonds: '♦',
+	clubs: '♣',
+	spades: '♠'
 };
 
 export const suitBgColors: Record<Suit, string> = {
-	hearts: 'bg-red-950',
-	diamonds: 'bg-amber-950',
-	clubs: 'bg-sky-950',
-	spades: 'bg-slate-900'
+	hearts: 'bg-white',
+	diamonds: 'bg-white',
+	clubs: 'bg-white',
+	spades: 'bg-white'
 };
 
 export const suitTextColors: Record<Suit, string> = {
-	hearts: 'text-red-300',
-	diamonds: 'text-amber-300',
-	clubs: 'text-sky-300',
-	spades: 'text-slate-300'
+	hearts: 'text-rose-600',
+	diamonds: 'text-blue-600',
+	clubs: 'text-emerald-700',
+	spades: 'text-zinc-950'
 };
-
 export const faceLetters: Partial<Record<Rank, string>> = { 11: 'J', 12: 'Q', 13: 'K' };
 
 export const rookBgColors = {
-	black: 'bg-gray-800',
-	red: 'bg-red-900',
-	green: 'bg-green-900',
-	yellow: 'bg-yellow-900'
+	black: 'bg-white',
+	red: 'bg-white',
+	green: 'bg-white',
+	yellow: 'bg-white'
 };
 
 export const rookTextColors = {
-	black: 'text-gray-200',
-	red: 'text-red-200',
-	green: 'text-green-200',
-	yellow: 'text-yellow-200'
+	black: 'text-zinc-950',
+	red: 'text-rose-600',
+	green: 'text-emerald-600',
+	yellow: 'text-amber-500'
 };
 
 export const sizes = {
@@ -55,10 +54,10 @@ export function getRookCardPoints(rook: RookCard): number {
 	return ROOK_NUMBER_POINTS[rook.value] ?? 0;
 }
 
-export const FACE_DOWN_BG = 'bg-blue-900 border-blue-700';
-export const ROOK_BIRD_BG = 'bg-purple-900 border-purple-600';
+export const FACE_DOWN_BG = 'bg-slate-900 border-indigo-700/60 shadow-md';
+export const ROOK_BIRD_BG = 'bg-white border-purple-500/50 shadow-md';
 
-export function resolveRookBg(type: string, color: string): string {
+export function resolveRookBg(type: string, _color: string): string {
 	if (type === 'bird') return ROOK_BIRD_BG;
-	return `${rookBgColors[color as keyof typeof rookBgColors]} border-border`;
+	return 'bg-white border-zinc-200/90 shadow-md';
 }

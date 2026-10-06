@@ -1,6 +1,8 @@
 <script lang="ts">
+	import init, { IrohNode } from './wasm/cards_wasm.js';
 	import { registerAllGames } from '$lib/games/register-all';
 	import { getGame, listGames, createGameSyncManager } from '$lib/platform/engine/index';
+	import { generateRoomCode } from '$lib/platform/engine/room-code';
 	import { createRoomActions } from '$lib/platform/stores/room-store';
 	import type { GameRoom, Player, Card as CardType } from '$lib/platform/types/index';
 	import type { GameDocument } from '$lib/platform/engine/index';
@@ -64,9 +66,9 @@
 	}
 
 	// Platform state
+	let irohRoom = $state<any>(null);
 	const roomRepo = createLocalP2pRoomRepo();
-	const sync = createLocalP2pSync();
-
+	const sync = createLocalP2pSync(() => irohRoom);
 	let roomId = $state('');
 	let room = $state<GameRoom | null>(null);
 	let gameDoc = $state<GameDocument | null>(null);
@@ -135,13 +137,54 @@
 	$effect(() => setupTrickTakingAi({ ...aiDeps, isOhWell }));
 	$effect(() => setupOhWellAiBid(aiDeps));
 
+	function listenIroh(r: { take_stream: () => { getReader: () => { read: () => Promise<{ value: { type: string; payload: string } | undefined; done: boolean }> } } }) {
+		try {
+			const stream = r.take_stream();
+			const reader = stream.getReader();
+			(async () => {
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					if (value && value.type === 'message') {
+						try {
+							const data = JSON.parse(value.payload);
+							if (data.type === 'sync_doc' && data.doc) {
+								gameDoc = data.doc;
+							} else if (data.type === 'sync_room' && data.room) {
+								room = data.room;
+								roomId = data.room.id;
+							}
+						} catch {
+							// Ignore non-json
+						}
+					}
+				}
+			})();
+		} catch (e) {
+			console.log('Iroh stream error', e);
+		}
+	}
+
 	// Action Handlers
 	async function handleCreateRoom() {
 		lobbyError = '';
 		loading = true;
+		const code = generateRoomCode();
+		if (typeof window !== 'undefined') {
+			window.location.hash = '#code=' + code;
+		}
+		try {
+			await init();
+			const hostNode = await IrohNode.spawn_host(code);
+			irohRoom = await hostNode.create_room_with_code(code);
+			listenIroh(irohRoom);
+		} catch (e) {
+			console.log('Iroh host spawn fallback to local', e);
+		}
+
 		try {
 			const newRoom = await roomRepo.create({
-				code: '',
+				code,
 				gameDefinitionId: selectedGameId,
 				hostId: myPlayer.id,
 				maxPlayers: playerCount,
@@ -159,8 +202,8 @@
 				createdAt: Date.now()
 			});
 			roomId = newRoom.id;
-		} catch (e: any) {
-			lobbyError = e.message;
+		} catch (e: unknown) {
+			lobbyError = (e as Error).message;
 		} finally {
 			loading = false;
 		}
@@ -170,15 +213,34 @@
 		if (!joinCode.trim()) return;
 		lobbyError = '';
 		loading = true;
+		const code = joinCode.trim().toUpperCase();
+		if (typeof window !== 'undefined') {
+			window.location.hash = '#code=' + code;
+		}
+
 		try {
-			const target = await roomRepo.getByCode(joinCode.trim().toUpperCase());
+			await init();
+			const guestNode = await IrohNode.spawn();
+			irohRoom = await guestNode.join_room_with_code(code);
+			listenIroh(irohRoom);
+		} catch (e) {
+			console.log('Iroh join fallback to local', e);
+		}
+
+		try {
+			let target = await roomRepo.getByCode(code);
 			if (!target) {
-				lobbyError = `Room code "${joinCode.toUpperCase()}" not found.`;
-				return;
-			}
-			if (target.players.length >= target.maxPlayers) {
-				lobbyError = 'Room is already full.';
-				return;
+				// Create placeholder room for guest joining via P2P
+				target = await roomRepo.create({
+					code,
+					gameDefinitionId: 'oh-well',
+					hostId: 'host-player',
+					maxPlayers: 4,
+					players: [],
+					playerIds: [],
+					phase: 'lobby',
+					createdAt: Date.now()
+				});
 			}
 			const updatedPlayers = [
 				...target.players,
@@ -195,12 +257,22 @@
 				playerIds: updatedPlayers.map((p) => p.id)
 			});
 			roomId = target.id;
-		} catch (e: any) {
-			lobbyError = e.message;
+		} catch (e: unknown) {
+			lobbyError = (e as Error).message;
 		} finally {
 			loading = false;
 		}
 	}
+
+	$effect(() => {
+		if (typeof window !== 'undefined' && window.location.hash.includes('code=')) {
+			const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
+			if (match && match[1] && !roomId) {
+				joinCode = match[1].toUpperCase();
+				handleJoinRoom();
+			}
+		}
+	});
 
 	const handleAddAiPlayer = async () => {
 		if (room && !isFull) {

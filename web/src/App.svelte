@@ -1,414 +1,635 @@
 <script lang="ts">
-  import init, { IrohNode, WasmOhWell, WasmCanadianSalad } from './wasm/cards_wasm.js';
+	import init, { IrohNode, WasmOhWell, WasmCanadianSalad } from './wasm/cards_wasm.js';
+	import { Button } from '$lib/components/ui/button/index';
+	import { Badge } from '$lib/components/ui/badge/index';
+	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
+	import HandDisplay from '$lib/components/hand-display.svelte';
+	import TrickArea, { type TrickPlay } from '$lib/components/trick-area.svelte';
+	import LastTrick from '$lib/components/last-trick.svelte';
+	import CanadianSaladPenalties from '$lib/components/canadian-salad-penalties.svelte';
+	import OhWellTrumpBanner from '$lib/components/oh-well-trump-banner.svelte';
+	import OhWellBidding from '$lib/components/oh-well-bidding.svelte';
+	import RoundScoreOverlay from '$lib/components/round-score-overlay.svelte';
+	import GameOverOverlay from '$lib/components/game-over-overlay.svelte';
+	import type { RoundScore } from '$lib/components/score-table.svelte';
+	import type { Card as CardType, Suit } from '$lib/types/card';
+	import './app.css';
 
-  interface Card {
-    suit: 'clubs' | 'diamonds' | 'hearts' | 'spades';
-    rank: number;
-  }
+	interface PlayerBid {
+		player_id: string;
+		bid: number;
+	}
 
-  interface TrickPlay {
-    player_id: string;
-    card: Card;
-  }
+	interface OhWellState {
+		round_index: number;
+		total_rounds: number;
+		cards_per_player: number;
+		dealer_index: number;
+		trump_suit: Suit | null;
+		trump_card: CardType | null;
+		phase: 'bidding' | 'playing' | 'roundover' | 'gameover';
+		bids: PlayerBid[];
+		current_turn_index: number;
+		current_trick: { player_id: string; card: CardType }[];
+		completed_tricks: { player_id: string; card: CardType }[][];
+		tricks_won: number[];
+		scores: number[];
+		cumulative_scores: number[];
+	}
 
-  interface PlayerBid {
-    player_id: string;
-    bid: number;
-  }
+	interface CanadianState {
+		round_index: number;
+		hand_type: string;
+		cards_per_player: number;
+		dealer_index: number;
+		phase: 'playing' | 'roundover' | 'gameover';
+		current_turn_index: number;
+		current_trick: { player_id: string; card: CardType }[];
+		completed_tricks: { player_id: string; card: CardType }[][];
+		tricks_won: number[];
+		scores: number[];
+		cumulative_scores: number[];
+	}
 
-  interface OhWellState {
-    round_index: number;
-    total_rounds: number;
-    cards_per_player: number;
-    dealer_index: number;
-    trump_suit: string | null;
-    trump_card: Card | null;
-    phase: 'bidding' | 'playing' | 'roundover' | 'gameover';
-    bids: PlayerBid[];
-    current_turn_index: number;
-    current_trick: TrickPlay[];
-    completed_tricks: TrickPlay[][];
-    tricks_won: number[];
-    scores: number[];
-    cumulative_scores: number[];
-  }
+	let wasmReady = $state(false);
+	let activeTab = $state<'oh-well' | 'canadian-salad' | 'iroh'>('oh-well');
 
-  let wasmReady = $state(false);
-  let activeTab = $state<'oh-well' | 'salad' | 'iroh'>('oh-well');
+	const playerNames: Record<string, string> = {
+		alice: 'Alice',
+		bob: 'Bob',
+		carol: 'Carol',
+		dave: 'Dave'
+	};
+	const playerIds = ['alice', 'bob', 'carol', 'dave'];
 
-  // Iroh state
-  let irohNode = $state<IrohNode | null>(null);
-  let endpointId = $state<string>('');
-  let currentTicket = $state<string>('');
-  let joinTicketInput = $state<string>('');
-  let irohRoom = $state<any>(null);
-  let networkStatus = $state<string>('Not initialized');
-  let networkMessages = $state<{ from: string; payload: string }[]>([]);
-  let broadcastMsg = $state<string>('{"type":"ping","hello":"from iroh!"}');
+	// Oh Well state
+	let ohWellEngine = $state<WasmOhWell | null>(null);
+	let ohWellState = $state<OhWellState | null>(null);
+	let ohWellHands = $state<CardType[][]>([]);
+	let ohWellRoundHistory = $state<RoundScore[]>([]);
 
-  // Oh Well state
-  let ohWellEngine = $state<WasmOhWell | null>(null);
-  let ohWellState = $state<OhWellState | null>(null);
-  let ohWellHands = $state<Card[][]>([]);
-  let ohWellPlayers = ['Alice', 'Bob', 'Carol', 'Dave'];
-  let bidInput = $state<number>(0);
-  let gameError = $state<string>('');
+	// Canadian Salad state
+	let saladEngine = $state<WasmCanadianSalad | null>(null);
+	let saladState = $state<CanadianState | null>(null);
+	let saladHands = $state<CardType[][]>([]);
+	let saladRoundHistory = $state<RoundScore[]>([]);
 
-  $effect(() => {
-    init().then(() => {
-      wasmReady = true;
-      resetOhWell();
-    });
-  });
+	// Iroh state
+	let irohNode = $state<IrohNode | null>(null);
+	let endpointId = $state<string>('');
+	let currentTicket = $state<string>('');
+	let joinTicketInput = $state<string>('');
+	let irohRoom = $state<any>(null);
+	let networkStatus = $state<string>('Not initialized');
+	let networkMessages = $state<{ from: string; payload: string }[]>([]);
+	let broadcastMsg = $state<string>('{"type":"ping","message":"Hello from Cards Iroh!"}');
+	let copied = $state(false);
 
-  function resetOhWell() {
-    try {
-      gameError = '';
-      const seed = Math.floor(Math.random() * 1000000);
-      ohWellEngine = new WasmOhWell(ohWellPlayers, seed);
-      updateOhWell();
-    } catch (e: any) {
-      gameError = e.message;
-    }
-  }
+	$effect(() => {
+		init().then(() => {
+			wasmReady = true;
+			resetOhWell();
+			resetCanadianSalad();
+		});
+	});
 
-  function updateOhWell() {
-    if (!ohWellEngine) return;
-    ohWellState = ohWellEngine.get_state() as OhWellState;
-    ohWellHands = ohWellEngine.get_hands() as Card[][];
-  }
+	function resetOhWell() {
+		const seed = Math.floor(Math.random() * 1000000);
+		ohWellEngine = new WasmOhWell(playerIds, seed);
+		ohWellRoundHistory = [];
+		syncOhWell();
+	}
 
-  function handleBid() {
-    if (!ohWellEngine || !ohWellState) return;
-    gameError = '';
-    const activePlayer = ohWellPlayers[ohWellState.current_turn_index];
-    try {
-      ohWellEngine.place_bid(activePlayer, bidInput);
-      updateOhWell();
-    } catch (e: any) {
-      gameError = e.message;
-    }
-  }
+	function syncOhWell() {
+		if (!ohWellEngine) return;
+		ohWellState = ohWellEngine.get_state() as OhWellState;
+		ohWellHands = ohWellEngine.get_hands() as CardType[][];
+	}
 
-  function handlePlayCard(card: Card) {
-    if (!ohWellEngine || !ohWellState) return;
-    gameError = '';
-    const activePlayer = ohWellPlayers[ohWellState.current_turn_index];
-    try {
-      ohWellEngine.play_card(activePlayer, card.suit, card.rank);
-      updateOhWell();
-    } catch (e: any) {
-      gameError = e.message;
-    }
-  }
+	function resetCanadianSalad() {
+		const seed = Math.floor(Math.random() * 1000000);
+		saladEngine = new WasmCanadianSalad(playerIds, seed);
+		saladRoundHistory = [];
+		syncCanadianSalad();
+	}
 
-  async function initIroh() {
-    if (!wasmReady) return;
-    networkStatus = 'Initializing Iroh Endpoint...';
-    try {
-      const node = await IrohNode.spawn();
-      irohNode = node;
-      endpointId = node.endpoint_id();
-      networkStatus = 'Iroh Endpoint active and bound to public relay';
-    } catch (e: any) {
-      networkStatus = `Error starting node: ${e.message}`;
-    }
-  }
+	function syncCanadianSalad() {
+		if (!saladEngine) return;
+		saladState = saladEngine.get_state() as CanadianState;
+		saladHands = saladEngine.get_hands() as CardType[][];
+	}
 
-  async function createIrohRoom() {
-    if (!irohNode) return;
-    networkStatus = 'Creating gossip topic...';
-    try {
-      const room = await irohNode.create_room();
-      irohRoom = room;
-      currentTicket = room.ticket();
-      networkStatus = `Room created! Topic: ${room.topic_id().slice(0, 16)}...`;
-      startListening(room);
-    } catch (e: any) {
-      networkStatus = `Error creating room: ${e.message}`;
-    }
-  }
+	function handleOhWellBid(bid: number) {
+		if (!ohWellEngine || !ohWellState) return;
+		const activeId = playerIds[ohWellState.current_turn_index];
+		try {
+			ohWellEngine.place_bid(activeId, bid);
+			syncOhWell();
+		} catch (e: any) {
+			console.error(e.message);
+		}
+	}
 
-  async function joinIrohRoom() {
-    if (!irohNode || !joinTicketInput) return;
-    networkStatus = 'Joining gossip topic via ticket...';
-    try {
-      const room = await irohNode.join_room(joinTicketInput.trim());
-      irohRoom = room;
-      currentTicket = joinTicketInput.trim();
-      networkStatus = `Joined room! Topic: ${room.topic_id().slice(0, 16)}...`;
-      startListening(room);
-    } catch (e: any) {
-      networkStatus = `Error joining room: ${e.message}`;
-    }
-  }
+	function handleOhWellPlay(card: CardType) {
+		if (!ohWellEngine || !ohWellState) return;
+		const activeId = playerIds[ohWellState.current_turn_index];
+		try {
+			ohWellEngine.play_card(activeId, card.suit, card.rank);
+			syncOhWell();
 
-  async function startListening(room: any) {
-    try {
-      const stream = room.take_stream();
-      const reader = stream.getReader();
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value && value.type === 'message') {
-          networkMessages = [...networkMessages, { from: value.from, payload: value.payload }];
-        }
-      }
-    } catch (e: any) {
-      console.log('Stream error / closed', e);
-    }
-  }
+			if (ohWellState.phase === 'roundover') {
+				ohWellRoundHistory = [
+					...ohWellRoundHistory,
+					{
+						round: ohWellState.round_index,
+						label: `Round ${ohWellState.round_index + 1} (${ohWellState.cards_per_player} cards)`,
+						scores: playerIds.map((id, i) => ({
+							playerId: id,
+							points: ohWellState!.scores[i]
+						}))
+					}
+				];
+			}
+		} catch (e: any) {
+			console.error(e.message);
+		}
+	}
 
-  async function broadcastMessage() {
-    if (!irohRoom) return;
-    try {
-      await irohRoom.broadcast(broadcastMsg);
-    } catch (e: any) {
-      networkStatus = `Broadcast error: ${e.message}`;
-    }
-  }
+	function handleNextOhWellRound() {
+		if (!ohWellEngine || !ohWellState) return;
+		ohWellEngine.start_round(ohWellState.round_index + 1);
+		syncOhWell();
+	}
 
-  const rankNames: Record<number, string> = {
-    11: 'J',
-    12: 'Q',
-    13: 'K',
-    14: 'A',
-  };
+	function handleSaladPlay(card: CardType) {
+		if (!saladEngine || !saladState) return;
+		const activeId = playerIds[saladState.current_turn_index];
+		try {
+			saladEngine.play_card(activeId, card.suit, card.rank);
+			syncCanadianSalad();
 
-  const suitSymbols: Record<string, string> = {
-    hearts: '♥',
-    diamonds: '♦',
-    clubs: '♣',
-    spades: '♠',
-  };
+			if (saladState.phase === 'roundover') {
+				saladRoundHistory = [
+					...saladRoundHistory,
+					{
+						round: saladState.round_index,
+						label: saladState.hand_type,
+						scores: playerIds.map((id, i) => ({
+							playerId: id,
+							points: saladState!.scores[i]
+						}))
+					}
+				];
+			}
+		} catch (e: any) {
+			console.error(e.message);
+		}
+	}
 
-  const suitColors: Record<string, string> = {
-    hearts: '#ef4444',
-    diamonds: '#38bdf8',
-    clubs: '#22c55e',
-    spades: '#e2e8f0',
-  };
+	function handleNextSaladRound() {
+		if (!saladEngine || !saladState) return;
+		saladEngine.start_round(saladState.round_index + 1);
+		syncCanadianSalad();
+	}
+
+	// Calculate hook bid for Oh Well dealer
+	const hookBid = $derived.by(() => {
+		if (!ohWellState || ohWellState.phase !== 'bidding') return null;
+		const isDealer = ohWellState.current_turn_index === ohWellState.dealer_index;
+		if (!isDealer) return null;
+		const totalBids = ohWellState.bids.reduce((sum, b) => sum + b.bid, 0);
+		const hook = ohWellState.cards_per_player - totalBids;
+		return hook >= 0 && hook <= ohWellState.cards_per_player ? hook : null;
+	});
+
+	// Trick formatting
+	function formatTrick(tricks: { player_id: string; card: CardType }[]): TrickPlay[] {
+		return tricks.map((t) => ({ playerId: t.player_id, card: t.card }));
+	}
+
+	// Playable cards calculation
+	function getPlayableCards(hand: CardType[], currentTrick: { card: CardType }[]): CardType[] {
+		if (currentTrick.length === 0) return hand;
+		const ledSuit = currentTrick[0].card.suit;
+		const hasSuit = hand.some((c) => c.suit === ledSuit);
+		if (hasSuit) {
+			return hand.filter((c) => c.suit === ledSuit);
+		}
+		return hand;
+	}
+
+	// Iroh functions
+	async function initIroh() {
+		if (!wasmReady) return;
+		networkStatus = 'Binding to Iroh public relay...';
+		try {
+			const node = await IrohNode.spawn();
+			irohNode = node;
+			endpointId = node.endpoint_id();
+			networkStatus = 'Iroh Node active and connected';
+		} catch (e: any) {
+			networkStatus = `Error: ${e.message}`;
+		}
+	}
+
+	async function createIrohRoom() {
+		if (!irohNode) return;
+		networkStatus = 'Creating encrypted topic overlay...';
+		try {
+			const room = await irohNode.create_room();
+			irohRoom = room;
+			currentTicket = room.ticket();
+			networkStatus = `Room active! Topic: ${room.topic_id().slice(0, 12)}...`;
+			listenStream(room);
+		} catch (e: any) {
+			networkStatus = `Error: ${e.message}`;
+		}
+	}
+
+	async function joinIrohRoom() {
+		if (!irohNode || !joinTicketInput) return;
+		networkStatus = 'Joining room overlay...';
+		try {
+			const room = await irohNode.join_room(joinTicketInput.trim());
+			irohRoom = room;
+			currentTicket = joinTicketInput.trim();
+			networkStatus = `Joined room! Topic: ${room.topic_id().slice(0, 12)}...`;
+			listenStream(room);
+		} catch (e: any) {
+			networkStatus = `Error: ${e.message}`;
+		}
+	}
+
+	async function listenStream(room: any) {
+		try {
+			const stream = room.take_stream();
+			const reader = stream.getReader();
+			while (true) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				if (value && value.type === 'message') {
+					networkMessages = [...networkMessages, { from: value.from, payload: value.payload }];
+				}
+			}
+		} catch (e: any) {
+			console.log('Stream ended', e);
+		}
+	}
+
+	async function broadcastIrohMsg() {
+		if (!irohRoom) return;
+		try {
+			await irohRoom.broadcast(broadcastMsg);
+		} catch (e: any) {
+			networkStatus = `Broadcast failed: ${e.message}`;
+		}
+	}
+
+	function copyTicket() {
+		navigator.clipboard.writeText(currentTicket);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 </script>
 
-<header style="background: var(--card-bg); padding: 1rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-  <div>
-    <h1 style="font-size: 1.25rem; font-weight: bold; color: var(--primary);">Cards &middot; Iroh + Rust WASM</h1>
-    <p style="font-size: 0.85rem; color: var(--muted);">100% Free Zero-Database P2P Card Engine</p>
-  </div>
-  <nav style="display: flex; gap: 0.5rem;">
-    <button
-      style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: {activeTab === 'oh-well' ? 'var(--primary)' : 'transparent'}; color: {activeTab === 'oh-well' ? '#0f172a' : 'var(--text)'}; cursor: pointer;"
-      onclick={() => (activeTab = 'oh-well')}
-    >
-      Oh Well Engine
-    </button>
-    <button
-      style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: {activeTab === 'iroh' ? 'var(--primary)' : 'transparent'}; color: {activeTab === 'iroh' ? '#0f172a' : 'var(--text)'}; cursor: pointer;"
-      onclick={() => (activeTab = 'iroh')}
-    >
-      Iroh P2P Networking
-    </button>
-  </nav>
-</header>
+<div class="min-h-screen bg-background text-foreground flex flex-col">
+	<nav class="border-b border-border px-4 py-2 flex justify-between items-center gap-2">
+		<div class="flex items-center gap-3">
+			<h1 class="text-sm font-bold tracking-tight">Cards &middot; Iroh P2P</h1>
+			<div class="flex gap-1">
+				<Button
+					variant={activeTab === 'oh-well' ? 'default' : 'ghost'}
+					size="sm"
+					class="h-7 text-xs px-2"
+					onclick={() => (activeTab = 'oh-well')}
+				>
+					Oh Well
+				</Button>
+				<Button
+					variant={activeTab === 'canadian-salad' ? 'default' : 'ghost'}
+					size="sm"
+					class="h-7 text-xs px-2"
+					onclick={() => (activeTab = 'canadian-salad')}
+				>
+					Canadian Salad
+				</Button>
+				<Button
+					variant={activeTab === 'iroh' ? 'default' : 'ghost'}
+					size="sm"
+					class="h-7 text-xs px-2"
+					onclick={() => (activeTab = 'iroh')}
+				>
+					Iroh Swarm
+				</Button>
+			</div>
+		</div>
 
-<main style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem; width: 100%;">
-  {#if !wasmReady}
-    <div style="text-align: center; padding: 4rem; color: var(--muted);">
-      Loading Rust WASM Module...
-    </div>
-  {:else if activeTab === 'oh-well'}
-    {#if gameError}
-      <div style="background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; color: #fca5a5;">
-        {gameError}
-      </div>
-    {/if}
+		<div>
+			{#if activeTab === 'oh-well' && ohWellState}
+				<Badge variant="outline" class="text-xs">
+					Hand {ohWellState.round_index + 1}/{ohWellState.total_rounds}: {ohWellState.cards_per_player} Cards
+				</Badge>
+			{:else if activeTab === 'canadian-salad' && saladState}
+				<Badge variant="outline" class="text-xs">
+					Hand {saladState.round_index + 1}/6: {saladState.hand_type}
+				</Badge>
+			{/if}
+		</div>
+	</nav>
 
-    {#if ohWellState}
-      <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <div>
-            <h2 style="font-size: 1.1rem; font-weight: bold;">Round {ohWellState.round_index + 1} of {ohWellState.total_rounds}</h2>
-            <p style="color: var(--muted); font-size: 0.9rem;">
-              Cards this round: <strong>{ohWellState.cards_per_player}</strong> |
-              Dealer: <strong>{ohWellPlayers[ohWellState.dealer_index]}</strong> |
-              Trump Suit:
-              {#if ohWellState.trump_suit}
-                <strong style="color: {suitColors[ohWellState.trump_suit]}">{suitSymbols[ohWellState.trump_suit]} {ohWellState.trump_suit}</strong>
-              {:else}
-                <em>None</em>
-              {/if}
-            </p>
-          </div>
-          <div>
-            <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; background: rgba(56, 189, 248, 0.15); color: var(--primary); font-size: 0.85rem; font-weight: 600;">
-              Phase: {ohWellState.phase.toUpperCase()}
-            </span>
-          </div>
-        </div>
+	{#if !wasmReady}
+		<div class="flex-1 flex items-center justify-center">
+			<p class="text-muted-foreground animate-pulse text-sm">Loading Rust WASM Game Engine...</p>
+		</div>
+	{:else if activeTab === 'oh-well' && ohWellState}
+		<OhWellTrumpBanner trumpSuit={ohWellState.trump_suit} trumpCard={ohWellState.trump_card} />
 
-        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-          {#each ohWellPlayers as player, i}
-            <div style="flex: 1; padding: 0.75rem; border: 1px solid {ohWellState.current_turn_index === i ? 'var(--primary)' : 'var(--border)'}; border-radius: 6px; background: {ohWellState.current_turn_index === i ? 'rgba(56, 189, 248, 0.05)' : 'transparent'};">
-              <div style="font-weight: bold; font-size: 0.95rem;">{player} {ohWellState.dealer_index === i ? '👑' : ''}</div>
-              <div style="font-size: 0.85rem; color: var(--muted);">
-                Bid: {ohWellState.bids.find(b => b.player_id === player)?.bid ?? '-'} | Won: {ohWellState.tricks_won[i]}
-              </div>
-              <div style="font-size: 0.85rem; color: var(--accent);">Score: {ohWellState.cumulative_scores[i]}</div>
-            </div>
-          {/each}
-        </div>
+		<main class="flex-1 flex flex-col justify-between p-2 max-w-4xl mx-auto w-full">
+			<!-- Table Seating Area -->
+			<div class="flex flex-wrap justify-center gap-x-6 gap-y-2 px-2 py-2">
+				{#each playerIds as id, i (id)}
+					{@const isTurn = ohWellState.current_turn_index === i}
+					{@const isDealer = ohWellState.dealer_index === i}
+					{@const bid = ohWellState.bids.find((b) => b.player_id === id)?.bid}
+					{@const won = ohWellState.tricks_won[i]}
+					{@const total = ohWellState.cumulative_scores[i]}
+					<div
+						class="flex flex-col items-center min-w-[70px] rounded-md px-2 py-1 border transition-all"
+						class:border-primary={isTurn}
+						class:bg-primary-5={isTurn}
+						class:border-border={!isTurn}
+					>
+						<span class="flex items-center gap-1 text-xs font-semibold" class:text-success={isTurn}>
+							{playerNames[id]}
+							{#if isDealer}<span title="Dealer">👑</span>{/if}
+						</span>
+						<span class="text-[10px] text-muted-foreground font-mono">
+							Bid: {bid ?? '-'}/Won: {won}
+						</span>
+						<span class="text-[10px] text-accent font-bold font-mono">
+							{total} pts
+						</span>
+					</div>
+				{/each}
+			</div>
 
-        <!-- Bidding action -->
-        {#if ohWellState.phase === 'bidding'}
-          <div style="padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 6px; display: flex; align-items: center; gap: 1rem;">
-            <span>{ohWellPlayers[ohWellState.current_turn_index]}'s Turn to Bid (0 to {ohWellState.cards_per_player}):</span>
-            <input
-              type="number"
-              min="0"
-              max={ohWellState.cards_per_player}
-              bind:value={bidInput}
-              style="width: 70px; padding: 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px;"
-            />
-            <button
-              style="padding: 0.4rem 1rem; background: var(--primary); color: #0f172a; font-weight: 600; border: none; border-radius: 4px; cursor: pointer;"
-              onclick={handleBid}
-            >
-              Submit Bid
-            </button>
-          </div>
-        {/if}
+			<!-- Center Trick Area -->
+			<div class="my-auto">
+				<TrickArea
+					plays={formatTrick(ohWellState.current_trick)}
+					lastCompleteTrick={formatTrick(ohWellState.completed_tricks.at(-1) ?? [])}
+					{playerNames}
+					gameId="oh-well"
+					trumpSuit={ohWellState.trump_suit}
+				/>
+				<LastTrick
+					plays={formatTrick(ohWellState.completed_tricks.at(-1) ?? [])}
+					winnerName={null}
+				/>
+			</div>
 
-        <!-- Current Trick -->
-        <div style="margin-top: 1.5rem;">
-          <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Current Trick ({ohWellState.current_trick.length} of {ohWellPlayers.length} played):</h3>
-          <div style="display: flex; gap: 0.5rem; min-height: 70px; align-items: center;">
-            {#if ohWellState.current_trick.length === 0}
-              <span style="color: var(--muted); font-size: 0.9rem;">Waiting for lead card...</span>
-            {:else}
-              {#each ohWellState.current_trick as play}
-                <div style="padding: 0.5rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center;">
-                  <div style="font-size: 0.75rem; color: var(--muted);">{play.player_id}</div>
-                  <div style="font-size: 1.1rem; font-weight: bold; color: {suitColors[play.card.suit]};">
-                    {rankNames[play.card.rank] ?? play.card.rank}{suitSymbols[play.card.suit]}
-                  </div>
-                </div>
-              {/each}
-            {/if}
-          </div>
-        </div>
-      </div>
+			<!-- Bottom Hand Display -->
+			<div class="border-t border-border pt-2">
+				<div class="flex justify-between items-center px-4 pb-1 text-xs">
+					<span class="text-muted-foreground font-medium">
+						Playing as: <strong class="text-foreground">{playerNames[playerIds[ohWellState.current_turn_index]]}</strong>
+					</span>
+					<span class="text-muted-foreground font-mono text-[11px]">
+						Round {ohWellState.round_index + 1}
+					</span>
+				</div>
+				<HandDisplay
+					cards={ohWellHands[ohWellState.current_turn_index] ?? []}
+					playableCards={ohWellState.phase === 'playing'
+						? getPlayableCards(
+								ohWellHands[ohWellState.current_turn_index] ?? [],
+								ohWellState.current_trick
+							)
+						: []}
+					gameId="oh-well"
+					trumpSuit={ohWellState.trump_suit}
+					onCardPlayed={handleOhWellPlay}
+				/>
+			</div>
+		</main>
 
-      <!-- Active player hand -->
-      <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem;">
-        <h3 style="font-size: 1rem; font-weight: bold; margin-bottom: 1rem;">
-          Active Player Hand: {ohWellPlayers[ohWellState.current_turn_index]}
-        </h3>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-          {#each ohWellHands[ohWellState.current_turn_index] ?? [] as card}
-            <button
-              style="padding: 0.75rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: {ohWellState.phase === 'playing' ? 'pointer' : 'default'}; text-align: center; min-width: 60px;"
-              disabled={ohWellState.phase !== 'playing'}
-              onclick={() => handlePlayCard(card)}
-            >
-              <div style="font-size: 1.25rem; font-weight: bold; color: {suitColors[card.suit]};">
-                {rankNames[card.rank] ?? card.rank}{suitSymbols[card.suit]}
-              </div>
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
-  {:else if activeTab === 'iroh'}
-    <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem;">
-      <h2 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">Iroh P2P Gossip Swarm</h2>
-      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
-        Browser nodes connect end-to-end encrypted through the free public Iroh relay, exchanging moves with zero centralized database.
-      </p>
+		<!-- Bidding Overlay -->
+		{#if ohWellState.phase === 'bidding'}
+			<OhWellBidding
+				cardsPerPlayer={ohWellState.cards_per_player}
+				trumpSuit={ohWellState.trump_suit}
+				myHand={ohWellHands[ohWellState.current_turn_index] ?? []}
+				{playerNames}
+				existingBids={ohWellState.bids}
+				{hookBid}
+				isMyTurn={true}
+				currentBidderName={playerNames[playerIds[ohWellState.current_turn_index]]}
+				onBid={handleOhWellBid}
+			/>
+		{/if}
 
-      <div style="padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1.5rem;">
-        <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem;">Node Status:</div>
-        <div style="font-weight: 600; color: var(--primary);">{networkStatus}</div>
-        {#if endpointId}
-          <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; word-break: break-all;">
-            My Endpoint ID: <span style="color: var(--text); font-family: monospace;">{endpointId}</span>
-          </div>
-        {/if}
-      </div>
+		<!-- Round Over Results Overlay -->
+		{#if ohWellState.phase === 'roundover'}
+			<RoundScoreOverlay
+				handLabel={`Round ${ohWellState.round_index + 1} (${ohWellState.cards_per_player} Cards)`}
+				scores={playerIds.map((id, i) => ({
+					playerId: id,
+					points: ohWellState!.scores[i]
+				}))}
+				{playerNames}
+				onContinue={handleNextOhWellRound}
+			/>
+		{/if}
 
-      {#if !irohNode}
-        <button
-          style="padding: 0.6rem 1.2rem; background: var(--primary); color: #0f172a; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;"
-          onclick={initIroh}
-        >
-          Initialize Iroh Node
-        </button>
-      {:else}
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-          <button
-            style="padding: 0.6rem 1.2rem; background: var(--accent); color: #0f172a; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;"
-            onclick={createIrohRoom}
-          >
-            Create New Room
-          </button>
-          <div style="display: flex; flex: 1; gap: 0.5rem;">
-            <input
-              type="text"
-              placeholder="Paste ticket to join..."
-              bind:value={joinTicketInput}
-              style="flex: 1; padding: 0.5rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-family: monospace; font-size: 0.85rem;"
-            />
-            <button
-              style="padding: 0.6rem 1.2rem; background: var(--primary); color: #0f172a; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;"
-              onclick={joinIrohRoom}
-            >
-              Join Room
-            </button>
-          </div>
-        </div>
+		<!-- Game Over Overlay -->
+		{#if ohWellState.phase === 'gameover'}
+			<GameOverOverlay
+				{playerNames}
+				{playerIds}
+				rounds={ohWellRoundHistory}
+				onRestart={resetOhWell}
+			/>
+		{/if}
+	{:else if activeTab === 'canadian-salad' && saladState}
+		<CanadianSaladPenalties handType={saladState.hand_type} />
 
-        {#if currentTicket}
-          <div style="padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1.5rem;">
-            <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem;">Shareable Room Ticket:</div>
-            <textarea
-              readonly
-              rows="3"
-              style="width: 100%; padding: 0.5rem; background: var(--card-bg); border: 1px solid var(--border); color: var(--accent); font-family: monospace; font-size: 0.75rem; border-radius: 4px;"
-            >{currentTicket}</textarea>
-          </div>
-        {/if}
+		<main class="flex-1 flex flex-col justify-between p-2 max-w-4xl mx-auto w-full">
+			<!-- Table Seating Area -->
+			<div class="flex flex-wrap justify-center gap-x-6 gap-y-2 px-2 py-2">
+				{#each playerIds as id, i (id)}
+					{@const isTurn = saladState.current_turn_index === i}
+					{@const isDealer = saladState.dealer_index === i}
+					{@const won = saladState.tricks_won[i]}
+					{@const total = saladState.cumulative_scores[i]}
+					<div
+						class="flex flex-col items-center min-w-[70px] rounded-md px-2 py-1 border transition-all"
+						class:border-primary={isTurn}
+						class:bg-primary-5={isTurn}
+						class:border-border={!isTurn}
+					>
+						<span class="flex items-center gap-1 text-xs font-semibold" class:text-success={isTurn}>
+							{playerNames[id]}
+							{#if isDealer}<span title="Dealer">👑</span>{/if}
+						</span>
+						<span class="text-[10px] text-muted-foreground font-mono">
+							Tricks: {won}
+						</span>
+						<span class="text-[10px] text-destructive font-bold font-mono">
+							{total} pts
+						</span>
+					</div>
+				{/each}
+			</div>
 
-        {#if irohRoom}
-          <div style="margin-top: 1.5rem;">
-            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Broadcast Message to Room:</h3>
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-              <input
-                type="text"
-                bind:value={broadcastMsg}
-                style="flex: 1; padding: 0.5rem; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-family: monospace; font-size: 0.85rem;"
-              />
-              <button
-                style="padding: 0.5rem 1rem; background: var(--primary); color: #0f172a; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;"
-                onclick={broadcastMessage}
-              >
-                Send
-              </button>
-            </div>
+			<!-- Center Trick Area -->
+			<div class="my-auto">
+				<TrickArea
+					plays={formatTrick(saladState.current_trick)}
+					lastCompleteTrick={formatTrick(saladState.completed_tricks.at(-1) ?? [])}
+					{playerNames}
+					gameId="canadian-salad"
+					handType={saladState.hand_type}
+				/>
+				<LastTrick
+					plays={formatTrick(saladState.completed_tricks.at(-1) ?? [])}
+					winnerName={null}
+				/>
+			</div>
 
-            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Incoming Gossip Messages:</h3>
-            <div style="max-height: 200px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem;">
-              {#if networkMessages.length === 0}
-                <span style="color: var(--muted); font-size: 0.85rem;">No messages received yet.</span>
-              {:else}
-                {#each networkMessages as msg}
-                  <div style="font-size: 0.85rem; padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: monospace;">
-                    <strong style="color: var(--primary);">{msg.from.slice(0, 10)}...:</strong> {msg.payload}
-                  </div>
-                {/each}
-              {/if}
-            </div>
-          </div>
-        {/if}
-      {/if}
-    </div>
-  {/if}
-</main>
+			<!-- Bottom Hand Display -->
+			<div class="border-t border-border pt-2">
+				<div class="flex justify-between items-center px-4 pb-1 text-xs">
+					<span class="text-muted-foreground font-medium">
+						Playing as: <strong class="text-foreground">{playerNames[playerIds[saladState.current_turn_index]]}</strong>
+					</span>
+					<span class="text-muted-foreground font-mono text-[11px]">
+						{saladState.hand_type}
+					</span>
+				</div>
+				<HandDisplay
+					cards={saladHands[saladState.current_turn_index] ?? []}
+					playableCards={saladState.phase === 'playing'
+						? getPlayableCards(
+								saladHands[saladState.current_turn_index] ?? [],
+								saladState.current_trick
+							)
+						: []}
+					gameId="canadian-salad"
+					handType={saladState.hand_type}
+					onCardPlayed={handleSaladPlay}
+				/>
+			</div>
+		</main>
+
+		<!-- Round Over Results Overlay -->
+		{#if saladState.phase === 'roundover'}
+			<RoundScoreOverlay
+				handLabel={`Round ${saladState.round_index + 1}: ${saladState.hand_type}`}
+				scores={playerIds.map((id, i) => ({
+					playerId: id,
+					points: saladState!.scores[i]
+				}))}
+				{playerNames}
+				onContinue={handleNextSaladRound}
+			/>
+		{/if}
+
+		<!-- Game Over Overlay -->
+		{#if saladState.phase === 'gameover'}
+			<GameOverOverlay
+				{playerNames}
+				{playerIds}
+				rounds={saladRoundHistory}
+				onRestart={resetCanadianSalad}
+			/>
+		{/if}
+	{:else if activeTab === 'iroh'}
+		<div class="max-w-2xl mx-auto p-4 w-full">
+			<Card>
+				<CardHeader>
+					<CardTitle>Iroh P2P Gossip Swarm</CardTitle>
+					<p class="text-sm text-muted-foreground">
+						Zero-database serverless networking running directly in your browser via WebAssembly and public relay.
+					</p>
+				</CardHeader>
+				<CardContent class="space-y-4">
+					<div class="p-3 bg-muted/40 rounded-lg border text-xs space-y-1">
+						<div class="font-semibold text-primary">{networkStatus}</div>
+						{#if endpointId}
+							<div class="text-muted-foreground break-all font-mono text-[11px]">
+								Endpoint ID: {endpointId}
+							</div>
+						{/if}
+					</div>
+
+					{#if !irohNode}
+						<Button onclick={initIroh} class="w-full">
+							Initialize Iroh Node
+						</Button>
+					{:else}
+						<div class="flex gap-2">
+							<Button variant="default" onclick={createIrohRoom}>
+								Create Room
+							</Button>
+							<input
+								type="text"
+								placeholder="Paste room ticket..."
+								bind:value={joinTicketInput}
+								class="flex-1 px-3 py-1.5 rounded-md border bg-background text-xs font-mono"
+							/>
+							<Button variant="secondary" onclick={joinIrohRoom}>
+								Join
+							</Button>
+						</div>
+
+						{#if currentTicket}
+							<div class="space-y-1 p-3 bg-muted/20 border rounded-lg">
+								<div class="flex justify-between items-center text-xs">
+									<span class="text-muted-foreground font-medium">Room Ticket:</span>
+									<Button variant="outline" size="sm" class="h-6 text-[10px]" onclick={copyTicket}>
+										{copied ? 'Copied!' : 'Copy Ticket'}
+									</Button>
+								</div>
+								<textarea
+									readonly
+									rows="2"
+									class="w-full p-2 text-[10px] font-mono bg-background border rounded resize-none text-emerald-400"
+								>{currentTicket}</textarea>
+							</div>
+						{/if}
+
+						{#if irohRoom}
+							<div class="space-y-2 pt-2 border-t">
+								<div class="flex gap-2">
+									<input
+										type="text"
+										bind:value={broadcastMsg}
+										class="flex-1 px-3 py-1.5 rounded-md border bg-background text-xs font-mono"
+									/>
+									<Button size="sm" onclick={broadcastIrohMsg}>
+										Broadcast
+									</Button>
+								</div>
+
+								<div class="space-y-1">
+									<p class="text-xs font-semibold text-muted-foreground">Received Messages:</p>
+									<div class="max-h-40 overflow-y-auto p-2 bg-background border rounded-md text-xs font-mono space-y-1">
+										{#if networkMessages.length === 0}
+											<span class="text-muted-foreground italic text-[11px]">No messages yet</span>
+										{:else}
+											{#each networkMessages as msg}
+												<div class="text-[11px] pb-1 border-b border-border/20">
+													<strong class="text-primary">{msg.from.slice(0, 8)}...:</strong> {msg.payload}
+												</div>
+											{/each}
+										{/if}
+									</div>
+								</div>
+							</div>
+						{/if}
+					{/if}
+				</CardContent>
+			</Card>
+		</div>
+	{/if}
+</div>

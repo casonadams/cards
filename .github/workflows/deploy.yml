@@ -22,14 +22,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          targets: wasm32-unknown-unknown
+          target: wasm32-unknown-unknown
 
       - name: Install wasm-bindgen-cli
-        run: |
-          cargo install wasm-bindgen-cli --version 0.2.129
-
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.129
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -47,10 +47,7 @@ jobs:
           cargo test --workspace
 
       - name: Build WASM
-        run: |
-          cargo build --package cards-wasm --target wasm32-unknown-unknown --release
-          wasm-bindgen --target web --out-dir web/src/wasm target/wasm32-unknown-unknown/release/cards_wasm.wasm
-
+        run: make build-wasm
       - name: Install web dependencies
         working-directory: ./web
         run: pnpm install

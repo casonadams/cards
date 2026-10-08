@@ -38,7 +38,6 @@
 	import NavBar from '$lib/components/nav-bar.svelte';
 	import RoomLobby from '$lib/components/room-lobby.svelte';
 	import GameSession from '$lib/components/game-session.svelte';
-	import OhWellBidding from '$lib/components/oh-well-bidding.svelte';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Input } from '$lib/components/ui/input/index';
@@ -117,7 +116,7 @@
 	const gs = $derived(deriveRoomGs({ gameDoc, player: myPlayer, room, playerIds, runtime }));
 	const ohWellUi = $derived(isOhWell && gs ? getOhWellUiState(gs) : null);
 	const trumpSuit = $derived(ohWellUi?.trumpSuit ?? null);
-	const showOhWellBidding = $derived(isOhWell && gs && isOhWellBiddingPhase(gs));
+	const showOhWellBidding = $derived(Boolean(isOhWell && gs && isOhWellBiddingPhase(gs)));
 	const otherPlayers = $derived((room?.players ?? []).filter((p) => p.id !== myPlayer.id));
 
 	const aiDeps = $derived({ isHost, gameDoc, gs, playerIds, runtime, actions });
@@ -450,16 +449,9 @@
 			{onNextRound}
 			onBackToLobby={handleBackToLobby}
 			{onLeave}
+			showBidding={showOhWellBidding}
+			onBid={onOhWellBid}
 		/>
-
-		{#if showOhWellBidding && ohWellUi}
-			<OhWellBidding
-				uiState={ohWellUi}
-				myHand={gs.myRemainingHand}
-				{playerNames}
-				onBid={onOhWellBid}
-			/>
-		{/if}
 	{:else}
 		<div class="flex items-center justify-center min-h-[50vh]">
 			<p class="text-muted-foreground text-sm animate-pulse">Initializing game session...</p>

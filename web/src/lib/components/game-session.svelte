@@ -22,6 +22,8 @@
 		onNextRound: () => void;
 		onBackToLobby: () => void;
 		onLeave: () => void;
+		showBidding?: boolean;
+		onBid?: (bid: number) => void;
 	}
 
 	let {
@@ -40,7 +42,9 @@
 		onCardPlayed,
 		onNextRound,
 		onBackToLobby,
-		onLeave
+		onLeave,
+		showBidding = false,
+		onBid
 	}: Props = $props();
 
 	const prevTotals = $derived(
@@ -79,6 +83,12 @@
 	previousTotals={prevTotals}
 	{onCardPlayed}
 	{onLeave}
+	{showBidding}
+	{onBid}
+	isRoundComplete={gs.isRoundComplete}
+	roundScores={gs.roundScores}
+	{isHost}
+	{onNextRound}
 />
 <GameOverlays
 	{gameId}

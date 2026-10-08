@@ -5,10 +5,12 @@
 	import TrickArea from './trick-area.svelte';
 	import LastTrick from './last-trick.svelte';
 	import GameTableFooter from './game-table-footer.svelte';
+	import OhWellBidding from './oh-well-bidding.svelte';
+	import RoundScoreOverlay from './round-score-overlay.svelte';
 	import { playerStatLine, teamFor, type StatContext } from './game-table-stats';
 	import CanadianSaladPenalties from './canadian-salad-penalties.svelte';
 	import OhWellTrumpBanner from './oh-well-trump-banner.svelte';
-	import type { Card, RoomPlayer, PlayerStats } from '$lib/platform/types/index';
+	import type { Card, RoomPlayer, PlayerStats, ScoreEntry } from '$lib/platform/types/index';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 	import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
 	import type { RookUiState } from '$lib/games/rook/ui-state';
@@ -36,6 +38,12 @@
 		myId: string;
 		onCardPlayed: (card: Card) => void;
 		onLeave: () => void;
+		showBidding?: boolean;
+		onBid?: (bid: number) => void;
+		isRoundComplete?: boolean;
+		roundScores?: readonly ScoreEntry[] | null;
+		isHost?: boolean;
+		onNextRound?: () => void;
 	}
 
 	let {
@@ -60,7 +68,13 @@
 		previousTotals,
 		myId,
 		onCardPlayed,
-		onLeave
+		onLeave,
+		showBidding = false,
+		onBid,
+		isRoundComplete = false,
+		roundScores = null,
+		isHost = false,
+		onNextRound
 	}: Props = $props();
 
 	let showRules = $state(false);
@@ -197,17 +211,32 @@
 
 	<!-- Centered Playing Arena -->
 	<div class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-4xl mx-auto px-2 py-2 gap-3">
-		<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} />
-		<LastTrick
-			plays={lastCompleteTrick}
-			winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
-			{gameId}
-		/>
+		{#if showBidding && ohWellUi && onBid}
+			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
+		{:else if isRoundComplete && roundScores && onNextRound}
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} isRoundComplete={true} />
+			<RoundScoreOverlay
+				{gameId}
+				handLabel="Hand {currentRound + 1}: {roundLabel}"
+				scores={roundScores}
+				{playerNames}
+				onContinue={onNextRound}
+				{isHost}
+				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
+			/>
+		{:else}
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} />
+			<LastTrick
+				plays={lastCompleteTrick}
+				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
+				{gameId}
+			/>
+		{/if}
 	</div>
 
 	<!-- Bottom Player Hand Container -->
 	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible">
-		<HandDisplay cards={myCards} {playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />
+		<HandDisplay cards={myCards} playableCards={showBidding ? myCards : playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />
 	</div>
 </main>
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import RoundScoreOverlay from './round-score-overlay.svelte';
 	import GameOverOverlay from './game-over-overlay.svelte';
 	import type { ScoreEntry } from '$lib/platform/types/index';
 	import type { RoundScore } from '$lib/platform/stores/room-store';
@@ -33,16 +32,6 @@
 	}: Props = $props();
 </script>
 
-{#if isRoundComplete && !isGameOver && roundScores}
-	<RoundScoreOverlay
-		{gameId}
-		{handLabel}
-		scores={roundScores}
-		{playerNames}
-		onContinue={onNextRound}
-		{isHost}
-	/>
-{/if}
 
 {#if isGameOver && roundScores}
 	<GameOverOverlay {gameId} {playerNames} {playerIds} rounds={allRounds} {onBackToLobby} />

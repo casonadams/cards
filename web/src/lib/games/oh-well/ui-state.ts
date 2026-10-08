@@ -10,4 +10,6 @@ export interface OhWellUiState {
 	readonly canBid: boolean;
 	readonly hookBid: number | null;
 	readonly tricksTaken: Record<string, number>;
+	readonly leaderId: string;
+	readonly dealerId: string;
 }

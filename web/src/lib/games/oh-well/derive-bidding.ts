@@ -34,6 +34,7 @@ export function buildUiState(params: DeriveParams, rs: OhWellRoundState): OhWell
 		seed: params.seed + params.currentRound
 	});
 	const myIndex = params.playerIds.indexOf(params.myId);
+	const leaderIndex = (params.dealerIndex + 1) % params.playerCount;
 	return {
 		phase: rs.phase,
 		trumpSuit: rs.trumpSuit,
@@ -42,7 +43,9 @@ export function buildUiState(params: DeriveParams, rs: OhWellRoundState): OhWell
 		cardsPerPlayer: rs.cardsPerPlayer,
 		canBid: computeCanBid(rs, myIndex),
 		hookBid: computeHookBidValue(rs, params.playerCount),
-		tricksTaken: Object.fromEntries(getTricksTakenMap(params, rs))
+		tricksTaken: Object.fromEntries(getTricksTakenMap(params, rs)),
+		leaderId: params.playerIds[leaderIndex] ?? '',
+		dealerId: params.playerIds[params.dealerIndex] ?? ''
 	};
 }
 

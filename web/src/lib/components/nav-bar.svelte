@@ -43,6 +43,13 @@
 		spades: '♠'
 	};
 
+	const suitColors: Record<string, string> = {
+		hearts: 'text-rose-600',
+		diamonds: 'text-blue-600',
+		clubs: 'text-emerald-700',
+		spades: 'text-zinc-950'
+	};
+
 	function formatPenalty(type: string): string {
 		switch (type) {
 			case 'NO_TRICKS': return 'No Tricks (+10)';
@@ -108,12 +115,16 @@
 
 	<div class="flex items-center justify-center min-w-0">
 		{#if trumpSuit}
-			<div class="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold shadow-xs truncate">
+			<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold shadow-xs">
 				<span class="capitalize">Trump: {trumpSuit} {suitSymbols[trumpSuit] ?? ''}</span>
 				{#if trumpCard}
-					<span class="border-l border-amber-500/30 pl-1.5 text-[10px] sm:text-[11px] opacity-80 hidden xs:inline">
-						Cut: {RANK_NAMES[trumpCard.rank]}{suitSymbols[trumpCard.suit]}
-					</span>
+					<div class="flex items-center gap-1 border-l border-amber-500/30 pl-1.5 sm:pl-2">
+						<span class="text-[10px] sm:text-[11px] text-amber-300/80 font-medium">Cut:</span>
+						<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-zinc-950 font-black text-[10px] sm:text-[11px] border border-zinc-300 shadow-xs leading-none">
+							<span>{RANK_NAMES[trumpCard.rank]}</span>
+							<span class="ml-0.5 {suitColors[trumpCard.suit] ?? 'text-zinc-950'}">{suitSymbols[trumpCard.suit]}</span>
+						</span>
+					</div>
 				{/if}
 			</div>
 		{:else if handType}

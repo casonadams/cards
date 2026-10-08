@@ -30,7 +30,7 @@
 <div class="w-full max-w-lg mx-auto animate-in fade-in duration-200">
 	<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md overflow-hidden rounded-2xl border">
 		<div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 rounded-t-2xl shrink-0"></div>
-		<CardHeader class="pb-2 pt-3 px-4 sm:px-6 text-center">
+		<CardHeader class="pb-2 pt-3 px-4 sm:px-6">
 			<div class="flex items-center justify-between">
 				<Badge variant="outline" class="text-xs font-bold border-amber-500/30 bg-amber-500/10 text-amber-300">
 					{uiState.cardsPerPlayer}-Card Round — Bidding
@@ -43,13 +43,32 @@
 					<span class="text-xs text-muted-foreground">No Trump</span>
 				{/if}
 			</div>
+			{#if uiState.leaderId}
+				<div class="flex items-center justify-between mt-2 px-3 py-1.5 rounded-xl bg-background/60 border border-border/80 text-xs">
+					<div class="flex items-center gap-1.5">
+						<span class="text-emerald-400 font-black">🎯 1st Bid & Lead:</span>
+						<span class="font-extrabold text-foreground">{playerNames[uiState.leaderId] ?? uiState.leaderId}</span>
+					</div>
+					{#if uiState.dealerId}
+						<div class="flex items-center gap-1 text-[11px] text-muted-foreground">
+							<span>Dealer:</span>
+							<span class="font-bold text-foreground">{playerNames[uiState.dealerId] ?? uiState.dealerId}</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</CardHeader>
 		<CardContent class="gap-3 pt-1 px-4 sm:px-6 pb-4">
 			{#if uiState.bids.length > 0}
 				<div class="flex flex-wrap items-center justify-center gap-1.5 p-2 rounded-xl bg-background/50 border border-border/60">
 					<span class="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mr-1">Bids:</span>
 					{#each uiState.bids as bid (bid.playerId)}
-						<span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-card border border-border/80">
+						<span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full bg-card border border-border/80">
+							{#if bid.playerId === uiState.leaderId}
+								<span class="text-[10px] text-emerald-400" title="Bids 1st & leads">🎯</span>
+							{:else if bid.playerId === uiState.dealerId}
+								<span class="text-[10px] text-amber-400" title="Dealer (bids last)">🃏</span>
+							{/if}
 							<span class="font-semibold text-muted-foreground">{playerNames[bid.playerId] ?? bid.playerId}:</span>
 							<span class="font-mono font-black text-foreground">{bid.bid}</span>
 						</span>

@@ -82,11 +82,24 @@
 	const ctx = $derived<StatContext>({ gameId, allPlayerStats, previousTotals, ohWellUi, rookUi });
 	const myTeam = $derived(teamFor(rookUi, myId));
 
-	const leaderId = $derived(
-		trickPlays.length > 0
-			? trickPlays[0].playerId
-			: (playerIds[currentTurnIndex] ?? playerIds[0])
-	);
+	const initialLeaderId = $derived.by(() => {
+		if (isOhWell && ohWellUi?.leaderId) {
+			return ohWellUi.leaderId;
+		}
+		const dealerIdx = currentRound % playerIds.length;
+		const leaderIdx = (dealerIdx + 1) % playerIds.length;
+		return playerIds[leaderIdx] ?? playerIds[0];
+	});
+
+	const leaderId = $derived.by(() => {
+		if (showBidding) {
+			return initialLeaderId;
+		}
+		if (trickPlays.length > 0) {
+			return trickPlays[0].playerId;
+		}
+		return lastTrickWinnerId ?? initialLeaderId;
+	});
 
 	let roundScoreReady = $state(false);
 

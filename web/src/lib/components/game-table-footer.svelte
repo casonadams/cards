@@ -50,8 +50,7 @@
 	{:else}
 		<span class="text-[11px] text-muted-foreground/50 hidden sm:inline">Waiting for opponent...</span>
 	{/if}
-
-	<div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+	<div data-tricks-counter class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
 		{#if isOhWell}
 			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
 				<span class="text-muted-foreground">Tricks/Bid:</span>

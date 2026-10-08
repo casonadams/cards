@@ -89,15 +89,29 @@
 					const cRect = containerEl.getBoundingClientRect();
 					const centerX = cRect.left + cRect.width / 2;
 					const centerY = cRect.top + cRect.height / 2;
-					// Target the winner's player badge in the seating row (human or bot)
-					const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
-					if (winnerPill) {
-						const wRect = winnerPill.getBoundingClientRect();
-						targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
-						targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+					const isUserWinner = Boolean(myId && winnerId === myId);
+					if (isUserWinner) {
+						// User won: animate cards down to bottom-right of screen (personal trick pile next to footer tricks counter)
+						const footerStats = document.querySelector('[data-tricks-counter]') ?? document.querySelector('footer div.flex');
+						if (footerStats) {
+							const fRect = footerStats.getBoundingClientRect();
+							targetX = Math.round((fRect.left + fRect.width / 2) - centerX);
+							targetY = Math.round((fRect.top + fRect.height / 2) - centerY);
+						} else {
+							targetX = Math.round((window.innerWidth - 80) - centerX);
+							targetY = Math.round((window.innerHeight - 50) - centerY);
+						}
 					} else {
-						targetX = 0;
-						targetY = -220;
+						// Bot/opponent won: animate cards up to their avatar badge in the seating row
+						const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
+						if (winnerPill) {
+							const wRect = winnerPill.getBoundingClientRect();
+							targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+							targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+						} else {
+							targetX = 0;
+							targetY = -220;
+						}
 					}
 				}
 				animPhase = 'gathering';

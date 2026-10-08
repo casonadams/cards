@@ -12,6 +12,7 @@
 		trumpSuit?: string | null;
 		isRoundComplete?: boolean;
 		winnerId?: string | null;
+		winnerName?: string | null;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		handType = '',
 		trumpSuit = null,
 		isRoundComplete = false,
-		winnerId = null
+		winnerId = null,
+		winnerName = null
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
@@ -32,7 +34,7 @@
 	let targetY = $state(-220);
 
 	const shouldCollect = $derived(prevTrickLen > 0 && lastCompleteTrick.length > 0 && !isRoundComplete);
-	const collectDuration = 1000;
+	const collectDuration = 1100;
 	$effect(() => {
 		if (plays.length > 0) {
 			prevTrickLen = plays.length;
@@ -58,17 +60,6 @@
 				targetY = -220;
 			}
 
-			// Calculate individual card offsets to center so cards merge into a single card stack
-			const cols = containerEl.querySelectorAll('.trick-card-col');
-			cols.forEach((col) => {
-				const r = col.getBoundingClientRect();
-				const colCenterX = r.left + r.width / 2;
-				const colCenterY = r.top + r.height / 2;
-				const toCenterX = Math.round(centerX - colCenterX);
-				const toCenterY = Math.round(centerY - colCenterY);
-				(col as HTMLElement).style.setProperty('--to-center-x', `${toCenterX}px`);
-				(col as HTMLElement).style.setProperty('--to-center-y', `${toCenterY}px`);
-			});
 		}
 		collecting = true;
 		const t = setTimeout(() => (collecting = false), collectDuration);
@@ -92,7 +83,33 @@
 	style:--target-y={`${targetY}px`}
 >
 	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
-	{#if visible.length === 0}
+	{#if collecting}
+		<div class="relative z-20 flex flex-col items-center gap-3 animate-in fade-in duration-150">
+			{#if winnerName}
+				<div class="px-4 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in zoom-in-95 duration-150 whitespace-nowrap">
+					<span>{winnerName} won the trick!</span>
+				</div>
+			{/if}
+			<div
+				class="trick-deck-flyer relative w-[64px] h-[94px] sm:w-[84px] sm:h-[122px] mx-auto shadow-2xl"
+				style:--target-x={`${targetX}px`}
+				style:--target-y={`${targetY}px`}
+			>
+				{#each lastCompleteTrick as play, idx (play.playerId)}
+					{@const isWinnerCard = play.playerId === winnerId}
+					<div
+						class="absolute inset-0 rounded-lg shadow-md"
+						style:transform={`rotate(${(idx - (lastCompleteTrick.length - 1) / 2) * 5}deg) translate(${idx * 1.5}px, ${idx * -1.5}px)`}
+						style:z-index={isWinnerCard ? 20 : idx}
+					>
+						<div class={cn('w-full h-full rounded-lg', isWinnerCard && 'ring-2 ring-amber-400 border border-amber-400 shadow-amber-950/40')}>
+							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{:else if visible.length === 0}
 		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/60 select-none">
 			<div class="w-12 h-16 rounded-xl border-2 border-dashed border-emerald-500/30 flex items-center justify-center bg-emerald-950/20 shadow-inner">
 				<span class="text-sm font-bold opacity-75">♠</span>
@@ -100,23 +117,14 @@
 			<span class="text-xs font-semibold tracking-wider uppercase text-emerald-300/70">Waiting for lead</span>
 		</div>
 	{:else}
-		<div
-			class="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
-			class:trick-collecting={collecting}
-		>
-			{#each visible as play, idx (play.playerId)}
-				<div
-					class="trick-card-col flex flex-col items-center gap-1.5 transition-all"
-					style:--stack-rot={`${(idx - (visible.length - 1) / 2) * 6}deg`}
-					style:--stack-offset-x={`${(idx - (visible.length - 1) / 2) * 4}px`}
-					style:--stack-offset-y={`${idx * -3}px`}
-					style:z-index={idx}
-				>
+		<div class="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+			{#each visible as play (play.playerId)}
+				<div class="flex flex-col items-center gap-1.5 transition-all">
 					<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
 						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 					</div>
 					<span
-						class="trick-player-label bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full transition-opacity duration-150"
+						class="bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full"
 						title={playerNames[play.playerId] ?? '?'}
 					>
 						{getFirstName(playerNames[play.playerId] ?? '?')}
@@ -128,29 +136,21 @@
 </div>
 
 <style>
-	.trick-collecting {
+	.trick-deck-flyer {
 		pointer-events: none;
+		animation: flyDeckToWinner 1100ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
 	}
-	.trick-collecting .trick-player-label {
-		opacity: 0;
-		transition: opacity 120ms ease-out;
-	}
-	.trick-collecting .trick-card-col {
-		animation: collectCard 950ms cubic-bezier(0.2, 0.9, 0.35, 1) forwards;
-	}
-	@keyframes collectCard {
+	@keyframes flyDeckToWinner {
 		0% {
-			transform: translate(0, 0) scale(1) rotate(0deg);
+			transform: translate(0, 0) scale(1);
 			opacity: 1;
 		}
-		32% {
-			/* All cards collapse into a single stacked deck at the exact center */
-			transform: translate(var(--to-center-x, 0px), calc(var(--to-center-y, 0px) + var(--stack-offset-y, 0px))) scale(0.95) rotate(var(--stack-rot, 0deg));
+		28% {
+			transform: translate(0, -8px) scale(1.04);
 			opacity: 1;
 		}
 		100% {
-			/* The single stacked deck flies together directly into the winner's pill */
-			transform: translate(calc(var(--to-center-x, 0px) + var(--target-x, 0px)), calc(var(--to-center-y, 0px) + var(--target-y, -220px))) scale(0.16) rotate(0deg);
+			transform: translate(var(--target-x, 0px), var(--target-y, -220px)) scale(0.18);
 			opacity: 0;
 		}
 	}

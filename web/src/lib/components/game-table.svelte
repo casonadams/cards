@@ -179,7 +179,7 @@
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
 		{:else if isRoundComplete && roundScores && onNextRound}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} isRoundComplete={true} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} isRoundComplete={true} />
 			<RoundScoreOverlay
 				{gameId}
 				handLabel="Hand {currentRound + 1}: {roundLabel}"
@@ -190,7 +190,7 @@
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 			/>
 		{:else}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} />
 			<LastTrick
 				plays={lastCompleteTrick}
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}

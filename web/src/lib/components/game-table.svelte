@@ -100,7 +100,7 @@
 		if (isRoundComplete && !roundScoreReady) {
 			const fallback = setTimeout(() => {
 				roundScoreReady = true;
-			}, 2400);
+			}, 3600);
 			return () => clearTimeout(fallback);
 		}
 	});
@@ -218,11 +218,13 @@
 				isRoundComplete={isRoundComplete}
 				onCollectComplete={() => (roundScoreReady = true)}
 			/>
-			<LastTrick
-				plays={lastCompleteTrick}
-				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
-				{gameId}
-			/>
+			<div class="h-7 min-h-[28px] flex items-center justify-center shrink-0 w-full">
+				<LastTrick
+					plays={lastCompleteTrick}
+					winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
+					{gameId}
+				/>
+			</div>
 		{/if}
 	</div>
 

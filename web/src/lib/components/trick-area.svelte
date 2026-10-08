@@ -87,7 +87,7 @@
 					}
 				}
 				animPhase = 'collecting';
-			}, 750);
+			}, 1350);
 
 			finishTimer = setTimeout(() => {
 				animPhase = 'idle';
@@ -95,7 +95,7 @@
 				settleTimer = null;
 				finishTimer = null;
 				onCollectComplete?.();
-			}, 750 + 1100);
+			}, 1350 + 1300);
 		}
 	});
 
@@ -136,7 +136,7 @@
 
 		const t = setTimeout(() => {
 			node.classList.remove('fly-in-active');
-		}, 460);
+		}, 580);
 		return {
 			destroy() {
 				clearTimeout(t);
@@ -155,12 +155,7 @@
 
 <div
 	bind:this={containerEl}
-	class={cn(
-		"relative w-full max-w-3xl mx-auto rounded-[2.5rem] border-2 border-emerald-500/25 bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center transition-all",
-		isRoundComplete
-			? "min-h-[130px] sm:min-h-[160px] p-2.5 sm:p-4"
-			: "min-h-[190px] sm:min-h-[230px] p-4 sm:p-8"
-	)}
+	class="relative w-full max-w-3xl mx-auto rounded-[2.5rem] border-2 border-emerald-500/25 bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center h-[200px] sm:h-[230px] shrink-0 p-3 sm:p-4 overflow-visible"
 	style:--target-x={`${targetX}px`}
 	style:--target-y={`${targetY}px`}
 >
@@ -224,14 +219,14 @@
 <style>
 	.trick-deck-flyer {
 		pointer-events: none;
-		animation: flyDeckToWinner 1100ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+		animation: flyDeckToWinner 1300ms cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
 	}
 	@keyframes flyDeckToWinner {
 		0% {
 			transform: translate(0, 0) scale(1);
 			opacity: 1;
 		}
-		28% {
+		30% {
 			transform: translate(0, -8px) scale(1.04);
 			opacity: 1;
 		}
@@ -242,16 +237,16 @@
 	}
 
 	:global(.fly-in-active) {
-		animation: flyCardFromBadge 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+		animation: flyCardFromBadge 550ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 		will-change: transform, opacity;
 	}
 
 	@keyframes flyCardFromBadge {
 		0% {
 			transform: translate(var(--fly-from-x, 0px), var(--fly-from-y, -200px)) scale(0.35) rotate(-6deg);
-			opacity: 0.2;
+			opacity: 0.15;
 		}
-		50% {
+		45% {
 			opacity: 1;
 		}
 		100% {

@@ -13,11 +13,13 @@
 - Never apply container opacity (`opacity < 1`) to cards in fanned hands. Translucent card backgrounds cause additive overlap brightening (white capsule stripes) and ghosted bleed-through of the underlying card's rotated indices. Unplayable cards must use solid opaque muted backgrounds (e.g. `bg-slate-200 border-slate-300 text-zinc-700`).
 - Horizontal scroll containers (`overflow-x-auto`) must not use `mx-auto` or `justify-center` on overflowing children (`w-max`), as CSS centering clips the left edge and prevents scrolling back to initial items. Use `inline-flex min-w-full justify-start sm:justify-center px-4`.
 
-### Overlays & Viewport Containment
-- Modal dialogs and bidding overlays must fit viewports down to 576px height and 375px width. Constrain modal cards with `max-h-[92vh] flex flex-col` and scrollable content bodies (`overflow-y-auto`).
-- Keep overlays informative without redundant layout bloat. When cards are already dealt on table, summarize hand cards compactly in bidding overlays rather than rendering multi-row unscaled card grids.
+### In-Table Flow vs Blocking Overlays
+- Prefer embedding phase transitions (such as bidding consoles and round-end summaries) directly in the tabletop arena between the trick area and the hand rather than full-screen blackout modals.
+- During bidding, keep the player's real hand visible at the bottom of the table with full trump highlights and indices; do not build duplicate hand displays inside detached modals.
+- When a round completes, keep the final trick visible on the felt playing area (`TrickArea` showing `lastCompleteTrick`) with the winner callout, docking the round score summary beneath it so players can review the final trick outcome.
+- Reserve full-screen celebratory modals exclusively for final match conclusions (`GameOverOverlay`).
+- Modal dialogs and overlays that are used must fit viewports down to 576px height and 375px width with `max-h-[92vh]` and scrollable bodies.
 - Decorative accent bars placed at the top of rounded cards must explicitly specify matching rounded top corners (`rounded-t-lg`, `rounded-t-xl`) to prevent subpixel corner clipping artifacts.
-
 ### Arena & Interaction Precision
 - Focal play areas (trick arena) must render cards at prominent scale (`size="md"`), never smaller than inactive hand cards.
 - Trick fade-out animations must remain concise (1.5s to 2.0s) so completed tricks do not obscure subsequent lead plays.

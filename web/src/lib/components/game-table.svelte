@@ -244,7 +244,7 @@
 	<!-- Bottom Player Hand Container with anchored absolute Your Turn banner -->
 	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible relative min-h-[130px] sm:min-h-[160px] flex flex-col justify-end">
 		{#if isMyTurn && !showBidding && !isRoundComplete}
-			<div class="absolute -top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
+			<div class="absolute -top-10 sm:-top-12 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
 				<div class="inline-flex items-center gap-2 px-4 sm:px-5 py-1 sm:py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.5)] backdrop-blur-md animate-pulse whitespace-nowrap">
 					<span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm"></span>
 					<span class="font-black text-xs sm:text-sm tracking-wider uppercase">Your Turn — Play a Card</span>

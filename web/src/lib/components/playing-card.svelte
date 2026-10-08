@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import SuitIcon from './suit-icon.svelte';
 	import { RANK_NAMES } from '$lib/platform/types/card';
 	import { cardToRook } from '$lib/games/rook/card-adapter';
 	import type { Card } from '$lib/platform/types/index';
@@ -140,7 +141,7 @@
 	{:else}
 		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
 			<span>{rankGlyph}</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
+			<SuitIcon suit={card.suit} class="w-2.5 h-2.5 sm:w-3 sm:h-3 mt-0.5" />
 		</span>
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
@@ -148,7 +149,7 @@
 			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
 			<span>{rankGlyph}</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
+			<SuitIcon suit={card.suit} class="w-2.5 h-2.5 sm:w-3 sm:h-3 mt-0.5" />
 		</span>
 		<div class="absolute inset-0 flex items-center justify-center">
 			<span class="{color} {centerGlyphSize} font-black tracking-tight drop-shadow-xs">

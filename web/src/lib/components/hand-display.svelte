@@ -114,7 +114,6 @@
 	}
 	.card-hand-slot.is-playable:hover,
 	.card-hand-slot.is-playable:focus-within {
-		transform: translateY(-16px);
-		z-index: 50 !important;
+		transform: translateY(-18px);
 	}
 </style>

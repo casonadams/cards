@@ -17,7 +17,7 @@ export const suitBgColors: Record<Suit, string> = {
 export const suitTextColors: Record<Suit, string> = {
 	hearts: 'text-rose-600',
 	diamonds: 'text-blue-600',
-	clubs: 'text-emerald-700',
+	clubs: 'text-emerald-600',
 	spades: 'text-zinc-950'
 };
 export const faceLetters: Partial<Record<Rank, string>> = { 11: 'J', 12: 'Q', 13: 'K' };

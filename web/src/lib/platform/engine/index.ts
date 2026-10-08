@@ -9,7 +9,7 @@ export { createGameSyncManager } from './game-sync.ts';
 export { createPresenceManager } from './heartbeat.ts';
 export { generateRoomCode } from './room-code.ts';
 export { createRoom, joinRoom } from './room-manager.ts';
-export { createAiPlayerId, isAiPlayer, getAiDisplayName, pickAiCard } from './ai-player.ts';
+export { createAiPlayerId, isAiPlayer, getAiDisplayName } from './ai-player.ts';
 export { sortHand } from './sort-hand.ts';
 export { registerGame, getGame, listGames } from './game-registry.ts';
 export { trackPlayerVoids, sampleOpponentHands } from './determinization.ts';

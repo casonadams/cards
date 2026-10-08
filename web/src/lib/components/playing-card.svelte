@@ -65,6 +65,12 @@
 	const isAce = $derived(!isRook && card.rank === 14);
 	const symbol = $derived(suitSymbols[card.suit]);
 	const color = $derived(suitTextColors[card.suit]);
+	const rankGlyph = $derived(
+		isAce ? 'A' : isFaceCard ? (faceLetters[card.rank] ?? '') : String(RANK_NAMES[card.rank])
+	);
+	const centerGlyphSize = $derived(
+		isFaceCard || isAce ? faceLetterSizes[size] : numberSizes[size]
+	);
 	const label = $derived(
 		isRook && rookCard
 			? rookCard.type === 'bird'
@@ -131,50 +137,9 @@
 				{rookCard.value}
 			</span>
 		{/if}
-	{:else if isFaceCard}
-		<span
-			class="absolute top-1 left-1.5 {cornerSizes[size]} {suitTextColors[
-				card.suit
-			]} font-black leading-none flex flex-col items-center"
-		>
-			<span>{RANK_NAMES[card.rank]}</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
-		</span>
-		<span
-			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[size]} {suitTextColors[
-				card.suit
-			]} font-black leading-none flex flex-col items-center pointer-events-none"
-		>
-			<span>{RANK_NAMES[card.rank]}</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
-		</span>
-		<div class="absolute inset-0 flex items-center justify-center">
-			<span class="absolute text-2xl sm:text-3xl opacity-15 {suitTextColors[card.suit]}">{symbol}</span>
-			<span class="{suitTextColors[card.suit]} {faceLetterSizes[size]} font-black tracking-tight drop-shadow-sm">
-				{faceLetters[card.rank]}
-			</span>
-		</div>
-	{:else if isAce}
-		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
-			<span>A</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
-		</span>
-		<span
-			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
-				size
-			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
-		>
-			<span>A</span>
-			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
-		</span>
-		<span
-			class={cn('absolute inset-0 flex items-center justify-center', color, aceSuitSizes[size])}
-		>
-			{symbol}
-		</span>
 	{:else}
 		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
-			<span>{RANK_NAMES[card.rank]}</span>
+			<span>{rankGlyph}</span>
 			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<span
@@ -182,13 +147,12 @@
 				size
 			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
-			<span>{RANK_NAMES[card.rank]}</span>
+			<span>{rankGlyph}</span>
 			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<div class="absolute inset-0 flex items-center justify-center">
-			<span class="absolute text-2xl sm:text-3xl opacity-15 {color}">{symbol}</span>
-			<span class="{color} {numberSizes[size]} font-black tracking-tight drop-shadow-xs">
-				{RANK_NAMES[card.rank]}
+			<span class="{color} {centerGlyphSize} font-black tracking-tight drop-shadow-xs">
+				{rankGlyph}
 			</span>
 		</div>
 	{/if}

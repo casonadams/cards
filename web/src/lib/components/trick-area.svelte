@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn, getFirstName } from '$lib/utils';
+	import { cn, getFirstName, getLastPlayedCardPosition } from '$lib/utils';
 	import PlayingCard from './playing-card.svelte';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 
@@ -13,6 +13,7 @@
 		isRoundComplete?: boolean;
 		winnerId?: string | null;
 		winnerName?: string | null;
+		myId?: string;
 	}
 
 	let {
@@ -24,56 +25,89 @@
 		trumpSuit = null,
 		isRoundComplete = false,
 		winnerId = null,
-		winnerName = null
+		winnerName = null,
+		myId = ''
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
+	let settling = $state(false);
 	let collecting = $state(false);
 	let prevTrickLen = $state(0);
 	let targetX = $state(0);
 	let targetY = $state(-220);
 
 	const shouldCollect = $derived(prevTrickLen > 0 && lastCompleteTrick.length > 0 && !isRoundComplete);
+	const settleDelay = 520;
 	const collectDuration = 1100;
 	$effect(() => {
 		if (plays.length > 0) {
 			prevTrickLen = plays.length;
+			settling = false;
 			collecting = false;
 			return;
 		}
 		if (!shouldCollect) return;
 		prevTrickLen = 0;
+		settling = true;
 
-		// Calculate delta vector (dx, dy) from center of trick area to winner's avatar pill
-		if (typeof document !== 'undefined' && containerEl && winnerId) {
-			const cRect = containerEl.getBoundingClientRect();
-			const centerX = cRect.left + cRect.width / 2;
-			const centerY = cRect.top + cRect.height / 2;
+		const tSettle = setTimeout(() => {
+			if (typeof document !== 'undefined' && containerEl && winnerId) {
+				const cRect = containerEl.getBoundingClientRect();
+				const centerX = cRect.left + cRect.width / 2;
+				const centerY = cRect.top + cRect.height / 2;
 
-			const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
-			if (winnerPill) {
-				const wRect = winnerPill.getBoundingClientRect();
-				targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
-				targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
-			} else {
-				targetX = 0;
-				targetY = -220;
+				const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
+				if (winnerPill) {
+					const wRect = winnerPill.getBoundingClientRect();
+					targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+					targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+				} else {
+					targetX = 0;
+					targetY = -220;
+				}
 			}
+			settling = false;
+			collecting = true;
+		}, settleDelay);
 
-		}
-		collecting = true;
-		const t = setTimeout(() => (collecting = false), collectDuration);
-		return () => clearTimeout(t);
+		const tCollect = setTimeout(() => {
+			collecting = false;
+		}, settleDelay + collectDuration);
+
+		return () => {
+			clearTimeout(tSettle);
+			clearTimeout(tCollect);
+		};
 	});
 	function flyInFromBadge(node: HTMLElement, playerId: string) {
 		if (typeof document === 'undefined') return;
-		const pill = document.querySelector(`[data-player-id="${playerId}"]`);
-		if (!pill) return;
 
-		const pRect = pill.getBoundingClientRect();
+		let originCenterX = 0;
+		let originCenterY = 0;
+
+		const isLocal = Boolean(myId && playerId === myId);
+		const handPos = isLocal ? getLastPlayedCardPosition() : null;
+
+		if (handPos) {
+			originCenterX = handPos.x;
+			originCenterY = handPos.y;
+		} else {
+			const pill = document.querySelector(`[data-player-id="${playerId}"]`);
+			if (pill) {
+				const pRect = pill.getBoundingClientRect();
+				originCenterX = Math.round(pRect.left + pRect.width / 2);
+				originCenterY = Math.round(pRect.top + pRect.height / 2);
+			} else if (isLocal) {
+				originCenterX = Math.round(window.innerWidth / 2);
+				originCenterY = Math.round(window.innerHeight - 80);
+			} else {
+				return;
+			}
+		}
+
 		const cRect = node.getBoundingClientRect();
-		const dx = Math.round((pRect.left + pRect.width / 2) - (cRect.left + cRect.width / 2));
-		const dy = Math.round((pRect.top + pRect.height / 2) - (cRect.top + cRect.height / 2));
+		const dx = Math.round(originCenterX - (cRect.left + cRect.width / 2));
+		const dy = Math.round(originCenterY - (cRect.top + cRect.height / 2));
 
 		node.style.setProperty('--fly-from-x', `${dx}px`);
 		node.style.setProperty('--fly-from-y', `${dy}px`);
@@ -90,7 +124,7 @@
 	}
 
 	const visible = $derived(
-		plays.length > 0 ? plays : (collecting || isRoundComplete) ? lastCompleteTrick : []
+		plays.length > 0 ? plays : (settling || collecting || isRoundComplete) ? lastCompleteTrick : []
 	);
 </script>
 

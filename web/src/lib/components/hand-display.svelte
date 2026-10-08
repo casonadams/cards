@@ -2,8 +2,8 @@
 	import PlayingCard from './playing-card.svelte';
 	import { sortHand } from '$lib/platform/engine/sort-hand';
 	import { sortRookHand } from '$lib/games/rook/sort-hand';
+	import { recordPlayedCardPosition } from '$lib/utils';
 	import type { Card, Suit } from '$lib/platform/types/index';
-
 	interface Props {
 		cards: readonly Card[];
 		playableCards?: readonly Card[];
@@ -42,6 +42,15 @@
 		if (!interactive || !onCardPlayed) return false;
 		return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);
 	}
+
+	function handleCardClick(card: Card, key: string) {
+		if (!interactive || !isPlayable(card) || !onCardPlayed) return;
+		if (typeof document !== 'undefined') {
+			const el = document.querySelector(`[data-card-key="${key}"]`);
+			recordPlayedCardPosition(el as HTMLElement);
+		}
+		onCardPlayed(card);
+	}
 </script>
 
 <div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll">
@@ -51,7 +60,9 @@
 		style:--card-overlap-mobile={cardOverlapMobile}
 	>
 		{#each sorted as card, index (`${card.suit}-${card.rank}`)}
+			{@const key = `${card.suit}-${card.rank}`}
 			<div
+				data-card-key={key}
 				class="card-hand-slot relative transition-transform duration-150 ease-out"
 				class:is-playable={isPlayable(card)}
 				style:z-index={index}
@@ -63,7 +74,7 @@
 					{trumpSuit}
 					playable={isPlayable(card)}
 					{inspection}
-					onclick={interactive && isPlayable(card) && onCardPlayed ? () => onCardPlayed?.(card) : undefined}
+					onclick={interactive && isPlayable(card) && onCardPlayed ? () => handleCardClick(card, key) : undefined}
 				/>
 			</div>
 		{/each}

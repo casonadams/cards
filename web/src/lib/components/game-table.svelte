@@ -179,7 +179,7 @@
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
 		{:else if isRoundComplete && roundScores && onNextRound}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} isRoundComplete={true} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} isRoundComplete={true} {myId} />
 			<RoundScoreOverlay
 				{gameId}
 				handLabel="Hand {currentRound + 1}: {roundLabel}"
@@ -190,7 +190,7 @@
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 			/>
 		{:else}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} {myId} />
 			<LastTrick
 				plays={lastCompleteTrick}
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}

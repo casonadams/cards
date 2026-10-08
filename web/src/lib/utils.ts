@@ -24,3 +24,20 @@ export function getFirstName(name: string): string {
 	}
 	return trimmed;
 }
+
+let lastPlayedCardCoords: { x: number; y: number } | null = null;
+
+export function recordPlayedCardPosition(el: HTMLElement | null): void {
+	if (!el) return;
+	const r = el.getBoundingClientRect();
+	lastPlayedCardCoords = {
+		x: Math.round(r.left + r.width / 2),
+		y: Math.round(r.top + r.height / 2)
+	};
+}
+
+export function getLastPlayedCardPosition(): { x: number; y: number } | null {
+	const pos = lastPlayedCardCoords;
+	lastPlayedCardCoords = null;
+	return pos;
+}

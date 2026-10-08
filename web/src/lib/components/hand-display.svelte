@@ -78,10 +78,10 @@
 
 <div
 	bind:clientWidth={containerWidth}
-	class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll min-h-[130px] sm:min-h-[160px] flex items-end"
+	class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll h-[130px] sm:h-[160px] flex items-end shrink-0"
 >
 	<div
-		class="inline-flex min-w-full items-end pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
+		class="inline-flex min-w-full items-end pt-7 pb-2 h-full"
 		class:justify-center={overlapCalc.isCentered}
 		class:justify-start={!overlapCalc.isCentered}
 		style:padding-left={`${Math.round(horizontalPad / 2)}px`}
@@ -89,7 +89,7 @@
 		style:--card-overlap={`${overlapCalc.overlap}px`}
 	>
 		{#if sorted.length === 0}
-			<div class="flex items-center justify-center w-full py-8 select-none">
+			<div class="flex items-center justify-center w-full h-[94px] sm:h-[122px] select-none">
 				<span class="text-xs text-muted-foreground/40 font-medium">All cards played</span>
 			</div>
 		{:else}

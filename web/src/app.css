@@ -44,8 +44,11 @@
 }
 
 .card-fan-scroll {
-	scrollbar-width: thin;
-	scrollbar-color: hsl(220 20% 25%) transparent;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.card-fan-scroll::-webkit-scrollbar {
+	display: none;
 }
 
 /* Fallback for space-y utilities */

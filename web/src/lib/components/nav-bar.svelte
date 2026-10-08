@@ -108,10 +108,13 @@
 				onclick={() => (showRules = !showRules)}
 				title="Click to view rules"
 			>
-				<span class="text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-foreground hover:border-emerald-500/50 flex items-center gap-1 shadow-xs leading-none">
+				<span class="text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-foreground hover:border-emerald-500/50 flex items-center gap-1.5 shadow-xs leading-none">
 					<span class="opacity-70">H{currentRound + 1}</span>
 					<span class="hidden sm:inline font-extrabold truncate max-w-[140px]">: {roundLabel}</span>
-					<span class="text-[10px] font-mono opacity-60 font-bold">i</span>
+					<span class="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
+						<span class="text-xs leading-none">ⓘ</span>
+						<span class="hidden sm:inline font-medium text-[10px] opacity-80 leading-none">Rules</span>
+					</span>
 				</span>
 			</button>
 		{:else if title !== 'Cards'}
@@ -187,7 +190,7 @@
 {#if showRules && roundRules}
 	<div class="border-b border-border/80 bg-muted/80 backdrop-blur-md px-4 sm:px-6 py-2.5 text-xs text-foreground flex items-center justify-between gap-3 animate-in fade-in duration-150 shadow-xs">
 		<div class="flex items-center gap-2 min-w-0">
-			<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold text-[11px] shrink-0">i</span>
+			<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs shrink-0 leading-none">ⓘ</span>
 			<span class="font-medium text-xs text-foreground/90">{roundRules}</span>
 		</div>
 		<button class="text-muted-foreground hover:text-foreground text-xs shrink-0 cursor-pointer font-bold px-2 py-0.5 rounded hover:bg-muted transition-colors" onclick={() => (showRules = false)}>✕</button>

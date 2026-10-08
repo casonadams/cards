@@ -176,19 +176,25 @@ export function simulateBestCanadianSaladCard(params: CanadianSaladAiSimulationP
 		opponents.push({ id: pid, needed, voids: params.voids.get(pid) ?? new Set() });
 	}
 
-	const ITERATIONS = 35;
+	const ITERATIONS = 40;
+	const penalties = new Map<Card, number>();
+	for (const c of candidates) penalties.set(c, 0);
+
+	for (let it = 0; it < ITERATIONS; it++) {
+		const sampled = sampleOpponentHands(opponents, unseenPool);
+		sampled.set(aiId, aiHand.slice());
+		for (const candidate of candidates) {
+			const pen = simulateRollout(candidate, sampled, currentTrick, playerIds, handType, aiId);
+			penalties.set(candidate, (penalties.get(candidate) ?? 0) + pen);
+		}
+	}
+
 	let bestCard = candidates[0];
 	let lowestPenalty = Infinity;
-
 	for (const candidate of candidates) {
-		let totalPenalty = 0;
-		for (let it = 0; it < ITERATIONS; it++) {
-			const sampled = sampleOpponentHands(opponents, unseenPool);
-			sampled.set(aiId, aiHand.slice());
-			totalPenalty += simulateRollout(candidate, sampled, currentTrick, playerIds, handType, aiId);
-		}
-		if (totalPenalty < lowestPenalty) {
-			lowestPenalty = totalPenalty;
+		const pen = penalties.get(candidate) ?? Infinity;
+		if (pen < lowestPenalty) {
+			lowestPenalty = pen;
 			bestCard = candidate;
 		}
 	}

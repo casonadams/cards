@@ -217,16 +217,15 @@ export function simulateBestOhWellCard(params: OhWellAiSimulationParams): Card {
 		opponents.push({ id: pid, needed, voids: params.voids.get(pid) ?? new Set() });
 	}
 
-	const ITERATIONS = 35;
-	let bestCard = candidates[0];
-	let bestUtility = -Infinity;
+	const ITERATIONS = 40;
+	const utilities = new Map<Card, number>();
+	for (const c of candidates) utilities.set(c, 0);
 
-	for (const candidate of candidates) {
-		let totalUtility = 0;
-		for (let it = 0; it < ITERATIONS; it++) {
-			const sampled = sampleOpponentHands(opponents, unseenPool);
-			sampled.set(aiId, aiHand.slice());
-			totalUtility += simulateRollout(
+	for (let it = 0; it < ITERATIONS; it++) {
+		const sampled = sampleOpponentHands(opponents, unseenPool);
+		sampled.set(aiId, aiHand.slice());
+		for (const candidate of candidates) {
+			const util = simulateRollout(
 				candidate,
 				sampled,
 				currentTrick,
@@ -236,9 +235,16 @@ export function simulateBestOhWellCard(params: OhWellAiSimulationParams): Card {
 				takenCounts,
 				aiId
 			);
+			utilities.set(candidate, (utilities.get(candidate) ?? 0) + util);
 		}
-		if (totalUtility > bestUtility) {
-			bestUtility = totalUtility;
+	}
+
+	let bestCard = candidates[0];
+	let bestUtility = -Infinity;
+	for (const candidate of candidates) {
+		const util = utilities.get(candidate) ?? -Infinity;
+		if (util > bestUtility) {
+			bestUtility = util;
 			bestCard = candidate;
 		}
 	}

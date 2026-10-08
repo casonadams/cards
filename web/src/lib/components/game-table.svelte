@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn, getInitials } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge/index';
 	import HandDisplay from './hand-display.svelte';
 	import TrickArea from './trick-area.svelte';
@@ -161,10 +161,13 @@
 							isTurn ? 'bg-emerald-400 text-zinc-950 font-black' : 'bg-muted text-foreground'
 						)}
 					>
-						{other.displayName.slice(0, 2).toUpperCase()}
+						{getInitials(other.displayName)}
 					</div>
 					{#if isTurn}
-						<span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-background animate-ping"></span>
+						<span class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center pointer-events-none">
+							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+							<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 border border-background"></span>
+						</span>
 					{/if}
 				</div>
 				<div class="flex flex-col min-w-0 leading-tight">

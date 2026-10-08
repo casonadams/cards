@@ -5,6 +5,7 @@
 	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import { getGame } from '$lib/platform/engine/index';
 	import type { GameRoom } from '$lib/platform/types/index';
+	import { getInitials } from '$lib/utils';
 
 	interface Props {
 		room: GameRoom;
@@ -65,7 +66,7 @@
 						<div class="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60 transition-all shadow-xs">
 							<div class="flex items-center gap-3">
 								<div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-black text-emerald-300 shadow-inner">
-									{player.displayName.slice(0, 2).toUpperCase()}
+									{getInitials(player.displayName)}
 								</div>
 								<span class="text-base font-bold text-foreground">{player.displayName}</span>
 							</div>

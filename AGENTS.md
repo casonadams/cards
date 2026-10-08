@@ -20,6 +20,10 @@
 - Reserve full-screen celebratory modals exclusively for final match conclusions (`GameOverOverlay`).
 - Modal dialogs and overlays that are used must fit viewports down to 576px height and 375px width with `max-h-[92vh]` and scrollable bodies.
 - Decorative accent bars placed at the top of rounded cards must explicitly specify matching rounded top corners (`rounded-t-lg`, `rounded-t-xl`) to prevent subpixel corner clipping artifacts.
+
+### Header & Footer Vertical Conservation
+- Never stack multiple sub-header bars above the game table. Consolidate title, round counter, round rules trigger, and trump/contract metadata into the single top navigation bar (`NavBar`) with a collapsible rules drawer.
+- Position active turn notifications at the bottom of the table on `GameTableFooter`, lighting up the entire footer container in emerald (`bg-emerald-950/90 border-emerald-400 shadow-[0_-4px_24px_rgba(16,185,129,0.35)]`) with an animated pulse badge. This concentrates turn feedback directly adjacent to where player attention and hand actions reside, while saving ~85px of vertical screen real estate for the playing felt and cards.
 ### Arena & Interaction Precision
 - Focal play areas (trick arena) must render cards at prominent scale (`size="md"`), never smaller than inactive hand cards.
 - Trick fade-out animations must remain concise (1.5s to 2.0s) so completed tricks do not obscure subsequent lead plays.

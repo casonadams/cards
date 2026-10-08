@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "oxlint --deny-warnings"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.2.1",
     "clsx": "^2.1.1",
+    "oxlint": "^1.87.0",
     "svelte": "^5.20.2",
     "svelte-check": "^4.1.4",
     "tailwind-merge": "^3.5.0",
@@ -21,6 +23,7 @@
     "vite": "^6.2.0"
   },
   "dependencies": {
+    "peerjs": "^1.5.5",
     "xstate": "^5.33.2"
   }
 }

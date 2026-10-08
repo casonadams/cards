@@ -1,5 +1,4 @@
 <script lang="ts">
-	import init, { IrohNode } from './wasm/cards_wasm.js';
 	import { registerAllGames } from '$lib/games/register-all';
 	import { getGame, listGames, createGameSyncManager } from '$lib/platform/engine/index';
 	import { generateRoomCode } from '$lib/platform/engine/room-code';
@@ -10,6 +9,7 @@
 		createLocalP2pRoomRepo,
 		createLocalP2pSync
 	} from '$lib/platform/adapters/local-p2p-adapters';
+	import { P2pNetworkManager } from '$lib/platform/adapters/p2p-webrtc';
 	import {
 		deriveRoomGs,
 		buildPlayerNames,
@@ -75,9 +75,33 @@
 	}
 
 	// Platform state
-	let irohRoom = $state<any>(null);
-	const roomRepo = createLocalP2pRoomRepo(() => irohRoom);
-	const sync = createLocalP2pSync(() => irohRoom);
+	let p2p: P2pNetworkManager | null = null;
+	if (typeof window !== 'undefined') {
+		p2p = new P2pNetworkManager({
+			onRoomMessage(updatedRoom) {
+				room = updatedRoom;
+				roomId = updatedRoom.id;
+				roomRepo.update(updatedRoom.id, updatedRoom);
+			},
+			onDocMessage(docRoomId, doc) {
+				if (roomId === docRoomId) {
+					gameDoc = doc;
+				}
+			},
+			onQueryRoom(conn) {
+				if (room) {
+					conn.send({ type: 'sync_room', room });
+				}
+			},
+			onQueryDoc(docRoomId, conn) {
+				if (gameDoc && roomId === docRoomId) {
+					conn.send({ type: 'sync_doc', roomId: docRoomId, doc: gameDoc });
+				}
+			}
+		});
+	}
+	const roomRepo = createLocalP2pRoomRepo(() => p2p);
+	const sync = createLocalP2pSync(() => p2p);
 	let roomId = $state('');
 	let room = $state<GameRoom | null>(null);
 	let gameDoc = $state<GameDocument | null>(null);
@@ -146,40 +170,14 @@
 	$effect(() => setupTrickTakingAi({ ...aiDeps, isOhWell }));
 	$effect(() => setupOhWellAiBid(aiDeps));
 
-	function listenIroh(r: { take_stream: () => { getReader: () => { read: () => Promise<{ value: { type: string; payload: string } | undefined; done: boolean }> } } }) {
-		try {
-			const stream = r.take_stream();
-			const reader = stream.getReader();
-			(async () => {
-				while (true) {
-					const { value, done } = await reader.read();
-					if (done) break;
-					if (value && value.type === 'message') {
-						try {
-							const data = JSON.parse(value.payload);
-							if (data.type === 'sync_doc' && data.doc) {
-								gameDoc = data.doc;
-							} else if (data.type === 'sync_room' && data.room) {
-								room = data.room;
-								roomId = data.room.id;
-								await roomRepo.update(data.room.id, data.room);
-							}
-						} catch {
-							// Ignore non-json
-						}
-					}
-				}
-			})();
-		} catch (e) {
-			console.log('Iroh stream error', e);
-		}
-	}
+	// P2P lifecycle managed by p2p instance
 
 	// Action Handlers
 	async function handleCreateRoom() {
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
+		p2p?.startHost(code).catch(() => {});
 		try {
 			const newRoom = await roomRepo.create({
 				code,
@@ -216,6 +214,7 @@
 		lobbyError = '';
 		loading = true;
 		const code = joinCode.trim().toUpperCase();
+		p2p?.joinHost(code, myPlayer.id).catch(() => {});
 		if (typeof window !== 'undefined') {
 			window.location.hash = '#code=' + code;
 		}
@@ -312,6 +311,7 @@
 		if (isHost) {
 			await actions.destroyRoom();
 		}
+		p2p?.destroy();
 		roomId = '';
 		room = null;
 		gameDoc = null;
@@ -320,7 +320,6 @@
 			window.location.hash = '';
 		}
 	};
-
 	const activeGameTitle = $derived(
 		room ? getGame(room.gameDefinitionId).name : 'Cards'
 	);

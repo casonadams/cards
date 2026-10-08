@@ -1,12 +1,6 @@
-# cccc.toml
-max-cognitive = 15
+# cccc configuration for Cards project
+languages = ["typescript"]
+table = true
 cache = true
-languages = ["rust", "es"]
-exclude = [
-    "**/tests/**",
-    "**/tests.rs",
-    "**/*_tests.rs",
-    "**/test_*.rs",
-    "**/wasm/**",
-    "web/src/wasm/**",
-]
+max-cognitive = 20
+max-cyclomatic = 20

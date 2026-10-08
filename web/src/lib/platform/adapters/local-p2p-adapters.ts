@@ -3,7 +3,7 @@ import type { GameDocument, Move } from '$lib/platform/engine/index';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
-export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | null): GameRoomRepository {
+export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null): GameRoomRepository {
 	const rooms = new Map<string, GameRoom>();
 	const listeners = new Map<string, Set<(r: GameRoom | null) => void>>();
 	const channel =
@@ -29,8 +29,11 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 		listeners.get(id)?.forEach((cb) => cb(room));
 		if (typeof window !== 'undefined' && room) {
 			try {
-				sessionStorage.setItem('cards_room_' + room.code.trim().toUpperCase(), JSON.stringify(room));
-				sessionStorage.setItem('cards_room_id_' + room.id, JSON.stringify(room));
+				const serialized = JSON.stringify(room);
+				sessionStorage.setItem('cards_room_' + room.code.trim().toUpperCase(), serialized);
+				sessionStorage.setItem('cards_room_id_' + room.id, serialized);
+				localStorage.setItem('cards_room_' + room.code.trim().toUpperCase(), serialized);
+				localStorage.setItem('cards_room_id_' + room.id, serialized);
 			} catch {
 				// Ignore
 			}
@@ -39,7 +42,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 			try {
 				const serialized = JSON.parse(JSON.stringify(room)) as GameRoom;
 				channel?.postMessage({ type: 'sync_room', room: serialized });
-				broadcaster?.()?.broadcast(JSON.stringify({ type: 'sync_room', room: serialized })).catch(() => {});
+				broadcaster?.()?.broadcast({ type: 'sync_room', room: serialized });
 				fetch('/api/rooms', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -85,7 +88,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 			const mem = rooms.get(id);
 			if (mem) return mem;
 			if (typeof window !== 'undefined') {
-				const cached = sessionStorage.getItem('cards_room_id_' + id);
+				const cached = sessionStorage.getItem('cards_room_id_' + id) || localStorage.getItem('cards_room_id_' + id);
 				if (cached) {
 					try {
 						const r = JSON.parse(cached) as GameRoom;
@@ -117,7 +120,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 				// Fallback to cache/channel
 			}
 			if (typeof window !== 'undefined') {
-				const cached = sessionStorage.getItem('cards_room_' + clean);
+				const cached = sessionStorage.getItem('cards_room_' + clean) || localStorage.getItem('cards_room_' + clean);
 				if (cached) {
 					try {
 						const r = JSON.parse(cached) as GameRoom;
@@ -129,21 +132,42 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 				}
 			}
 			if (channel) {
+				const { promise, resolve } = Promise.withResolvers<GameRoom | null>();
+				const timeout = setTimeout(() => {
+					for (const r of rooms.values()) {
+						if (r.code.trim().toUpperCase() === clean) {
+							resolve(r);
+							return;
+						}
+					}
+					resolve(null);
+				}, 400);
+
+				const handler = (event: MessageEvent) => {
+					if (event.data?.type === 'sync_room' && event.data.room) {
+						const r = event.data.room as GameRoom;
+						if (r.code.trim().toUpperCase() === clean) {
+							clearTimeout(timeout);
+							channel.removeEventListener('message', handler);
+							rooms.set(r.id, r);
+							resolve(r);
+						}
+					}
+				};
+				channel.addEventListener('message', handler);
 				channel.postMessage({ type: 'query_room', code: clean });
-				const { promise, resolve } = Promise.withResolvers<void>();
-				setTimeout(resolve, 150);
-				await promise;
-				for (const r of rooms.values()) {
-					if (r.code.trim().toUpperCase() === clean) return r;
-				}
+				return promise;
 			}
 			return null;
 		},
 
 		async update(id: string, data: Partial<GameRoom>): Promise<void> {
-			const existing = rooms.get(id);
-			if (!existing) return;
-			rooms.set(id, { ...existing, ...data });
+			const cached = typeof window !== 'undefined'
+				? sessionStorage.getItem('cards_room_id_' + id) || localStorage.getItem('cards_room_id_' + id)
+				: null;
+			const existing = rooms.get(id) ?? (cached ? JSON.parse(cached) : null);
+			const updated = { ...existing, ...data } as GameRoom;
+			rooms.set(id, updated);
 			notify(id);
 		},
 
@@ -169,11 +193,11 @@ export function createLocalP2pRoomRepo(broadcaster?: () => IrohBroadcaster | nul
 	};
 }
 
-export interface IrohBroadcaster {
-	broadcast(msg: string): Promise<void>;
+export interface P2pBroadcaster {
+	broadcast(msg: unknown): void;
 }
 
-export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): RealtimeSync<GameDocument> {
+export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): RealtimeSync<GameDocument> {
 	const docs = new Map<string, GameDocument>();
 	const listeners = new Map<string, Set<(doc: GameDocument) => void>>();
 	const channel =
@@ -198,7 +222,9 @@ export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): 
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (typeof window !== 'undefined' && doc) {
 			try {
-				sessionStorage.setItem('cards_doc_' + roomId, JSON.stringify(doc));
+				const serialized = JSON.stringify(doc);
+				sessionStorage.setItem('cards_doc_' + roomId, serialized);
+				localStorage.setItem('cards_doc_' + roomId, serialized);
 			} catch {
 				// Ignore
 			}
@@ -207,7 +233,7 @@ export function createLocalP2pSync(broadcaster?: () => IrohBroadcaster | null): 
 			try {
 				const serialized = JSON.parse(JSON.stringify({ roomId, doc }));
 				channel?.postMessage(serialized);
-				broadcaster?.()?.broadcast(JSON.stringify(serialized)).catch(() => {});
+				broadcaster?.()?.broadcast({ type: 'sync_doc', roomId, doc });
 				fetch('/api/docs', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },

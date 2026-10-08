@@ -42,7 +42,7 @@ export function pickAiCardToPlay(params: {
 	trumpSuit?: Suit | null;
 	gameId?: string;
 }): Card {
-	const { hand, currentTrick, trumpSuit, gameId } = params;
+	const { hand, currentTrick, trumpSuit: _trumpSuit, gameId } = params;
 	if (hand.length === 0) throw new Error('Hand is empty');
 
 	// Determine legal cards

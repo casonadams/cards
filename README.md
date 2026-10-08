@@ -1,43 +1,39 @@
 # Cards &middot; Free P2P Card Game Platform
 
-A zero-database, serverless card game platform powered by **Rust WebAssembly** and [**Iroh**](https://iroh.computer) **P2P Gossip Networking**, hosted 100% for free on **GitHub Pages**.
+A zero-database, serverless card game platform powered by **Svelte 5**, **WebRTC Peer-to-Peer DataChannels**, and static hosting on **GitHub Pages**.
 
 ## Highlights
 
-- **Pure Rust Game Engine**: Deterministic rules, seeded PRNG shuffling, trick resolution, and scoring.
-- **[Iroh](https://iroh.computer) P2P Gossip Networking**: Direct peer-to-peer room connections running in the browser via WebAssembly over Iroh's free public relay. Zero centralized database needed.
-- **Zero Operating Costs**: Hosted statically on GitHub Pages with $0/month infrastructure cost.
-- **Strict Code Quality**: Gated on Cognitive Complexity $\le 15$ (`cccc`), CRAP score $\le 30$ (`cargo-crap`), and 100% Clippy compliance.
+- **Direct P2P WebRTC Networking**: Direct encrypted peer-to-peer room connections running in the browser via WebRTC DataChannels. Connect using deterministic 6-letter codes or 1-click invite URLs. Zero centralized database needed.
+- **Pure Deterministic Game Engine**: Deterministic rules, seeded PRNG shuffling, trick resolution, and state machine orchestration.
+- **Zero Operating Costs**: Hosted 100% statically on GitHub Pages with $0/month infrastructure cost.
+- **Strict Code Quality**: Gated on Cognitive and Cyclomatic Complexity (`cccc`), fast AST linting (`oxlint`), strict TypeScript type safety (`svelte-check`), and code intelligence analysis (`ripwire`).
 
 ## Implemented Games
 
 1. **Oh Well (Oh Hell)**: 3–7 players, ascending/descending card rounds, trump card cut, exact bidding with the "Hook" dealer rule.
 2. **Canadian Salad**: 3–6 players, 6 contract rounds (No Tricks, No Hearts, No Queens, No King of Spades, No Last Trick, Combination).
+3. **Rook**: 4-player partnership trick-taking with bids, trump colors, nest exchange, and point scoring.
+4. **Regicide**: 1–4 player cooperative boss-battling card combat.
 
-## Development & Checks
+## Development & Quality Checks
 
 ```bash
-# Run all quality checks (fmt, clippy, test, complexity, CRAP)
+# Run all quality checks and production build
 make all
 
-# Run test suite
-cargo test --workspace
+# Run fast AST linting across TypeScript/JS web code
+make lint
 
-# Evaluate CRAP score threshold
-make crap
+# Run Svelte and TypeScript type checking
+make check
 
-# Evaluate Cognitive Complexity threshold (<= 15)
+# Enforce Cognitive and Cyclomatic complexity thresholds
 make complexity
 
-# Build WASM package
-make build-wasm
+# Run ripwire code intelligence map and symbol ranking
+make ripwire
 
-# Run web frontend locally
-cd web
-pnpm install
-pnpm dev
+# Build production distribution for GitHub Pages
+make build
 ```
-
-## Acknowledgments
-
-Special thanks to the folks at [**n0**](https://n0.computer) for building [**Iroh**](https://iroh.computer) ([GitHub](https://github.com/n0-computer/iroh)). Cards relies on Iroh's browser-compatible WebAssembly endpoint and gossip protocol (`iroh-gossip`) over public relays to enable completely serverless, zero-cost multiplayer gaming.

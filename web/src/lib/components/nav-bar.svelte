@@ -3,14 +3,14 @@
 
 	interface Props {
 		displayName: string;
+		title?: string;
 		onSignOut?: () => void;
 		onNameChange?: (name: string) => void;
 		showAdmin?: boolean;
 		onAdmin?: () => void;
 	}
 
-	let { displayName, onSignOut, onNameChange, showAdmin = false, onAdmin }: Props = $props();
-
+	let { displayName, title = 'Cards', onSignOut, onNameChange, showAdmin = false, onAdmin }: Props = $props();
 	const MAX_NAME_LENGTH = 10;
 	let editing = $state(false);
 	let editValue = $state('');
@@ -38,13 +38,15 @@
 
 <nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-4 sm:px-6 py-2.5 flex justify-between items-center sticky top-0 z-40">
 	<div class="flex items-center gap-2">
-		<span class="text-base font-black tracking-tight flex items-center gap-1.5">
-			<span class="text-emerald-400">♠</span>
-			<span>Garden Salad</span>
+		<span class="text-base font-black tracking-tight inline-flex items-center gap-1.5 leading-none">
+			<span class="text-emerald-400 text-lg leading-none">♠</span>
+			<span class="leading-none">{title}</span>
 		</span>
-		<span class="hidden sm:inline-block text-[10px] text-muted-foreground/70 uppercase tracking-widest border border-border/70 rounded px-1.5 py-0.5">
-			Cards
-		</span>
+		{#if title !== 'Cards'}
+			<span class="hidden sm:inline-flex items-center text-[10px] text-muted-foreground/70 uppercase tracking-widest border border-border/70 rounded px-1.5 py-0.5 leading-none font-bold">
+				Cards
+			</span>
+		{/if}
 	</div>
 	<div class="flex items-center gap-3">
 		{#if editing}
@@ -66,15 +68,15 @@
 			</div>
 		{:else}
 			<button
-				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs"
+				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs leading-none"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
-				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px] font-black">
+				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px] font-black leading-none shrink-0">
 					{displayName.slice(0, 1).toUpperCase()}
 				</div>
-				<span class="font-semibold truncate max-w-[100px] sm:max-w-[150px]">{displayName}</span>
-				<span class="text-[10px] text-muted-foreground group-hover:text-emerald-400 opacity-70">✎</span>
+				<span class="font-semibold truncate max-w-[100px] sm:max-w-[150px] leading-none">{displayName}</span>
+				<span class="text-[11px] text-muted-foreground group-hover:text-emerald-400 opacity-70 leading-none">✎</span>
 			</button>
 		{/if}
 		{#if showAdmin}

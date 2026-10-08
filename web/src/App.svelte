@@ -318,11 +318,16 @@
 			window.location.hash = '';
 		}
 	};
+
+	const activeGameTitle = $derived(
+		room ? getGame(room.gameDefinitionId).name : 'Cards'
+	);
 </script>
 
 <div class="min-h-screen bg-background text-foreground flex flex-col felt-table-surface">
 	<NavBar
 		displayName={myPlayer.displayName}
+		title={activeGameTitle}
 		onNameChange={handleNameChange}
 	/>
 
@@ -357,9 +362,9 @@
 							>
 								<div class="flex items-center justify-between">
 									<span class="block text-base font-extrabold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
-									{#if selectedGameId === game.id}
-										<span class="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">✓</span>
-									{/if}
+									<span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all {selectedGameId === game.id ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/40 shadow-xs' : 'border border-border/80 text-transparent'}">
+										✓
+									</span>
 								</div>
 								<span class="block text-xs text-muted-foreground mt-1 font-medium">
 									{game.minPlayers === game.maxPlayers
@@ -370,17 +375,18 @@
 						{/each}
 					</div>
 
-					<div class="flex items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80">
-						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2">Table Size</span>
-						<div class="flex gap-1.5">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
+						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Table Size</span>
+						<div class="grid grid-cols-4 gap-1.5 sm:flex">
 							{#each playerOptions as n (n)}
 								<button
-									class="rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer {playerCount === n
+									class="rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer text-center {playerCount === n
 										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
 										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}
 								>
-									{n} Players
+									<span class="sm:hidden">{n}P</span>
+									<span class="hidden sm:inline">{n} Players</span>
 								</button>
 							{/each}
 						</div>
@@ -404,7 +410,7 @@
 						bind:value={joinCode}
 						placeholder="ROOM CODE"
 						maxlength={6}
-						class="text-center font-mono tracking-[0.25em] text-2xl font-black uppercase h-14 rounded-xl border-2 border-border/80 focus:border-emerald-500 focus:outline-none bg-background/70"
+						class="text-center font-mono tracking-[0.25em] text-2xl font-black uppercase h-14 rounded-xl border-2 border-border/80 focus:border-emerald-500 focus:outline-none bg-background/70 placeholder:text-muted-foreground/35 placeholder:font-bold"
 					/>
 					<Button
 						variant="secondary"

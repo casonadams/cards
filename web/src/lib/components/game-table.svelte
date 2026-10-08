@@ -138,9 +138,9 @@
 			<div
 				data-player-id={id}
 				class={cn(
-					'flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm shrink-0',
+					'flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-2xl border-2 transition-colors duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm shrink-0',
 					isTurn
-						? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-md ring-1 ring-emerald-500/40'
+						? 'bg-emerald-950/60 border-emerald-400 text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400/50'
 						: isMe
 							? 'bg-card/95 border-emerald-500/40 text-foreground shadow-xs'
 							: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
@@ -149,12 +149,12 @@
 				<div class="relative">
 					<div
 						class={cn(
-							'w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner',
+							'w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner border transition-colors duration-150',
 							isTurn
-								? 'bg-emerald-400 text-zinc-950 font-black'
+								? 'bg-emerald-400 text-zinc-950 border-emerald-400'
 								: isMe
-									? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-									: 'bg-muted text-foreground'
+									? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+									: 'bg-muted text-foreground border-transparent'
 						)}
 					>
 						{getInitials(displayName)}
@@ -185,11 +185,16 @@
 						{/if}
 						<span
 							class={cn(
-								'font-bold truncate max-w-[70px] sm:max-w-[130px]',
-								isTurn && 'text-emerald-300 font-extrabold',
-								isMe && !isTurn && 'text-foreground font-extrabold',
-								partner && !isTurn && 'text-foreground'
+								'font-bold truncate max-w-[70px] sm:max-w-[130px] transition-colors duration-150',
+								isTurn
+									? 'text-emerald-300'
+									: isMe
+										? 'text-foreground'
+										: partner
+											? 'text-foreground'
+											: 'text-muted-foreground'
 							)}
+							title={displayName}
 						>
 							{shortName}
 						</span>

@@ -32,13 +32,14 @@
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
-	let animPhase = $state<'idle' | 'landing' | 'collecting'>('idle');
+	let animPhase = $state<'idle' | 'landing' | 'gathering' | 'flying'>('idle');
 	let targetX = $state(0);
 	let targetY = $state(-220);
 
 	let handledTrickSig = '';
 	const animatedCardKeys = new Set<string>();
-	let settleTimer: ReturnType<typeof setTimeout> | null = null;
+	let gatherTimer: ReturnType<typeof setTimeout> | null = null;
+	let flyTimer: ReturnType<typeof setTimeout> | null = null;
 	let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const totalSlots = $derived(Math.max(3, Object.keys(playerNames).length || 4));
@@ -50,6 +51,8 @@
 		totalSlots >= 6 ? '-20px' : totalSlots === 5 ? '-12px' : totalSlots === 4 ? '-4px' : '4px'
 	);
 
+	const slotPitchMobile = $derived(64 + parseInt(trickOverlapMobile));
+	const slotPitchDesktop = $derived(84 + parseInt(trickOverlap));
 	const trickSig = $derived(
 		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
 	);
@@ -57,11 +60,12 @@
 		const currentPlaysLen = plays.length;
 		const currentSig = trickSig;
 		const roundOver = isRoundComplete;
-
 		if (currentPlaysLen > 0) {
-			if (settleTimer) clearTimeout(settleTimer);
+			if (gatherTimer) clearTimeout(gatherTimer);
+			if (flyTimer) clearTimeout(flyTimer);
 			if (finishTimer) clearTimeout(finishTimer);
-			settleTimer = null;
+			gatherTimer = null;
+			flyTimer = null;
 			finishTimer = null;
 			if (animPhase !== 'idle') {
 				animPhase = 'idle';
@@ -75,49 +79,44 @@
 			handledTrickSig = currentSig;
 			animPhase = 'landing';
 
-			if (settleTimer) clearTimeout(settleTimer);
+			if (gatherTimer) clearTimeout(gatherTimer);
+			if (flyTimer) clearTimeout(flyTimer);
 			if (finishTimer) clearTimeout(finishTimer);
 
-			settleTimer = setTimeout(() => {
+			// 1. Give 500ms for player to see the final card landing on table
+			gatherTimer = setTimeout(() => {
 				if (typeof document !== 'undefined' && containerEl && winnerId) {
 					const cRect = containerEl.getBoundingClientRect();
 					const centerX = cRect.left + cRect.width / 2;
 					const centerY = cRect.top + cRect.height / 2;
-					const isUserWinner = Boolean(myId && winnerId === myId);
-					if (isUserWinner) {
-						// User won: collect cards down to bottom-right of screen (personal trick pile)
-						const footerStats = document.querySelector('footer div.flex');
-						if (footerStats) {
-							const fRect = footerStats.getBoundingClientRect();
-							targetX = Math.round((fRect.left + fRect.width / 2) - centerX);
-							targetY = Math.round((fRect.top + fRect.height / 2) - centerY);
-						} else {
-							targetX = Math.round((window.innerWidth - 80) - centerX);
-							targetY = Math.round((window.innerHeight - 50) - centerY);
-						}
+					// Target the winner's player badge in the seating row (human or bot)
+					const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
+					if (winnerPill) {
+						const wRect = winnerPill.getBoundingClientRect();
+						targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+						targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
 					} else {
-						// Bot/opponent won: collect cards up to their top avatar pill
-						const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
-						if (winnerPill) {
-							const wRect = winnerPill.getBoundingClientRect();
-							targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
-							targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
-						} else {
-							targetX = 0;
-							targetY = -220;
-						}
+						targetX = 0;
+						targetY = -220;
 					}
 				}
-				animPhase = 'collecting';
-			}, 1350);
+				animPhase = 'gathering';
+			}, 500);
 
+			// 2. Gather takes 700ms + 250ms hold in center with winner banner (total 950ms)
+			flyTimer = setTimeout(() => {
+				animPhase = 'flying';
+			}, 500 + 700 + 250);
+
+			// 3. Flying takes 750ms
 			finishTimer = setTimeout(() => {
 				animPhase = 'idle';
 				animatedCardKeys.clear();
-				settleTimer = null;
+				gatherTimer = null;
+				flyTimer = null;
 				finishTimer = null;
 				onCollectComplete?.();
-			}, 1350 + 1300);
+			}, 500 + 700 + 250 + 750);
 		}
 	});
 
@@ -169,7 +168,7 @@
 	const visible = $derived(
 		plays.length > 0
 			? plays
-			: (animPhase === 'landing' || animPhase === 'collecting' || isRoundComplete)
+			: (animPhase === 'landing' || animPhase === 'gathering' || animPhase === 'flying' || isRoundComplete)
 				? lastCompleteTrick
 				: []
 	);
@@ -182,96 +181,96 @@
 	style:--target-y={`${targetY}px`}
 >
 	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
-	{#if animPhase === 'collecting'}
-		{#if winnerName}
-			{@const isUserWinner = Boolean(myId && winnerId === myId)}
-			<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
-				<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
-					<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
-				</div>
+	{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
+		{@const isUserWinner = Boolean(myId && winnerId === myId)}
+		<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
+			<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
+				<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
 			</div>
-		{/if}
-		<div
-			class="trick-deck-flyer relative z-20 w-[64px] h-[94px] sm:w-[84px] sm:h-[122px] mx-auto shadow-2xl"
-			style:--target-x={`${targetX}px`}
-			style:--target-y={`${targetY}px`}
-		>
-				{#each lastCompleteTrick as play, idx (play.playerId)}
-					{@const isWinnerCard = play.playerId === winnerId}
-					<div
-						class="absolute inset-0 rounded-lg shadow-md"
-						style:transform={`rotate(${(idx - (lastCompleteTrick.length - 1) / 2) * 5}deg) translate(${idx * 1.5}px, ${idx * -1.5}px)`}
-						style:z-index={isWinnerCard ? 20 : idx}
-					>
-						<div class={cn('w-full h-full rounded-lg', isWinnerCard && 'ring-2 ring-amber-400 border border-amber-400 shadow-amber-950/40')}>
-							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
-						</div>
-					</div>
-				{/each}
-		</div>
-	{:else}
-		<div
-			class="relative z-10 flex items-center justify-center w-full px-2"
-			style:--trick-overlap={trickOverlap}
-			style:--trick-overlap-mobile={trickOverlapMobile}
-		>
-			{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
-				{@const play = visible[slotIdx]}
-				<div
-					class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0 transition-transform"
-					style:z-index={play ? 10 + slotIdx : 0}
-				>
-					{#if play}
-						{@const cardKey = `${play.card.suit}-${play.card.rank}`}
-						<div
-							use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
-							class="w-full flex flex-col items-center gap-1.5 transition-all"
-						>
-							<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
-								<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
-							</div>
-							<span
-								class="text-[10px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
-								title={playerNames[play.playerId] ?? '?'}
-							>
-								{getFirstName(playerNames[play.playerId] ?? '?')}
-							</span>
-						</div>
-					{:else}
-						<div class="w-full h-[94px] sm:h-[122px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
-							<span class="text-xs sm:text-sm opacity-40">♠</span>
-							<span class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-1">
-								{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
-							</span>
-						</div>
-						<span class="h-3.5 block opacity-0 select-none text-[10px]">...</span>
-					{/if}
-				</div>
-			{/each}
 		</div>
 	{/if}
+
+	<div
+		class="relative z-10 flex items-center justify-center w-full px-2"
+		style:--trick-overlap={trickOverlap}
+		style:--trick-overlap-mobile={trickOverlapMobile}
+	>
+		{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
+			{@const play = visible[slotIdx]}
+			{@const isWinnerCard = Boolean(play && play.playerId === winnerId)}
+			<div
+				class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0"
+				class:is-gathering={animPhase === 'gathering'}
+				class:is-flying={animPhase === 'flying'}
+				style:z-index={play ? (isWinnerCard ? 50 : 10 + slotIdx) : 0}
+				style:--gather-x-mobile={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchMobile)}px`}
+				style:--gather-x-desktop={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchDesktop)}px`}
+				style:--gather-rot={`${Math.round((slotIdx - (totalSlots - 1) / 2) * 4)}deg`}
+			>
+				{#if play}
+					{@const cardKey = `${play.card.suit}-${play.card.rank}`}
+					<div
+						use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
+						class="w-full flex flex-col items-center gap-1.5 transition-all"
+					>
+						<div
+							class={cn(
+								'transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg',
+								isWinnerCard && (animPhase === 'gathering' || animPhase === 'flying') && 'ring-2 ring-amber-400 shadow-amber-950/40 shadow-lg'
+							)}
+						>
+							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
+						</div>
+						<span
+							class="trick-slot-meta text-[10px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
+							title={playerNames[play.playerId] ?? '?'}
+						>
+							{getFirstName(playerNames[play.playerId] ?? '?')}
+						</span>
+					</div>
+				{:else}
+					<div class="trick-slot-empty w-full h-[94px] sm:h-[122px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
+						<span class="text-xs sm:text-sm opacity-40">♠</span>
+						<span class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-1">
+							{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
+						</span>
+					</div>
+					<span class="trick-slot-meta h-3.5 block opacity-0 select-none text-[10px]">...</span>
+				{/if}
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
-	.trick-deck-flyer {
+	.trick-slot {
+		--gather-x: var(--gather-x-desktop);
+		will-change: transform, opacity;
+	}
+	@media (max-width: 639px) {
+		.trick-slot {
+			--gather-x: var(--gather-x-mobile);
+		}
+	}
+	.trick-slot.is-gathering {
+		transform: translate(var(--gather-x), 0px) rotate(var(--gather-rot)) scale(1);
+		transition: transform 700ms cubic-bezier(0.25, 1, 0.5, 1);
 		pointer-events: none;
-		animation: flyDeckToWinner 1300ms cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
 	}
-	@keyframes flyDeckToWinner {
-		0% {
-			transform: translate(0, 0) scale(1);
-			opacity: 1;
-		}
-		30% {
-			transform: translate(0, -8px) scale(1.04);
-			opacity: 1;
-		}
-		100% {
-			transform: translate(var(--target-x, 0px), var(--target-y, -220px)) scale(0.18);
-			opacity: 0;
-		}
+	.trick-slot.is-flying {
+		transform: translate(calc(var(--gather-x) + var(--target-x)), var(--target-y)) rotate(calc(var(--gather-rot) + 12deg)) scale(0.2);
+		opacity: 0;
+		transition: transform 750ms cubic-bezier(0.22, 0.9, 0.32, 1), opacity 750ms ease-in;
+		pointer-events: none;
 	}
-
+	.trick-slot.is-gathering :global(.trick-slot-meta),
+	.trick-slot.is-flying :global(.trick-slot-meta),
+	.trick-slot.is-gathering :global(.trick-slot-empty),
+	.trick-slot.is-flying :global(.trick-slot-empty) {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 250ms ease-out;
+	}
 	:global(.fly-in-active) {
 		animation: flyCardFromBadge 550ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 		will-change: transform, opacity;

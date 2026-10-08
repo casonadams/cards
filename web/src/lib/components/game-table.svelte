@@ -107,6 +107,7 @@
 			{@const trickOrder = ((playerIndex - leadIndex + playerIds.length) % playerIds.length) + 1}
 			{@const isLeader = trickOrder === 1}
 			<div
+				data-player-id={id}
 				class={cn(
 					'flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
 					isTurn
@@ -178,7 +179,7 @@
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
 		{:else if isRoundComplete && roundScores && onNextRound}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} isRoundComplete={true} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} isRoundComplete={true} />
 			<RoundScoreOverlay
 				{gameId}
 				handLabel="Hand {currentRound + 1}: {roundLabel}"
@@ -189,7 +190,7 @@
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 			/>
 		{:else}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} />
+			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} />
 			<LastTrick
 				plays={lastCompleteTrick}
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}

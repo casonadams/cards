@@ -65,6 +65,29 @@
 		const t = setTimeout(() => (collecting = false), collectDuration);
 		return () => clearTimeout(t);
 	});
+	function flyInFromBadge(node: HTMLElement, playerId: string) {
+		if (typeof document === 'undefined') return;
+		const pill = document.querySelector(`[data-player-id="${playerId}"]`);
+		if (!pill) return;
+
+		const pRect = pill.getBoundingClientRect();
+		const cRect = node.getBoundingClientRect();
+		const dx = Math.round((pRect.left + pRect.width / 2) - (cRect.left + cRect.width / 2));
+		const dy = Math.round((pRect.top + pRect.height / 2) - (cRect.top + cRect.height / 2));
+
+		node.style.setProperty('--fly-from-x', `${dx}px`);
+		node.style.setProperty('--fly-from-y', `${dy}px`);
+		node.classList.add('fly-in-active');
+
+		const t = setTimeout(() => {
+			node.classList.remove('fly-in-active');
+		}, 460);
+		return {
+			destroy() {
+				clearTimeout(t);
+			}
+		};
+	}
 
 	const visible = $derived(
 		plays.length > 0 ? plays : (collecting || isRoundComplete) ? lastCompleteTrick : []
@@ -119,7 +142,10 @@
 	{:else}
 		<div class="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
 			{#each visible as play (play.playerId)}
-				<div class="flex flex-col items-center gap-1.5 transition-all">
+				<div
+					use:flyInFromBadge={play.playerId}
+					class="flex flex-col items-center gap-1.5 transition-all"
+				>
 					<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
 						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 					</div>
@@ -152,6 +178,25 @@
 		100% {
 			transform: translate(var(--target-x, 0px), var(--target-y, -220px)) scale(0.18);
 			opacity: 0;
+		}
+	}
+
+	:global(.fly-in-active) {
+		animation: flyCardFromBadge 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+		will-change: transform, opacity;
+	}
+
+	@keyframes flyCardFromBadge {
+		0% {
+			transform: translate(var(--fly-from-x, 0px), var(--fly-from-y, -200px)) scale(0.35) rotate(-6deg);
+			opacity: 0.2;
+		}
+		50% {
+			opacity: 1;
+		}
+		100% {
+			transform: translate(0, 0) scale(1) rotate(0deg);
+			opacity: 1;
 		}
 	}
 </style>

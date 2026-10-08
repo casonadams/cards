@@ -51,7 +51,7 @@
 						class="text-xs h-9 px-4 font-bold border-border/80 hover:border-emerald-500/50"
 						onclick={copyInviteLink}
 					>
-						{copied ? '✓ Link Copied' : '🔗 Copy Invite Link'}
+						{copied ? 'Link Copied' : 'Copy Invite Link'}
 					</Button>
 				</div>
 			</div>
@@ -105,7 +105,7 @@
 							onclick={onStart}
 							disabled={!isFull}
 						>
-							{isFull ? '🚀 Start Game' : `Waiting for ${room.maxPlayers - room.players.length} more...`}
+							{isFull ? 'Start Game' : `Waiting for ${room.maxPlayers - room.players.length} more...`}
 						</Button>
 					{/if}
 				</div>

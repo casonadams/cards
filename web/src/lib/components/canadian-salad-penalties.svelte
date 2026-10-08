@@ -28,7 +28,7 @@
 			variant="destructive"
 			class="gap-1.5 px-3 py-1 bg-purple-500/20 text-purple-300 border-purple-500/40"
 		>
-			<span>♛ Queens</span>
+			<span>Queens</span>
 			<span class="opacity-80">+25 pts each</span>
 		</Badge>
 	{:else if handType === 'NO_KING_SPADES'}
@@ -59,7 +59,7 @@
 				variant="destructive"
 				class="gap-1 px-2.5 py-1 bg-purple-500/20 text-purple-300 border-purple-500/40 text-[11px]"
 			>
-				<span>♛ Queens (+25)</span>
+				<span>Queens (+25)</span>
 			</Badge>
 			<Badge
 				variant="destructive"

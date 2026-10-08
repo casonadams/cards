@@ -100,7 +100,7 @@
 					</div>
 					{#if uiState.hookBid !== null}
 						<p class="text-[11px] text-amber-400/90 text-center font-medium bg-amber-500/10 py-1 px-2 rounded-md border border-amber-500/20">
-							⚠️ Dealer Hook: Total bids cannot equal {uiState.cardsPerPlayer}. You cannot bid {uiState.hookBid}.
+							Dealer Hook: Total bids cannot equal {uiState.cardsPerPlayer}. You cannot bid {uiState.hookBid}.
 						</p>
 					{/if}
 					<Button

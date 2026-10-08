@@ -47,7 +47,7 @@
 				onclick={onPlay}
 				disabled={!validCombo}
 			>
-				{validCombo ? `⚔ Attack (${attackValue})` : 'Select Cards'}
+				{validCombo ? `Attack (${attackValue})` : 'Select Cards'}
 			</Button>
 		{:else if uiState.isDefending}
 			<Button
@@ -56,7 +56,7 @@
 				onclick={onDefend}
 				disabled={!canDefend}
 			>
-				🛡 Defend ({defenseValue})
+				Defend ({defenseValue})
 			</Button>
 		{/if}
 	</div>

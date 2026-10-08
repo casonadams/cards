@@ -36,14 +36,13 @@
 	<Card class="w-full max-w-lg border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto rounded-xl">
 		<div class="h-1.5 w-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-t-xl shrink-0"></div>
 		<CardHeader class="text-center pb-2">
-			<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-400/10 text-amber-400 text-2xl mx-auto mb-2 border border-amber-400/20 shadow-inner">
-				🏆
+			<div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-400/10 text-amber-400 text-lg font-black mx-auto mb-2 border border-amber-400/20 shadow-inner">
+				♠
 			</div>
 			<CardTitle class="text-2xl font-black">Game Over</CardTitle>
 			{#if winnerId}
 				<div class="mt-2">
-					<div class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 text-sm font-bold shadow-sm">
-						<span>🎉</span>
+					<div class="inline-flex items-center px-4 py-1.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 text-sm font-bold shadow-sm">
 						<span>{playerNames[winnerId]} takes the victory!</span>
 					</div>
 				</div>
@@ -63,8 +62,8 @@
 					{#each totals as entry, i (entry.id)}
 						<div class="flex justify-between items-center p-2.5 rounded-lg bg-background/50 border border-border/60">
 							<div class="flex items-center gap-2.5">
-								<span class="w-5 text-center text-xs font-bold {i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-muted-foreground'}">
-									{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+								<span class="w-7 text-center text-xs font-mono font-bold {i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-muted-foreground'}">
+									{i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : `${i + 1}th`}
 								</span>
 								<span class="text-sm font-semibold">{playerNames[entry.id]}</span>
 							</div>

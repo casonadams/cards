@@ -88,11 +88,6 @@
 			: (playerIds[currentTurnIndex] ?? playerIds[0])
 	);
 
-	const orderedPlayerIds = $derived.by(() => {
-		const leadIndex = playerIds.indexOf(leaderId);
-		if (leadIndex <= 0) return playerIds;
-		return [...playerIds.slice(leadIndex), ...playerIds.slice(0, leadIndex)];
-	});
 
 	function isPartner(id: string): boolean {
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
@@ -100,15 +95,17 @@
 </script>
 <main class="flex-1 flex flex-col justify-between p-3 sm:p-5 max-w-6xl self-center mx-auto w-full gap-4">
 	<div class="flex flex-wrap justify-center items-center gap-2 sm:gap-3 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
-		{#each orderedPlayerIds as id, pos (id)}
+		{#each playerIds as id (id)}
 			{@const isMe = id === myId}
 			{@const displayName = playerNames[id] ?? id}
 			{@const shortName = getFirstName(displayName)}
-			{@const isTurn = currentTurnIndex === playerIds.indexOf(id)}
+			{@const playerIndex = playerIds.indexOf(id)}
+			{@const isTurn = currentTurnIndex === playerIndex}
 			{@const team = teamFor(rookUi, id)}
 			{@const partner = isPartner(id)}
-			{@const isLeader = pos === 0}
-			{@const isLast = pos === orderedPlayerIds.length - 1}
+			{@const leadIndex = playerIds.indexOf(leaderId)}
+			{@const trickOrder = ((playerIndex - leadIndex + playerIds.length) % playerIds.length) + 1}
+			{@const isLeader = trickOrder === 1}
 			<div
 				class={cn(
 					'flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
@@ -132,6 +129,11 @@
 					>
 						{getInitials(displayName)}
 					</div>
+					{#if isLeader}
+						<span class="absolute -top-1 -left-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[9px] font-black border border-background shadow-xs pointer-events-none" title="Trick Leader">
+							L
+						</span>
+					{/if}
 					{#if isTurn}
 						<span class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center pointer-events-none">
 							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -148,16 +150,14 @@
 						{/if}
 						<span
 							class={cn(
-								'text-[9px] font-black px-1.5 py-0.2 rounded leading-none border',
+								'w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black leading-none border shrink-0',
 								isLeader
-									? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-									: isLast
-										? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
-										: 'bg-muted/80 text-muted-foreground border-border/60'
+									? 'bg-amber-500/25 text-amber-300 border-amber-500/50 shadow-xs'
+									: 'bg-muted/70 text-muted-foreground/80 border-border/60'
 							)}
-							title={isLeader ? 'Leader (plays 1st)' : isLast ? `Last (plays ${orderedPlayerIds.length})` : `Plays ${pos + 1}`}
+							title={isLeader ? 'Leader (plays 1st)' : `Plays #${trickOrder}`}
 						>
-							{isLeader ? '1st' : isLast ? 'Last' : `${pos + 1}`}
+							{trickOrder}
 						</span>
 						<span
 							class={cn(

@@ -39,9 +39,11 @@
 		showBidding?: boolean;
 		onBid?: (bid: number) => void;
 		isRoundComplete?: boolean;
+		isGameOver?: boolean;
 		roundScores?: readonly ScoreEntry[] | null;
 		isHost?: boolean;
 		onNextRound?: () => void;
+		onShowGameOver?: () => void;
 	}
 
 	let {
@@ -70,9 +72,11 @@
 		showBidding = false,
 		onBid,
 		isRoundComplete = false,
+		isGameOver = false,
 		roundScores = null,
 		isHost = false,
-		onNextRound
+		onNextRound,
+		onShowGameOver
 	}: Props = $props();
 
 	const isOhWell = $derived(gameId === 'oh-well');
@@ -212,14 +216,15 @@
 	<div class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-4xl mx-auto px-2 py-2 gap-3">
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
-		{:else if isRoundComplete && roundScores && onNextRound && roundScoreReady}
+		{:else if isRoundComplete && roundScores && roundScoreReady}
 			<RoundScoreOverlay
 				{gameId}
 				handLabel="Hand {currentRound + 1}: {roundLabel}"
 				scores={roundScores}
 				{playerNames}
-				onContinue={onNextRound}
+				onContinue={isGameOver ? (onShowGameOver ?? onNextRound ?? (() => {})) : (onNextRound ?? (() => {}))}
 				{isHost}
+				{isGameOver}
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 			/>
 		{:else}

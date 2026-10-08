@@ -13,15 +13,26 @@
 		isHost: boolean;
 		gameId?: string;
 		winnerName?: string | null;
+		isGameOver?: boolean;
 	}
 
-	let { handLabel, scores, playerNames, onContinue, isHost, gameId = '', winnerName = null }: Props = $props();
+	let {
+		handLabel,
+		scores,
+		playerNames,
+		onContinue,
+		isHost,
+		gameId = '',
+		winnerName = null,
+		isGameOver = false
+	}: Props = $props();
 
 	const isHighestScoreWins = $derived(gameId === 'oh-well' || gameId === 'rook');
 	const sorted = $derived(
 		[...scores].sort((a, b) => (isHighestScoreWins ? b.points - a.points : a.points - b.points))
 	);
 </script>
+
 <div class="w-full max-w-md mx-auto animate-in fade-in duration-200">
 	<Card class="border-border/80 bg-card/95 shadow-2xl overflow-hidden rounded-2xl border">
 		<div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-t-2xl shrink-0"></div>
@@ -36,7 +47,7 @@
 					</span>
 				{/if}
 			</div>
-			<CardTitle class="text-lg font-black">Round Completed — Scores</CardTitle>
+			<CardTitle class="text-lg font-black">{isGameOver ? 'Final Hand Completed — Scores' : 'Round Completed — Scores'}</CardTitle>
 		</CardHeader>
 		<CardContent class="gap-3.5 pt-1 px-4 sm:px-6 pb-4">
 			<div class="flex flex-col gap-1.5">
@@ -63,9 +74,12 @@
 				{/each}
 			</div>
 
-			{#if isHost}
-				<Button class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-md shadow-emerald-950/40 text-sm rounded-xl cursor-pointer" onclick={onContinue}>
-					Next Hand →
+			{#if isHost || isGameOver}
+				<Button
+					class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 shadow-md shadow-emerald-950/40 text-sm rounded-xl cursor-pointer"
+					onclick={onContinue}
+				>
+					{isGameOver ? 'View Final Standings →' : 'Next Hand →'}
 				</Button>
 			{:else}
 				<div class="p-2.5 rounded-xl bg-background/40 border border-border/50 text-center">

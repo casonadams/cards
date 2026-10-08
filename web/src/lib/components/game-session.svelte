@@ -58,8 +58,9 @@
 			])
 		)
 	);
-</script>
 
+	let showFinalStandings = $state(false);
+</script>
 <GameTable
 	{gameId}
 	{trumpSuit}
@@ -86,14 +87,16 @@
 	{showBidding}
 	{onBid}
 	isRoundComplete={gs.isRoundComplete}
+	isGameOver={gs.isGameOver}
 	roundScores={gs.roundScores}
 	{isHost}
 	{onNextRound}
+	onShowGameOver={() => (showFinalStandings = true)}
 />
 <GameOverlays
 	{gameId}
 	isRoundComplete={gs.isRoundComplete}
-	isGameOver={gs.isGameOver}
+	isGameOver={gs.isGameOver && showFinalStandings}
 	roundScores={gs.roundScores}
 	handLabel="Hand {currentRound + 1}: {roundLabel}"
 	{playerNames}

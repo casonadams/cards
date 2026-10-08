@@ -95,14 +95,14 @@
 				gameDoc = doc;
 				sync.publish(docRoomId, doc, false);
 			},
-			onQueryRoom(conn) {
+			onQueryRoom() {
 				if (room) {
-					conn.send({ type: 'sync_room', room });
+					p2p?.broadcast({ type: 'sync_room', room });
 				}
 			},
-			onQueryDoc(docRoomId, conn) {
+			onQueryDoc(docRoomId) {
 				if (gameDoc && roomId === docRoomId) {
-					conn.send({ type: 'sync_doc', roomId: docRoomId, doc: gameDoc });
+					p2p?.broadcast({ type: 'sync_doc', roomId: docRoomId, doc: gameDoc });
 				}
 			}
 		});
@@ -184,7 +184,7 @@
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
-		p2p?.startHost(code).catch(() => {});
+		p2p?.connect(code, myPlayer.id).catch(() => {});
 		try {
 			const newRoom = await roomRepo.create({
 				code,
@@ -221,7 +221,7 @@
 		lobbyError = '';
 		loading = true;
 		const code = joinCode.trim().toUpperCase();
-		p2p?.joinHost(code, myPlayer.id).catch(() => {});
+		p2p?.connect(code, myPlayer.id).catch(() => {});
 		if (typeof window !== 'undefined') {
 			window.location.hash = '#code=' + code;
 		}

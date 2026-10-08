@@ -23,7 +23,7 @@
     "vite": "^6.2.0"
   },
   "dependencies": {
-    "peerjs": "^1.5.5",
+    "mqtt": "^5.16.0",
     "xstate": "^5.33.2"
   }
 }

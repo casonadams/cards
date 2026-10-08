@@ -1,7 +1,7 @@
-.PHONY: all lint check complexity ripwire build clean help
+.PHONY: all lint check test complexity ripwire build clean help
 
 # Default target runs all code quality and build gates
-all: lint check complexity build
+all: lint check test complexity build
 	@echo "✓ All checks and build passed successfully."
 
 # Run fast AST linting across TypeScript/JS web code
@@ -14,6 +14,11 @@ check:
 	@echo "==> Running svelte-check..."
 	@cd web && pnpm check
 
+
+# Run unit and behavior tests
+test:
+	@echo "==> Running bun test..."
+	@cd web && bun test
 # Enforce Cognitive and Cyclomatic complexity thresholds via cccc
 complexity:
 	@echo "==> Running cccc complexity checks..."

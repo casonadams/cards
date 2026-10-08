@@ -12,6 +12,7 @@ export { createRoom, joinRoom } from './room-manager.ts';
 export { createAiPlayerId, isAiPlayer, getAiDisplayName, pickAiCard } from './ai-player.ts';
 export { sortHand } from './sort-hand.ts';
 export { registerGame, getGame, listGames } from './game-registry.ts';
+export { trackPlayerVoids, sampleOpponentHands } from './determinization.ts';
 
 export type { TurnState } from './turn-manager.ts';
 export type { TrickPlay, TrickResult, PlayValidation, ValidatePlayParams } from './trick.ts';
@@ -21,3 +22,4 @@ export type { SeededDealResult, DealWithSeedParams } from './deal.ts';
 export type { PresenceManager } from './heartbeat.ts';
 export type { CreateRoomParams, JoinRoomResult, JoinRoomParams } from './room-manager.ts';
 export type { GameSummary } from './game-registry.ts';
+export type { OpponentNeed } from './determinization.ts';

@@ -1,6 +1,8 @@
 import { dealOhWell } from './deal.ts';
-import { isValidPlay } from './trick.ts';
-import { resolveOhWellTrick } from './trick.ts';
+import { isValidPlay, resolveOhWellTrick } from './trick.ts';
+import { countTricksTaken } from './trick-counting.ts';
+import { trackPlayerVoids } from '$lib/platform/engine/index';
+import { simulateBestOhWellCard } from './ai-simulation.ts';
 import type { AiMoveParams, AiMoveResult } from '$lib/platform/types/game-runtime';
 import type { Card, Suit } from '$lib/platform/types/index';
 import type { TrickPlay } from '$lib/platform/engine/index';
@@ -46,41 +48,67 @@ function getAiHand(lookup: DealLookup): readonly Card[] {
 	return fullHand.filter((c) => !played.some((p) => p.suit === c.suit && p.rank === c.rank));
 }
 
-function pickCard(hand: readonly Card[], trickPlays: TrickPlay[]): Card {
-	const ledSuit = trickPlays.length > 0 ? trickPlays[0].card.suit : null;
-	const valid = hand.filter((c) => isValidPlay({ card: c, hand, ledSuit }));
-	return valid[Math.floor(Math.random() * valid.length)] ?? hand[0];
-}
-
-function isPlayingState(rs: OhWellRoundState | null): rs is OhWellRoundState {
-	return rs !== null && rs.phase === 'playing';
-}
-
-function isNotMyTurn(params: AiMoveParams, trumpSuit: Suit | null): boolean {
-	return getCurrentTurnId(params, trumpSuit) !== params.aiPlayerId;
-}
-
 function buildTrickPlays(params: AiMoveParams): TrickPlay[] {
 	const trickStart = params.moves.length - (params.moves.length % params.playerCount);
 	return params.moves.slice(trickStart).map((m) => ({ playerId: m.playerId, card: m.card }));
 }
 
-function canAct(params: AiMoveParams, rs: OhWellRoundState): boolean {
-	return !isNotMyTurn(params, rs.trumpSuit);
-}
-
 function getPlayableHand(params: AiMoveParams, rs: OhWellRoundState): readonly Card[] | null {
-	if (!canAct(params, rs)) return null;
+	if (getCurrentTurnId(params, rs.trumpSuit) !== params.aiPlayerId) return null;
 	const hand = getAiHand({ params, cardsPerPlayer: rs.cardsPerPlayer });
 	return hand.length > 0 ? hand : null;
 }
 
 export function computeOhWellAiMove(params: AiMoveParams): AiMoveResult | null {
 	const rs = getState(params.gameSpecific);
-	if (!isPlayingState(rs)) return null;
+	if (!rs || rs.phase !== 'playing') return null;
 	const hand = getPlayableHand(params, rs);
 	if (!hand) return null;
-	return { playerId: params.aiPlayerId, card: pickCard(hand, buildTrickPlays(params)) };
+
+	const trickPlays = buildTrickPlays(params);
+	const ledSuit = trickPlays.length > 0 ? (trickPlays[0].card.suit as Suit) : null;
+	const valid = hand.filter((c) => isValidPlay({ card: c, hand, ledSuit }));
+	const candidates = valid.length > 0 ? valid : hand;
+
+	const deal = dealOhWell({
+		playerCount: params.playerCount,
+		cardsPerPlayer: rs.cardsPerPlayer,
+		seed: params.seed + params.currentRound
+	});
+
+	const bids = new Map<string, number>();
+	for (const b of rs.bids) bids.set(b.playerId, b.bid);
+
+	const takenCounts = countTricksTaken(
+		{
+			moves: params.moves,
+			seed: params.seed,
+			currentRound: params.currentRound,
+			playerCount: params.playerCount,
+			playerIds: params.playerIds,
+			myId: params.aiPlayerId,
+			dealerIndex: params.dealerIndex,
+			gameSpecific: params.gameSpecific
+		},
+		rs.trumpSuit
+	);
+
+	const card = simulateBestOhWellCard({
+		candidates,
+		aiHand: hand,
+		currentTrick: trickPlays,
+		moves: params.moves,
+		playerIds: params.playerIds,
+		aiId: params.aiPlayerId,
+		trumpSuit: rs.trumpSuit,
+		bids,
+		takenCounts,
+		cardsPerPlayer: rs.cardsPerPlayer,
+		allDealtCards: deal.hands.flat(),
+		voids: trackPlayerVoids(params.moves, params.playerCount, params.playerIds)
+	});
+
+	return { playerId: params.aiPlayerId, card };
 }
 
 export function computeAiBid(params: AiMoveParams): number {

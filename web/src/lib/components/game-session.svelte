@@ -81,6 +81,7 @@
 	{onLeave}
 />
 <GameOverlays
+	{gameId}
 	isRoundComplete={gs.isRoundComplete}
 	isGameOver={gs.isGameOver}
 	roundScores={gs.roundScores}

@@ -5,6 +5,7 @@
 	import type { RoundScore } from '$lib/platform/stores/room-store';
 
 	interface Props {
+		gameId?: string;
 		isRoundComplete: boolean;
 		isGameOver: boolean;
 		roundScores: readonly ScoreEntry[] | null;
@@ -18,6 +19,7 @@
 	}
 
 	let {
+		gameId = '',
 		isRoundComplete,
 		isGameOver,
 		roundScores,
@@ -33,6 +35,7 @@
 
 {#if isRoundComplete && !isGameOver && roundScores}
 	<RoundScoreOverlay
+		{gameId}
 		{handLabel}
 		scores={roundScores}
 		{playerNames}
@@ -42,5 +45,5 @@
 {/if}
 
 {#if isGameOver && roundScores}
-	<GameOverOverlay {playerNames} {playerIds} rounds={allRounds} {onBackToLobby} />
+	<GameOverOverlay {gameId} {playerNames} {playerIds} rounds={allRounds} {onBackToLobby} />
 {/if}

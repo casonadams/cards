@@ -9,11 +9,15 @@
 		playerNames: Record<string, string>;
 		onContinue: () => void;
 		isHost: boolean;
+		gameId?: string;
 	}
 
-	let { handLabel, scores, playerNames, onContinue, isHost }: Props = $props();
+	let { handLabel, scores, playerNames, onContinue, isHost, gameId = '' }: Props = $props();
 
-	const sorted = $derived([...scores].sort((a, b) => a.points - b.points));
+	const isHighestScoreWins = $derived(gameId === 'oh-well' || gameId === 'rook');
+	const sorted = $derived(
+		[...scores].sort((a, b) => (isHighestScoreWins ? b.points - a.points : a.points - b.points))
+	);
 </script>
 
 <div class="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
@@ -33,7 +37,15 @@
 							</div>
 							<span class="text-sm font-semibold">{playerNames[entry.playerId] ?? entry.playerId}</span>
 						</div>
-						<span class="font-mono text-xs font-black px-3 py-1 rounded-full {entry.points === 0 ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-muted text-foreground'}">
+						<span
+							class="font-mono text-xs font-black px-3 py-1 rounded-full {isHighestScoreWins
+								? entry.points > 0
+									? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+									: 'bg-muted text-muted-foreground'
+								: entry.points === 0
+									? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+									: 'bg-rose-500/15 text-rose-300 border border-rose-500/30'}"
+						>
 							{entry.points} pts
 						</span>
 					</div>

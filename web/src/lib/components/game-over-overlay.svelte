@@ -10,9 +10,12 @@
 		playerIds: readonly string[];
 		rounds: readonly RoundScore[];
 		onBackToLobby: () => void;
+		gameId?: string;
 	}
 
-	let { playerNames, playerIds, rounds, onBackToLobby }: Props = $props();
+	let { playerNames, playerIds, rounds, onBackToLobby, gameId = '' }: Props = $props();
+
+	const isHighestScoreWins = $derived(gameId === 'oh-well' || gameId === 'rook');
 
 	const totals = $derived(
 		playerIds
@@ -23,7 +26,7 @@
 					return sum + (entry?.points ?? 0);
 				}, 0)
 			}))
-			.sort((a, b) => a.total - b.total)
+			.sort((a, b) => (isHighestScoreWins ? b.total - a.total : a.total - b.total))
 	);
 
 	const winnerId = $derived(totals[0]?.id);

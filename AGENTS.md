@@ -16,6 +16,7 @@
 ### In-Table Flow vs Blocking Overlays
 - Prefer embedding phase transitions (such as bidding consoles and round-end summaries) directly in the tabletop arena between the trick area and the hand rather than full-screen blackout modals.
 - During bidding, keep the player's real hand visible at the bottom of the table with full trump highlights and indices; do not build duplicate hand displays inside detached modals.
+- Hand cards during non-playing phases (such as bidding) must remain in a non-interactive inspection state (`inspection={true}`, `playable={false}`, `pointer-events-none`, `disabled`, and `onclick={undefined}`). Players must never be able to click or dispatch card play actions during bidding, which breaks engine round state machines.
 - Bidding consoles must explicitly display who bids first and leads trick 1 (`🎯 1st Bid & Lead`) versus who is the dealer (`Dealer (bids last)`), and annotate player bid chips with matching role tags so players can calculate their contract strategy.
 - When a round completes, keep the final trick visible on the felt playing area (`TrickArea` showing `lastCompleteTrick`) with the winner callout, docking the round score summary beneath it so players can review the final trick outcome.
 - Reserve full-screen celebratory modals exclusively for final match conclusions (`GameOverOverlay`).
@@ -24,7 +25,7 @@
 
 ### Header & Footer Vertical Conservation
 - Never stack multiple sub-header bars above the game table. Consolidate title, round counter, round rules trigger, and trump/contract metadata into the single top navigation bar (`NavBar`) with a collapsible rules drawer.
-- Position active turn notifications directly in the focal transition zone between the played trick arena and the player's hand (`● YOUR TURN — PLAY A CARD` with glowing emerald border and animated pulse). This concentrates action feedback directly above the card selection zone, keeping the bottom footer as a clean, quiet utility row for game controls and trick/score metrics.
+- Position active turn notifications directly in the focal transition zone between the played trick arena and the player's hand (`● YOUR TURN — PLAY A CARD` with glowing emerald border and animated pulse). Anchor the notification absolutely (`position: absolute` with zero flow height) to the top seam of the hand container rather than inserting a dynamic block into the flex flow; dynamic flow insertion alters parent flex heights and causes jarring Cumulative Layout Shift (CLS) / screen bouncing every time turns change.
 - When displaying cut cards establishing trump in the navbar, render a distinct mini playing card badge (solid white background, dark border, rank numeral, and suit-colored pip) rather than plain text.
 - Focal play areas (trick arena) must render cards at prominent scale (`size="md"`), never smaller than inactive hand cards.
 - Trick fade-out animations must remain concise (1.5s to 2.0s) so completed tricks do not obscure subsequent lead plays.

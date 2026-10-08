@@ -44,7 +44,7 @@
 	);
 	const cardOverlapMobile = $derived(
 		sorted.length > 14
-			? '-46px'
+			? '-41px'
 			: sorted.length > 10
 				? '-36px'
 				: sorted.length > 7

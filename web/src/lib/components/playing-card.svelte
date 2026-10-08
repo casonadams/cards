@@ -140,7 +140,7 @@
 		{/if}
 	{:else}
 		<span class="absolute top-1 left-1 sm:left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
-			<span>{rankGlyph}</span>
+			<span class={cn('leading-none', rankGlyph === '10' && 'tracking-tighter')}>{rankGlyph}</span>
 			<SuitIcon suit={card.suit} class="w-2.5 h-2.5 sm:w-3 sm:h-3 mt-0.5" />
 		</span>
 		<span
@@ -148,7 +148,7 @@
 				size
 			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
-			<span>{rankGlyph}</span>
+			<span class={cn('leading-none', rankGlyph === '10' && 'tracking-tighter')}>{rankGlyph}</span>
 			<SuitIcon suit={card.suit} class="w-2.5 h-2.5 sm:w-3 sm:h-3 mt-0.5" />
 		</span>
 		<div class="absolute inset-0 flex items-center justify-center">

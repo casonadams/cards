@@ -63,6 +63,10 @@
 		}
 	}
 
+	const shortTitle = $derived(
+		title === 'Canadian Salad' ? 'CS' : title === 'Oh Well' ? 'OW' : title === 'Cards' ? 'Cards' : title.slice(0, 2).toUpperCase()
+	);
+
 	let showRules = $state(false);
 	const MAX_NAME_LENGTH = 20;
 	let editing = $state(false);
@@ -90,10 +94,13 @@
 </script>
 
 <nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-3 sm:px-6 py-2 flex justify-between items-center sticky top-0 z-40 gap-2">
-	<div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
-		<span class="text-sm sm:text-base font-black tracking-tight inline-flex items-center gap-1.5 leading-none">
+	<div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+		<span class="text-sm sm:text-base font-black tracking-tight inline-flex items-center gap-1 leading-none">
 			<span class="text-emerald-400 text-base sm:text-lg leading-none">♠</span>
-			<span class="leading-none">{title}</span>
+			<span class="leading-none">
+				<span class="sm:hidden">{shortTitle}</span>
+				<span class="hidden sm:inline">{title}</span>
+			</span>
 		</span>
 		{#if roundLabel}
 			<button
@@ -101,9 +108,9 @@
 				onclick={() => (showRules = !showRules)}
 				title="Click to view rules"
 			>
-				<span class="text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-foreground hover:border-emerald-500/50 flex items-center gap-1 shadow-xs leading-none">
-					<span class="opacity-70">H{currentRound + 1}:</span>
-					<span class="font-extrabold truncate max-w-[75px] sm:max-w-[140px]">{roundLabel}</span>
+				<span class="text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-foreground hover:border-emerald-500/50 flex items-center gap-1 shadow-xs leading-none">
+					<span class="opacity-70">H{currentRound + 1}</span>
+					<span class="hidden sm:inline font-extrabold truncate max-w-[140px]">: {roundLabel}</span>
 					<span class="text-[10px] opacity-60">ⓘ</span>
 				</span>
 			</button>
@@ -129,7 +136,7 @@
 				{/if}
 			</div>
 		{:else if handType}
-			<div class="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] sm:text-xs font-bold shadow-xs truncate">
+			<div class="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] sm:text-xs font-bold shadow-xs whitespace-nowrap shrink-0">
 				<span>{formatPenalty(handType)}</span>
 			</div>
 		{:else if rookUi && rookUi.trumpColor}
@@ -158,15 +165,15 @@
 			</div>
 		{:else}
 			<button
-				class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs leading-none"
+				class="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs leading-none shrink-0"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
 				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black leading-none shrink-0">
 					{getInitials(displayName)}
 				</div>
-				<span class="font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
-				<span class="text-[11px] text-muted-foreground group-hover:text-emerald-400 opacity-70 leading-none">✎</span>
+				<span class="hidden sm:inline font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
+				<span class="hidden sm:inline text-[11px] text-muted-foreground group-hover:text-emerald-400 opacity-70 leading-none">✎</span>
 			</button>
 		{/if}
 		{#if showAdmin}

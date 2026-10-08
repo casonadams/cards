@@ -44,9 +44,9 @@
 	);
 	const cardOverlapMobile = $derived(
 		sorted.length > 14
-			? '-42px'
+			? '-46px'
 			: sorted.length > 10
-				? '-34px'
+				? '-36px'
 				: sorted.length > 7
 					? '-24px'
 					: sorted.length > 4
@@ -71,7 +71,7 @@
 
 <div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll min-h-[130px] sm:min-h-[160px] flex items-end">
 	<div
-		class="inline-flex min-w-full items-end justify-start sm:justify-center px-4 sm:px-6 pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
+		class="inline-flex min-w-full items-end justify-start sm:justify-center px-2 sm:px-6 pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
 		style:--card-overlap={cardOverlap}
 		style:--card-overlap-mobile={cardOverlapMobile}
 	>

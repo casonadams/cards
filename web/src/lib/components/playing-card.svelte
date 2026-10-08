@@ -139,7 +139,7 @@
 			</span>
 		{/if}
 	{:else}
-		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
+		<span class="absolute top-1 left-1 sm:left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
 			<span>{rankGlyph}</span>
 			<SuitIcon suit={card.suit} class="w-2.5 h-2.5 sm:w-3 sm:h-3 mt-0.5" />
 		</span>
@@ -159,7 +159,7 @@
 	{/if}
 	{#if !faceDown && penaltyPoints > 0}
 		<span
-			class="absolute bottom-1.5 left-1.5 text-[9px] sm:text-[10px] bg-rose-600 text-white rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-rose-400/30"
+			class="absolute bottom-1.5 left-1 sm:left-1.5 text-[9px] sm:text-[10px] bg-rose-600 text-white rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-rose-400/30"
 			title="Penalty: +{penaltyPoints} pts"
 		>
 			{penaltyPoints}

@@ -31,10 +31,10 @@
 	const bidOptions = $derived(Array.from({ length: uiState.cardsPerPlayer + 1 }, (_, i) => i));
 </script>
 
-<div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto p-4 animate-in fade-in duration-200">
-	<Card class="w-full max-w-md border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto">
-		<div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500"></div>
-		<CardHeader class="pb-2 text-center">
+<div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start sm:items-center justify-center z-50 overflow-y-auto p-3 sm:p-4 animate-in fade-in duration-200">
+	<Card class="w-full max-w-md border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+		<div class="h-1.5 w-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 rounded-t-lg shrink-0"></div>
+		<CardHeader class="pb-2 text-center shrink-0">
 			<CardTitle class="text-xl font-black">
 				{uiState.cardsPerPlayer}-Card Round — Bidding
 			</CardTitle>
@@ -46,9 +46,9 @@
 				<p class="text-xs text-muted-foreground">No Trump Round</p>
 			{/if}
 		</CardHeader>
-		<CardContent class="gap-4 pt-1">
+		<CardContent class="gap-3 pt-1 overflow-y-auto px-4 sm:px-6 pb-5">
 			{#if uiState.bids.length > 0}
-				<div class="flex flex-col gap-1.5 p-2.5 rounded-lg bg-background/50 border border-border/60">
+				<div class="flex flex-col gap-1.5 p-2.5 rounded-lg bg-background/50 border border-border/60 shrink-0">
 					<p class="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Current Bids</p>
 					{#each uiState.bids as bid (bid.playerId)}
 						<div class="flex justify-between items-center text-xs">
@@ -59,25 +59,24 @@
 				</div>
 			{/if}
 
-			<div class="p-2 rounded-xl bg-background/30 border border-border/40">
-				<p class="text-[11px] text-muted-foreground font-medium text-center mb-1.5">Your Hand</p>
-				<div class="flex flex-wrap justify-center gap-1.5 py-1">
-					{#each sortHand(myHand, uiState.trumpSuit as Suit | null) as card (`${card.suit}-${card.rank}`)}
-						<div class="transform transition-transform hover:-translate-y-1">
+			<div class="p-2 rounded-xl bg-background/30 border border-border/40 shrink-0">
+				<p class="text-[11px] text-muted-foreground font-medium text-center mb-1">Your Hand</p>
+				<div class="flex items-center justify-center -space-x-5 overflow-x-auto py-1 px-3 card-fan-scroll">
+					{#each sortHand(myHand, uiState.trumpSuit as Suit | null) as card, idx (`${card.suit}-${card.rank}`)}
+						<div class="shrink-0 transform transition-transform hover:-translate-y-2 hover:z-20 relative" style:z-index={idx}>
 							<PlayingCard {card} size="sm" />
 						</div>
 					{/each}
 				</div>
 			</div>
-
 			{#if uiState.canBid}
-				<div class="flex flex-col gap-3 pt-1">
+				<div class="flex flex-col gap-2.5 pt-0.5 shrink-0">
 					<p class="text-xs text-muted-foreground font-semibold text-center">How many tricks will you take?</p>
-					<div class="flex flex-wrap justify-center gap-1.5">
+					<div class="flex flex-wrap justify-center gap-1.5 max-w-xs mx-auto">
 						{#each bidOptions as n (n)}
 							{@const isHook = uiState.hookBid === n}
 							<button
-								class="w-10 h-10 rounded-lg border text-sm font-bold transition-all flex items-center justify-center cursor-pointer
+								class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg border text-xs sm:text-sm font-bold transition-all flex items-center justify-center cursor-pointer
 									{selectedBid === n
 									? 'border-2 border-emerald-400 bg-emerald-500 text-zinc-950 font-black shadow-md'
 									: 'border-border/80 bg-background/50 text-foreground hover:border-border hover:bg-card'}

@@ -21,8 +21,8 @@
 </script>
 
 <div class="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-	<Card class="w-full max-w-md border-border/80 bg-card/95 shadow-2xl overflow-hidden">
-		<div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+	<Card class="w-full max-w-md border-border/80 bg-card/95 shadow-2xl overflow-hidden rounded-xl">
+		<div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-t-xl shrink-0"></div>
 		<CardHeader class="text-center pb-2">
 			<CardTitle class="text-xl font-black">{handLabel}</CardTitle>
 			<p class="text-xs text-muted-foreground">Round Completed — Score Summary</p>

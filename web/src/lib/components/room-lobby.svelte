@@ -30,8 +30,8 @@
 </script>
 
 <main class="max-w-lg self-center mx-auto p-4 sm:p-8 flex flex-col gap-6 flex-1 w-full justify-center">
-	<Card class="border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden">
-		<div class="h-2 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500"></div>
+	<Card class="border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden rounded-2xl">
+		<div class="h-2 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 rounded-t-2xl shrink-0"></div>
 		<CardHeader class="pb-3 text-center">
 			<div class="inline-flex items-center justify-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold mx-auto mb-1 border border-emerald-500/20">
 				<span>Waiting Room</span>

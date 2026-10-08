@@ -33,8 +33,8 @@
 </script>
 
 <div class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto p-4 animate-in fade-in duration-200">
-	<Card class="w-full max-w-lg border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto">
-		<div class="h-1.5 w-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500"></div>
+	<Card class="w-full max-w-lg border-border/80 bg-card/95 shadow-2xl overflow-hidden my-auto rounded-xl">
+		<div class="h-1.5 w-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-t-xl shrink-0"></div>
 		<CardHeader class="text-center pb-2">
 			<div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-400/10 text-amber-400 text-2xl mx-auto mb-2 border border-amber-400/20 shadow-inner">
 				🏆

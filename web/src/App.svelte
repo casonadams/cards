@@ -78,6 +78,41 @@
 	let p2p: P2pNetworkManager | null = null;
 	if (typeof window !== 'undefined') {
 		p2p = new P2pNetworkManager({
+			onJoinRequest(code, joiningPlayer) {
+				if (!isHost || !room) return;
+				if (room.code.trim().toUpperCase() !== code.trim().toUpperCase()) return;
+				if (room.players.length >= room.maxPlayers) return;
+
+				const existingIndex = room.players.findIndex((p) => p.id === joiningPlayer.id);
+				let updatedPlayers: RoomPlayer[];
+				if (existingIndex >= 0) {
+					updatedPlayers = [...room.players];
+					updatedPlayers[existingIndex] = {
+						...room.players[existingIndex],
+						displayName: joiningPlayer.displayName,
+						isConnected: true,
+						lastSeen: Date.now()
+					};
+				} else {
+					updatedPlayers = [
+						...room.players,
+						{
+							id: joiningPlayer.id,
+							displayName: joiningPlayer.displayName,
+							isHost: false,
+							isConnected: true,
+							lastSeen: Date.now()
+						}
+					];
+				}
+				const updatedRoom: GameRoom = {
+					...room,
+					players: updatedPlayers,
+					playerIds: updatedPlayers.map((p) => p.id)
+				};
+				room = updatedRoom;
+				roomRepo.update(updatedRoom.id, updatedRoom, true);
+			},
 			onRoomMessage(updatedRoom) {
 				if (!updatedRoom || !updatedRoom.id) return;
 				if (room && room.id === updatedRoom.id && JSON.stringify(room) === JSON.stringify(updatedRoom)) {
@@ -88,7 +123,11 @@
 				roomRepo.update(updatedRoom.id, updatedRoom, false);
 			},
 			onDocMessage(docRoomId, doc) {
-				if (!doc || docRoomId !== roomId) return;
+				if (!doc) return;
+				if (!roomId && room?.id === docRoomId) {
+					roomId = docRoomId;
+				}
+				if (docRoomId !== roomId && room?.id !== docRoomId) return;
 				if (gameDoc && JSON.stringify(gameDoc) === JSON.stringify(doc)) {
 					return;
 				}
@@ -101,7 +140,7 @@
 				}
 			},
 			onQueryDoc(docRoomId) {
-				if (gameDoc && roomId === docRoomId) {
+				if (gameDoc && (roomId === docRoomId || room?.id === docRoomId)) {
 					p2p?.broadcast({ type: 'sync_doc', roomId: docRoomId, doc: gameDoc });
 				}
 			}
@@ -221,54 +260,55 @@
 		lobbyError = '';
 		loading = true;
 		const code = joinCode.trim().toUpperCase();
-		p2p?.connect(code, myPlayer.id).catch(() => {});
 		if (typeof window !== 'undefined') {
 			window.location.hash = '#code=' + code;
 		}
+
+		await p2p?.connect(code, myPlayer.id).catch(() => {});
+
+		const myRoomPlayer: RoomPlayer = {
+			id: myPlayer.id,
+			displayName: myPlayer.displayName,
+			isHost: false,
+			isConnected: true,
+			lastSeen: Date.now()
+		};
+
+		// 1. Send join_request to host over P2P network
+		p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
+
+		// 2. Also check if room exists in local cache (same machine)
 		try {
 			let target = await roomRepo.getByCode(code);
-			if (!target) {
-				target = await roomRepo.create({
-					code,
-					gameDefinitionId: 'canadian-salad',
-					hostId: 'host-player',
-					maxPlayers: 4,
-					players: [],
-					playerIds: [],
-					phase: 'lobby',
-					createdAt: Date.now()
-				});
-			}
-			const existingIndex = target.players.findIndex((p) => p.id === myPlayer.id);
-			let updatedPlayers: RoomPlayer[];
-			if (existingIndex >= 0) {
-				updatedPlayers = [...target.players];
-				updatedPlayers[existingIndex] = {
-					...target.players[existingIndex],
-					displayName: myPlayer.displayName,
-					isConnected: true,
-					lastSeen: Date.now()
-				};
-			} else {
-				updatedPlayers = [
-					...target.players,
-					{
-						id: myPlayer.id,
+			if (target) {
+				const existingIndex = target.players.findIndex((p) => p.id === myPlayer.id);
+				let updatedPlayers: RoomPlayer[];
+				if (existingIndex >= 0) {
+					updatedPlayers = [...target.players];
+					updatedPlayers[existingIndex] = {
+						...target.players[existingIndex],
 						displayName: myPlayer.displayName,
-						isHost: target.hostId === myPlayer.id,
 						isConnected: true,
 						lastSeen: Date.now()
-					}
-				];
+					};
+				} else {
+					updatedPlayers = [
+						...target.players,
+						{
+							...myRoomPlayer,
+							isHost: target.hostId === myPlayer.id
+						}
+					];
+				}
+				const updatedRoom = {
+					...target,
+					players: updatedPlayers,
+					playerIds: updatedPlayers.map((p) => p.id)
+				};
+				await roomRepo.update(target.id, updatedRoom);
+				room = updatedRoom;
+				roomId = target.id;
 			}
-			const updatedRoom = {
-				...target,
-				players: updatedPlayers,
-				playerIds: updatedPlayers.map((p) => p.id)
-			};
-			await roomRepo.update(target.id, updatedRoom);
-			room = updatedRoom;
-			roomId = target.id;
 		} catch (e: unknown) {
 			lobbyError = (e as Error).message;
 		} finally {

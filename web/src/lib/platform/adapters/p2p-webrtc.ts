@@ -1,5 +1,5 @@
 import mqtt, { type MqttClient } from 'mqtt';
-import type { GameRoom } from '$lib/platform/types/index';
+import type { GameRoom, RoomPlayer } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
 
 const BROKER_URLS = [
@@ -9,20 +9,20 @@ const BROKER_URLS = [
 
 export type P2pMessage =
 	| { type: 'query_room'; code: string; senderId: string }
+	| { type: 'join_request'; code: string; player: RoomPlayer; senderId: string }
 	| { type: 'sync_room'; room: GameRoom; senderId: string }
 	| { type: 'sync_doc'; roomId: string; doc: GameDocument; senderId: string }
 	| { type: 'query_doc'; roomId: string; senderId: string };
-
 export type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 
 export type P2pBroadcastPayload = DistributiveOmit<P2pMessage, 'senderId'>;
 const VALID_MESSAGE_TYPES: Record<string, true> = {
 	query_room: true,
+	join_request: true,
 	sync_room: true,
 	sync_doc: true,
 	query_doc: true
 };
-
 function isValidMessage(data: unknown): data is P2pMessage {
 	if (!data || typeof data !== 'object') return false;
 	const msg = data as { type?: unknown };
@@ -93,22 +93,24 @@ export class P2pNetworkManager {
 	private topic = '';
 
 	private onRoomMessage?: (room: GameRoom) => void;
+	private onJoinRequest?: (code: string, player: RoomPlayer) => void;
 	private onDocMessage?: (roomId: string, doc: GameDocument) => void;
 	private onQueryRoom?: () => void;
 	private onQueryDoc?: (roomId: string) => void;
 
 	constructor(callbacks: {
 		onRoomMessage?: (room: GameRoom) => void;
+		onJoinRequest?: (code: string, player: RoomPlayer) => void;
 		onDocMessage?: (roomId: string, doc: GameDocument) => void;
 		onQueryRoom?: () => void;
 		onQueryDoc?: (roomId: string) => void;
 	}) {
 		this.onRoomMessage = callbacks.onRoomMessage;
+		this.onJoinRequest = callbacks.onJoinRequest;
 		this.onDocMessage = callbacks.onDocMessage;
 		this.onQueryRoom = callbacks.onQueryRoom;
 		this.onQueryDoc = callbacks.onQueryDoc;
 	}
-
 	public async connect(code: string, myId: string): Promise<void> {
 		this.destroy();
 		this.roomCode = code.trim().toUpperCase();
@@ -145,6 +147,8 @@ export class P2pNetworkManager {
 
 				if (decrypted.type === 'sync_room') {
 					this.onRoomMessage?.(decrypted.room);
+				} else if (decrypted.type === 'join_request') {
+					this.onJoinRequest?.(decrypted.code, decrypted.player);
 				} else if (decrypted.type === 'sync_doc') {
 					this.onDocMessage?.(decrypted.roomId, decrypted.doc);
 				} else if (decrypted.type === 'query_room') {

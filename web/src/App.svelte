@@ -239,9 +239,8 @@
 			if (existingIndex >= 0) {
 				updatedPlayers = [...target.players];
 				updatedPlayers[existingIndex] = {
-					id: myPlayer.id,
+					...target.players[existingIndex],
 					displayName: myPlayer.displayName,
-					isHost: false,
 					isConnected: true,
 					lastSeen: Date.now()
 				};
@@ -251,7 +250,7 @@
 					{
 						id: myPlayer.id,
 						displayName: myPlayer.displayName,
-						isHost: false,
+						isHost: target.hostId === myPlayer.id,
 						isConnected: true,
 						lastSeen: Date.now()
 					}
@@ -274,20 +273,23 @@
 
 	$effect(() => {
 		function syncHash() {
-			if (typeof window !== 'undefined' && window.location.hash.includes('code=')) {
-				const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
-				if (match && match[1] && !roomId && !room && !loading) {
-					const targetCode = match[1].toUpperCase();
-					if (joinCode !== targetCode) {
-						joinCode = targetCode;
-						handleJoinRoom();
-					}
-				}
+			if (typeof window === 'undefined') return;
+			const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
+			const activeCode = match?.[1]?.toUpperCase() || sessionStorage.getItem('cards_active_room_code');
+			if (activeCode && !roomId && !room && !loading) {
+				joinCode = activeCode;
+				handleJoinRoom();
 			}
 		}
 		syncHash();
 		window.addEventListener('hashchange', syncHash);
 		return () => window.removeEventListener('hashchange', syncHash);
+	});
+
+	$effect(() => {
+		if (typeof window !== 'undefined' && room) {
+			sessionStorage.setItem('cards_active_room_code', room.code);
+		}
 	});
 
 	const handleAddAiPlayer = async () => {
@@ -312,6 +314,7 @@
 		room = null;
 		gameDoc = null;
 		if (typeof window !== 'undefined') {
+			sessionStorage.removeItem('cards_active_room_code');
 			window.location.hash = '';
 		}
 	};

@@ -50,7 +50,17 @@ function devRelayPlugin(): Plugin {
       });
 
       server.middlewares.use('/api/docs', (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method === 'POST') {
+        if (req.method === 'GET') {
+          const url = new URL(req.url ?? '', 'http://localhost');
+          const roomId = url.searchParams.get('roomId');
+          res.setHeader('Content-Type', 'application/json');
+          if (roomId) {
+            const doc = docs.get(roomId);
+            res.end(JSON.stringify(doc ?? null));
+          } else {
+            res.end(JSON.stringify(Object.fromEntries(docs.entries())));
+          }
+        } else if (req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: Buffer) => (body += chunk.toString()));
           req.on('end', () => {

@@ -39,15 +39,16 @@
 	}
 </script>
 
-<div class="w-full max-w-5xl mx-auto px-4 overflow-x-auto sm:overflow-visible card-fan-scroll">
+<div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll">
 	<div
-		class="flex items-end justify-center w-max mx-auto pt-7 pb-2"
+		class="inline-flex min-w-full items-end justify-start sm:justify-center px-4 sm:px-6 pt-7 pb-2"
 		style:--card-overlap={cardOverlap}
 		style:--card-overlap-mobile={cardOverlapMobile}
 	>
 		{#each sorted as card, index (`${card.suit}-${card.rank}`)}
 			<div
 				class="card-hand-slot relative transition-transform duration-150 ease-out"
+				class:is-playable={isPlayable(card)}
 				style:z-index={index}
 			>
 				<PlayingCard
@@ -72,9 +73,9 @@
 			margin-left: var(--card-overlap-mobile, -22px);
 		}
 	}
-	.card-hand-slot:hover,
-	.card-hand-slot:focus-within {
-		transform: translateY(-14px);
+	.card-hand-slot.is-playable:hover,
+	.card-hand-slot.is-playable:focus-within {
+		transform: translateY(-16px);
 		z-index: 50 !important;
 	}
 </style>

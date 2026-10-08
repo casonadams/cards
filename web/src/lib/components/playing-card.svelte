@@ -15,6 +15,7 @@
 		cornerSizes,
 		centerSuitSizes,
 		faceLetterSizes,
+		numberSizes,
 		aceSuitSizes,
 		rookValueSizes,
 		getRookCardPoints,
@@ -82,12 +83,14 @@
 		'relative rounded-lg border font-bold transition-all select-none overflow-hidden duration-150',
 		sizes[size],
 		bgClass,
+		isTrump && !faceDown && 'ring-2 ring-amber-400/80 border-amber-400/90 shadow-amber-950/20',
 		playable &&
-			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80',
-		!playable && !faceDown && 'brightness-[0.75] saturate-50 cursor-default shadow-xs',
+			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80 hover:-translate-y-1',
+		!playable && !faceDown && 'opacity-65 saturate-50 cursor-not-allowed shadow-xs',
 		selected && '-translate-y-3.5 border-2 border-emerald-500 shadow-2xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}
+	data-playable={playable ? 'true' : 'false'}
 	disabled={!playable}
 	{onclick}
 >
@@ -125,16 +128,18 @@
 		<span
 			class="absolute top-1 left-1.5 {cornerSizes[size]} {suitTextColors[
 				card.suit
-			]} font-black leading-tight"
+			]} font-black leading-none flex flex-col items-center"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+			<span>{RANK_NAMES[card.rank]}</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[size]} {suitTextColors[
 				card.suit
-			]} font-black leading-tight"
+			]} font-black leading-none flex flex-col items-center"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+			<span>{RANK_NAMES[card.rank]}</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<div class="absolute inset-0 flex items-center justify-center">
 			<span class="absolute text-2xl sm:text-3xl opacity-15 {suitTextColors[card.suit]}">{symbol}</span>
@@ -143,15 +148,17 @@
 			</span>
 		</div>
 	{:else if isAce}
-		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-tight">
-			A<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
+			<span>A</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-black leading-tight"
+			]} {color} font-black leading-none flex flex-col items-center"
 		>
-			A<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+			<span>A</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<span
 			class={cn('absolute inset-0 flex items-center justify-center', color, aceSuitSizes[size])}
@@ -159,25 +166,36 @@
 			{symbol}
 		</span>
 	{:else}
-		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-tight">
-			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+		<span class="absolute top-1 left-1.5 {cornerSizes[size]} {color} font-black leading-none flex flex-col items-center">
+			<span>{RANK_NAMES[card.rank]}</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-black leading-tight"
+			]} {color} font-black leading-none flex flex-col items-center"
 		>
-			{RANK_NAMES[card.rank]}<br /><span class="text-[10px] sm:text-xs font-normal">{symbol}</span>
+			<span>{RANK_NAMES[card.rank]}</span>
+			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
 		</span>
-		<span
-			class={cn('absolute inset-0 flex items-center justify-center', color, centerSuitSizes[size])}
-		>
-			{symbol}
-		</span>
+		<div class="absolute inset-0 flex items-center justify-center">
+			<span class="absolute text-2xl sm:text-3xl opacity-15 {color}">{symbol}</span>
+			<span class="{color} {numberSizes[size]} font-black tracking-tight drop-shadow-xs">
+				{RANK_NAMES[card.rank]}
+			</span>
+		</div>
 	{/if}
 	{#if !faceDown && penaltyPoints > 0}
+		<!-- Top-right badge for isolated/trick view -->
 		<span
 			class="absolute top-1 right-1 text-[10px] sm:text-xs bg-destructive text-destructive-foreground rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
+		>
+			{penaltyPoints}
+		</span>
+		<!-- Left-rail badge visible in fanned hands -->
+		<span
+			class="absolute top-9 sm:top-10 left-1 text-[9px] sm:text-[10px] bg-destructive text-destructive-foreground rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
+			title="Penalty: {penaltyPoints} pts"
 		>
 			{penaltyPoints}
 		</span>

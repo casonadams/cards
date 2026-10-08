@@ -41,8 +41,9 @@ export const sizes = {
 	md: 'w-[64px] h-[94px] sm:w-[84px] sm:h-[122px]'
 };
 export const cornerSizes = { sm: 'text-xs sm:text-sm', md: 'text-sm sm:text-base' };
-export const centerSuitSizes = { sm: 'text-4xl sm:text-5xl', md: 'text-5xl sm:text-6xl' };
+export const centerSuitSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
 export const faceLetterSizes = { sm: 'text-4xl sm:text-5xl', md: 'text-5xl sm:text-6xl' };
+export const numberSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
 export const aceSuitSizes = { sm: 'text-5xl sm:text-6xl', md: 'text-6xl sm:text-7xl' };
 export const rookValueSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
 const ROOK_NUMBER_POINTS: Record<number, number> = { 1: 15, 14: 10, 10: 10, 5: 5 };

@@ -9,20 +9,6 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
-	if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
-		const sse = new EventSource('/api/events');
-		sse.addEventListener('sync_room', (e) => {
-			try {
-				const r = JSON.parse(e.data) as GameRoom;
-				if (r && typeof r === 'object' && 'id' in r) {
-					rooms.set(r.id, r);
-					notify(r.id, false);
-				}
-			} catch {
-				// Ignore
-			}
-		});
-	}
 
 	function notify(id: string, broadcast = true) {
 		const room = rooms.get(id) ?? null;
@@ -43,11 +29,6 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 				const serialized = JSON.parse(JSON.stringify(room)) as GameRoom;
 				channel?.postMessage({ type: 'sync_room', room: serialized });
 				broadcaster?.()?.broadcast({ type: 'sync_room', room: serialized });
-				fetch('/api/rooms', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(serialized)
-				}).catch(() => {});
 			} catch {
 				// Ignore serialization errors
 			}
@@ -106,18 +87,6 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 			const clean = code.trim().toUpperCase();
 			for (const r of rooms.values()) {
 				if (r.code.trim().toUpperCase() === clean) return r;
-			}
-			try {
-				const res = await fetch('/api/rooms');
-				if (res.ok) {
-					const all = (await res.json()) as GameRoom[];
-					for (const r of all) {
-						rooms.set(r.id, r);
-						if (r.code.trim().toUpperCase() === clean) return r;
-					}
-				}
-			} catch {
-				// Fallback to cache/channel
 			}
 			if (typeof window !== 'undefined') {
 				const cached = sessionStorage.getItem('cards_room_' + clean) || localStorage.getItem('cards_room_' + clean);
@@ -203,19 +172,6 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-	if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
-		const sse = new EventSource('/api/events');
-		sse.addEventListener('sync_doc', (e) => {
-			try {
-				const payload = JSON.parse(e.data) as { roomId: string; doc: GameDocument };
-				if (payload && payload.roomId && payload.doc) {
-					notify(payload.roomId, payload.doc, false);
-				}
-			} catch {
-				// Ignore
-			}
-		});
-	}
 
 	function notify(roomId: string, doc: GameDocument, broadcast = true) {
 		docs.set(roomId, doc);
@@ -234,11 +190,6 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 				const serialized = JSON.parse(JSON.stringify({ roomId, doc }));
 				channel?.postMessage(serialized);
 				broadcaster?.()?.broadcast({ type: 'sync_doc', roomId, doc });
-				fetch('/api/docs', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(serialized)
-				}).catch(() => {});
 			} catch {
 				// Ignore serialization errors
 			}
@@ -278,14 +229,6 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 						// Ignore
 					}
 				}
-				fetch(`/api/docs?roomId=${encodeURIComponent(roomId)}`)
-					.then((res) => (res.ok ? res.json() : null))
-					.then((doc) => {
-						if (doc && typeof doc === 'object' && 'roomId' in doc) {
-							notify(roomId, doc as GameDocument, false);
-						}
-					})
-					.catch(() => {});
 				channel?.postMessage({ type: 'query_doc', roomId });
 			}
 			return () => {

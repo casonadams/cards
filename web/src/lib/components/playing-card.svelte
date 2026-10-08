@@ -143,7 +143,7 @@
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[size]} {suitTextColors[
 				card.suit
-			]} font-black leading-none flex flex-col items-center"
+			]} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
 			<span>{RANK_NAMES[card.rank]}</span>
 			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
@@ -162,7 +162,7 @@
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-black leading-none flex flex-col items-center"
+			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
 			<span>A</span>
 			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
@@ -180,7 +180,7 @@
 		<span
 			class="absolute bottom-1 right-1.5 rotate-180 {cornerSizes[
 				size
-			]} {color} font-black leading-none flex flex-col items-center"
+			]} {color} font-black leading-none flex flex-col items-center pointer-events-none"
 		>
 			<span>{RANK_NAMES[card.rank]}</span>
 			<span class="text-[10px] sm:text-xs font-normal mt-0.5">{symbol}</span>
@@ -193,23 +193,16 @@
 		</div>
 	{/if}
 	{#if !faceDown && penaltyPoints > 0}
-		<!-- Top-right badge for isolated/trick view -->
 		<span
-			class="absolute top-1 right-1 text-[10px] sm:text-xs bg-destructive text-destructive-foreground rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
-		>
-			{penaltyPoints}
-		</span>
-		<!-- Left-rail badge visible in fanned hands -->
-		<span
-			class="absolute top-9 sm:top-10 left-1 text-[9px] sm:text-[10px] bg-destructive text-destructive-foreground rounded px-1 py-0.5 leading-none font-black shadow-sm z-10 border border-destructive-foreground/20"
-			title="Penalty: {penaltyPoints} pts"
+			class="absolute bottom-1.5 left-1.5 text-[9px] sm:text-[10px] bg-rose-600 text-white rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-rose-400/30"
+			title="Penalty: +{penaltyPoints} pts"
 		>
 			{penaltyPoints}
 		</span>
 	{/if}
 	{#if !faceDown && rookPoints > 0}
 		<span
-			class="absolute top-1 right-1 text-[10px] sm:text-xs bg-emerald-700 text-emerald-100 rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-emerald-500/20"
+			class="absolute bottom-1.5 left-1.5 text-[9px] sm:text-[10px] bg-emerald-700 text-emerald-100 rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-emerald-500/20"
 		>
 			+{rookPoints}
 		</span>

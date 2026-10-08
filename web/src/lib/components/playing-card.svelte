@@ -30,6 +30,7 @@
 		playable?: boolean;
 		selected?: boolean;
 		faceDown?: boolean;
+		inspection?: boolean;
 		size?: 'sm' | 'md';
 		onclick?: () => void;
 	}
@@ -42,6 +43,7 @@
 		playable = false,
 		selected = false,
 		faceDown = false,
+		inspection = false,
 		size = 'md',
 		onclick
 	}: Props = $props();
@@ -75,7 +77,7 @@
 		rookCard ? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '') : ''
 	);
 	const suitBg = $derived(
-		playable
+		playable || inspection
 			? 'bg-white border-zinc-200 text-zinc-900 shadow-md'
 			: 'bg-slate-200 border-slate-300 text-zinc-700 shadow-xs'
 	);
@@ -90,12 +92,13 @@
 		isTrump && !faceDown && 'ring-2 ring-amber-400/90 border-amber-400 shadow-amber-950/20',
 		playable &&
 			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80 hover:-translate-y-1',
-		!playable && !faceDown && 'saturate-60 brightness-95 cursor-not-allowed shadow-xs',
+		!playable && !inspection && !faceDown && 'saturate-60 brightness-95 cursor-not-allowed shadow-xs',
+		inspection && 'cursor-default pointer-events-none shadow-xs',
 		selected && '-translate-y-3.5 border-2 border-emerald-500 shadow-2xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}
 	data-playable={playable ? 'true' : 'false'}
-	disabled={!playable}
+	disabled={!playable || !onclick}
 	{onclick}
 >
 	{#if faceDown}

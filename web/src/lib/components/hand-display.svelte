@@ -11,6 +11,8 @@
 		trumpSuit?: string | null;
 		handType?: string;
 		onCardPlayed?: (card: Card) => void;
+		interactive?: boolean;
+		inspection?: boolean;
 	}
 
 	let {
@@ -19,7 +21,9 @@
 		gameId = '',
 		trumpSuit = null,
 		handType = '',
-		onCardPlayed
+		onCardPlayed,
+		interactive = true,
+		inspection = false
 	}: Props = $props();
 
 	const sorted = $derived(
@@ -35,6 +39,7 @@
 	);
 
 	function isPlayable(card: Card): boolean {
+		if (!interactive || !onCardPlayed) return false;
 		return playableCards.some((c) => c.suit === card.suit && c.rank === card.rank);
 	}
 </script>
@@ -57,7 +62,8 @@
 					{handType}
 					{trumpSuit}
 					playable={isPlayable(card)}
-					onclick={() => onCardPlayed?.(card)}
+					{inspection}
+					onclick={interactive && isPlayable(card) && onCardPlayed ? () => onCardPlayed?.(card) : undefined}
 				/>
 			</div>
 		{/each}

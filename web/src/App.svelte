@@ -299,7 +299,10 @@
 
 	const onStart = () => handleStart({ gameId, playerIds, roomId, actions, roomRepo });
 	const onNextRound = () => handleNextRound(gameId, nrDeps);
-	const onPlayCard = (card: CardType) => handlePlayCard(cardParams, card);
+	const onPlayCard = (card: CardType) => {
+		if (showOhWellBidding) return;
+		handlePlayCard(cardParams, card);
+	};
 	const onOhWellBid = (bid: number) => handleOhWellBidAction(cardParams, bid);
 	const handleBackToLobby = async () => {
 		gameDoc = null;

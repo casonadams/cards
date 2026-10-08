@@ -64,7 +64,13 @@
 				<div class="flex items-center justify-center -space-x-5 overflow-x-auto py-1 px-3 card-fan-scroll">
 					{#each sortHand(myHand, uiState.trumpSuit as Suit | null) as card, idx (`${card.suit}-${card.rank}`)}
 						<div class="shrink-0 transform transition-transform hover:-translate-y-2 hover:z-20 relative" style:z-index={idx}>
-							<PlayingCard {card} size="sm" />
+							<PlayingCard
+								{card}
+								gameId="oh-well"
+								trumpSuit={uiState.trumpSuit}
+								playable={true}
+								size="sm"
+							/>
 						</div>
 					{/each}
 				</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn, getFirstName } from '$lib/utils';
 	import PlayingCard from './playing-card.svelte';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 
@@ -73,8 +73,11 @@
 					<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
 						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 					</div>
-					<span class="bg-card/90 backdrop-blur-md px-3 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[95px] sm:max-w-[125px] truncate text-center">
-						{playerNames[play.playerId] ?? '?'}
+					<span
+						class="bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full"
+						title={playerNames[play.playerId] ?? '?'}
+					>
+						{getFirstName(playerNames[play.playerId] ?? '?')}
 					</span>
 				</div>
 			{/each}

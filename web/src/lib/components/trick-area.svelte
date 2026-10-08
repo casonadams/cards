@@ -197,12 +197,11 @@
 	>
 		{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
 			{@const play = visible[slotIdx]}
-			{@const isWinnerCard = Boolean(play && play.playerId === winnerId)}
 			<div
 				class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0"
 				class:is-gathering={animPhase === 'gathering'}
 				class:is-flying={animPhase === 'flying'}
-				style:z-index={play ? (isWinnerCard ? 50 : 10 + slotIdx) : 0}
+				style:z-index={play ? 10 + slotIdx : 0}
 				style:--gather-x-mobile={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchMobile)}px`}
 				style:--gather-x-desktop={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchDesktop)}px`}
 				style:--gather-rot={`${Math.round((slotIdx - (totalSlots - 1) / 2) * 4)}deg`}
@@ -213,12 +212,7 @@
 						use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
 						class="w-full flex flex-col items-center gap-1.5 transition-all"
 					>
-						<div
-							class={cn(
-								'transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg',
-								isWinnerCard && (animPhase === 'gathering' || animPhase === 'flying') && 'ring-2 ring-amber-400 shadow-amber-950/40 shadow-lg'
-							)}
-						>
+						<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
 							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 						</div>
 						<span

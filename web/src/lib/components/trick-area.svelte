@@ -43,10 +43,16 @@
 
 	const totalSlots = $derived(Math.max(3, Object.keys(playerNames).length || 4));
 
+	const trickOverlap = $derived(
+		totalSlots >= 6 ? '-14px' : totalSlots === 5 ? '-6px' : '10px'
+	);
+	const trickOverlapMobile = $derived(
+		totalSlots >= 6 ? '-20px' : totalSlots === 5 ? '-12px' : totalSlots === 4 ? '-4px' : '4px'
+	);
+
 	const trickSig = $derived(
 		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
 	);
-
 	$effect(() => {
 		const currentPlaysLen = plays.length;
 		const currentSig = trickSig;
@@ -204,10 +210,17 @@
 				{/each}
 		</div>
 	{:else}
-		<div class="relative z-10 flex items-center justify-center gap-2 sm:gap-3.5 w-full">
+		<div
+			class="relative z-10 flex items-center justify-center w-full px-2"
+			style:--trick-overlap={trickOverlap}
+			style:--trick-overlap-mobile={trickOverlapMobile}
+		>
 			{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
 				{@const play = visible[slotIdx]}
-				<div class="w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0">
+				<div
+					class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0 transition-transform"
+					style:z-index={slotIdx}
+				>
 					{#if play}
 						{@const cardKey = `${play.card.suit}-${play.card.rank}`}
 						<div
@@ -275,6 +288,15 @@
 		100% {
 			transform: translate(0, 0) scale(1) rotate(0deg);
 			opacity: 1;
+		}
+	}
+
+	.trick-slot + .trick-slot {
+		margin-left: var(--trick-overlap, 10px);
+	}
+	@media (max-width: 639px) {
+		.trick-slot + .trick-slot {
+			margin-left: var(--trick-overlap-mobile, 4px);
 		}
 	}
 </style>

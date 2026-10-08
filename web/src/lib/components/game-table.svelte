@@ -129,15 +129,20 @@
 					>
 						{getInitials(displayName)}
 					</div>
-					{#if isLeader}
-						<span class="absolute -top-1 -left-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[9px] font-black border border-background shadow-xs pointer-events-none" title="Trick Leader">
-							L
-						</span>
-					{/if}
 					{#if isTurn}
-						<span class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center pointer-events-none">
+						<div class="absolute -top-1 -right-1 flex h-4 w-4 sm:h-4.5 sm:w-4.5 items-center justify-center pointer-events-none">
 							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-							<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 border border-background"></span>
+							<span class="relative inline-flex items-center justify-center h-4 w-4 sm:h-4.5 sm:w-4.5 rounded-full bg-emerald-400 text-zinc-950 font-black text-[10px] border border-background shadow-xs animate-pulse" title="Current Turn (Plays #{trickOrder})">
+								{trickOrder}
+							</span>
+						</div>
+					{:else if isLeader}
+						<span class="absolute -top-1 -right-1 h-4 w-4 sm:h-4.5 sm:w-4.5 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[10px] font-black border border-background shadow-xs pointer-events-none" title="Leader (Plays 1st)">
+							1
+						</span>
+					{:else}
+						<span class="absolute -top-1 -right-1 h-4 w-4 sm:h-4.5 sm:w-4.5 rounded-full bg-muted/90 text-foreground/80 flex items-center justify-center text-[10px] font-black border border-background/80 shadow-xs pointer-events-none" title="Plays #{trickOrder}">
+							{trickOrder}
 						</span>
 					{/if}
 				</div>
@@ -150,18 +155,7 @@
 						{/if}
 						<span
 							class={cn(
-								'w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black leading-none border shrink-0',
-								isLeader
-									? 'bg-amber-500/25 text-amber-300 border-amber-500/50 shadow-xs'
-									: 'bg-muted/70 text-muted-foreground/80 border-border/60'
-							)}
-							title={isLeader ? 'Leader (plays 1st)' : `Plays #${trickOrder}`}
-						>
-							{trickOrder}
-						</span>
-						<span
-							class={cn(
-								'font-bold truncate max-w-[70px] sm:max-w-[120px]',
+								'font-bold truncate max-w-[85px] sm:max-w-[130px]',
 								isTurn && 'text-emerald-300 font-extrabold',
 								isMe && !isTurn && 'text-foreground font-extrabold',
 								partner && !isTurn && 'text-foreground'
@@ -170,11 +164,6 @@
 						>
 							{shortName}
 						</span>
-						{#if isMe}
-							<span class="text-[10px] text-emerald-400 font-black px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 leading-none">
-								You
-							</span>
-						{/if}
 					</div>
 					<span class="text-[11px] sm:text-xs font-mono text-muted-foreground/90 font-medium">
 						{playerStatLine(ctx, id)}

@@ -138,7 +138,7 @@
 			<div
 				data-player-id={id}
 				class={cn(
-					'flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
+					'flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm shrink-0',
 					isTurn
 						? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-md ring-1 ring-emerald-500/40'
 						: isMe
@@ -149,7 +149,7 @@
 				<div class="relative">
 					<div
 						class={cn(
-							'w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner',
+							'w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner',
 							isTurn
 								? 'bg-emerald-400 text-zinc-950 font-black'
 								: isMe
@@ -185,18 +185,18 @@
 						{/if}
 						<span
 							class={cn(
-								'font-bold truncate max-w-[85px] sm:max-w-[130px]',
+								'font-bold truncate max-w-[70px] sm:max-w-[130px]',
 								isTurn && 'text-emerald-300 font-extrabold',
 								isMe && !isTurn && 'text-foreground font-extrabold',
 								partner && !isTurn && 'text-foreground'
 							)}
-							title={displayName}
 						>
 							{shortName}
 						</span>
 					</div>
-					<span class="text-[11px] sm:text-xs font-mono text-muted-foreground/90 font-medium">
-						{playerStatLine(ctx, id)}
+					<span class="text-[10px] sm:text-xs font-mono text-muted-foreground/90 font-medium tabular-nums">
+						<span class="sm:hidden">{playerStatLine(ctx, id, true)}</span>
+						<span class="hidden sm:inline">{playerStatLine(ctx, id, playerIds.length >= 6)}</span>
 					</span>
 				</div>
 			</div>

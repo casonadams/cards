@@ -33,27 +33,35 @@ function ohWellBidStr(ctx: StatContext, id: string): string {
 	return b ? `${ohWellTricks(ctx, id)}/${b.bid}` : '...';
 }
 
-function ohWellStatLine(ctx: StatContext, id: string): string {
-	return `${ohWellBidStr(ctx, id)} | ${prevScore(ctx, id)} pts`;
+function ohWellStatLine(ctx: StatContext, id: string, compact = false): string {
+	const score = prevScore(ctx, id);
+	return compact
+		? `${ohWellBidStr(ctx, id)} | ${score}p`
+		: `${ohWellBidStr(ctx, id)} | ${score} pts`;
 }
 
-function rookStatLine(ctx: StatContext, id: string): string {
+function rookStatLine(ctx: StatContext, id: string, compact = false): string {
 	const st = statsFor(ctx, id);
-	return `${st.tricksTaken} tricks | ${st.currentScore} pts`;
+	return compact
+		? `${st.tricksTaken}t | ${st.currentScore}p`
+		: `${st.tricksTaken} tricks | ${st.currentScore} pts`;
 }
 
-function defaultStatLine(ctx: StatContext, id: string): string {
+function defaultStatLine(ctx: StatContext, id: string, compact = false): string {
 	const st = statsFor(ctx, id);
-	return `${st.tricksTaken} tricks | ${prevScore(ctx, id) + st.currentScore} pts`;
+	const score = prevScore(ctx, id) + st.currentScore;
+	return compact
+		? `${st.tricksTaken}t | ${score}p`
+		: `${st.tricksTaken} tricks | ${score} pts`;
 }
 
-const STAT_LINE_FNS: Record<string, (ctx: StatContext, id: string) => string> = {
+const STAT_LINE_FNS: Record<string, (ctx: StatContext, id: string, compact?: boolean) => string> = {
 	'oh-well': ohWellStatLine,
 	rook: rookStatLine
 };
 
-export function playerStatLine(ctx: StatContext, id: string): string {
-	return (STAT_LINE_FNS[ctx.gameId] ?? defaultStatLine)(ctx, id);
+export function playerStatLine(ctx: StatContext, id: string, compact = false): string {
+	return (STAT_LINE_FNS[ctx.gameId] ?? defaultStatLine)(ctx, id, compact);
 }
 
 export function myStatLine(ctx: StatContext, id: string): string {

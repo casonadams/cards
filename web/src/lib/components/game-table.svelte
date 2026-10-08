@@ -166,6 +166,16 @@
 		{/if}
 	</div>
 
+	<!-- Big bold Your Turn banner directly above player hand -->
+	{#if isMyTurn && !showBidding && !isRoundComplete}
+		<div class="w-full flex justify-center -mb-2 z-20 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+			<div class="inline-flex items-center gap-2 px-5 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_28px_rgba(16,185,129,0.5)] backdrop-blur-md animate-pulse">
+				<span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm"></span>
+				<span class="font-black text-xs sm:text-sm tracking-wider uppercase">Your Turn — Play a Card</span>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Bottom Player Hand Container -->
 	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible">
 		<HandDisplay cards={myCards} playableCards={showBidding ? myCards : playableCards} {onCardPlayed} {gameId} {trumpSuit} {handType} />

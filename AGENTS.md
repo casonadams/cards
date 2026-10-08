@@ -9,7 +9,8 @@
 ### Card Hand & Fanning Conventions
 - In fanned hands with left-to-right stacking (`z-index` increasing left to right), each card overlaps the right edge of the preceding card. Never place critical status badges (penalties, points, trump marks) on the top-right corner alone; anchor them along the exposed top-left rail.
 - Visually distinguish Aces from regular number cards (2-10). Do not render identical oversized center suit glyphs on number cards; show crisp rank numerals with subtle suit watermarks.
-- Scope hover and focus elevation to playable cards (`.card-hand-slot.is-playable:hover`). Disabled and unplayable cards must remain seated and subdued (`opacity-65`, no translation).
+- Scope hover and focus elevation to playable cards (`.card-hand-slot.is-playable:hover`). Disabled and unplayable cards must remain seated and subdued (no translation).
+- Never apply container opacity (`opacity < 1`) to cards in fanned hands. Translucent card backgrounds cause additive overlap brightening (white capsule stripes) and ghosted bleed-through of the underlying card's rotated indices. Unplayable cards must use solid opaque muted backgrounds (e.g. `bg-slate-200 border-slate-300 text-zinc-700`).
 - Horizontal scroll containers (`overflow-x-auto`) must not use `mx-auto` or `justify-center` on overflowing children (`w-max`), as CSS centering clips the left edge and prevents scrolling back to initial items. Use `inline-flex min-w-full justify-start sm:justify-center px-4`.
 
 ### Overlays & Viewport Containment

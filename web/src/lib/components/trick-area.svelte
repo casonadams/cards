@@ -219,7 +219,7 @@
 				{@const play = visible[slotIdx]}
 				<div
 					class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0 transition-transform"
-					style:z-index={slotIdx}
+					style:z-index={play ? 10 + slotIdx : 0}
 				>
 					{#if play}
 						{@const cardKey = `${play.card.suit}-${play.card.rank}`}
@@ -231,7 +231,7 @@
 								<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 							</div>
 							<span
-								class="bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full"
+								class="text-[10px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
 								title={playerNames[play.playerId] ?? '?'}
 							>
 								{getFirstName(playerNames[play.playerId] ?? '?')}
@@ -244,7 +244,7 @@
 								{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
 							</span>
 						</div>
-						<span class="h-5 block opacity-0 select-none text-xs">...</span>
+						<span class="h-3.5 block opacity-0 select-none text-[10px]">...</span>
 					{/if}
 				</div>
 			{/each}

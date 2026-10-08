@@ -31,28 +31,35 @@
 			? sortRookHand(cards, trumpSuit)
 			: sortHand(cards, trumpSuit as Suit | null | undefined)
 	);
-	const cardOverlap = $derived(
-		sorted.length > 14
-			? '-54px'
-			: sorted.length > 10
-				? '-42px'
-				: sorted.length > 7
-					? '-28px'
-					: sorted.length > 4
-						? '-16px'
-						: '8px'
-	);
-	const cardOverlapMobile = $derived(
-		sorted.length > 14
-			? '-41px'
-			: sorted.length > 10
-				? '-36px'
-				: sorted.length > 7
-					? '-24px'
-					: sorted.length > 4
-						? '-12px'
-						: '6px'
-	);
+	let containerWidth = $state(0);
+
+	const isMobile = $derived(containerWidth > 0 && containerWidth < 640);
+	const cardWidth = $derived(isMobile ? 64 : 84);
+	const horizontalPad = $derived(isMobile ? 16 : 32);
+	const normalGap = $derived(isMobile ? 6 : 10);
+
+	const overlapCalc = $derived.by(() => {
+		const count = sorted.length;
+		if (count <= 1 || containerWidth === 0) {
+			return { overlap: normalGap, isCentered: true };
+		}
+
+		const availWidth = Math.max(containerWidth - horizontalPad, cardWidth);
+		const nonOverlapWidth = count * cardWidth + (count - 1) * normalGap;
+		if (nonOverlapWidth <= availWidth) {
+			return { overlap: normalGap, isCentered: true };
+		}
+
+		const step = (availWidth - cardWidth) / (count - 1);
+		const minStep = isMobile ? 18 : 26;
+		const clampedStep = Math.max(minStep, step);
+		const computedOverlap = Math.round(clampedStep - cardWidth);
+
+		return {
+			overlap: computedOverlap,
+			isCentered: step >= minStep
+		};
+	});
 
 	function isPlayable(card: Card): boolean {
 		if (!interactive || !onCardPlayed) return false;
@@ -69,11 +76,17 @@
 	}
 </script>
 
-<div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll min-h-[130px] sm:min-h-[160px] flex items-end">
+<div
+	bind:clientWidth={containerWidth}
+	class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll min-h-[130px] sm:min-h-[160px] flex items-end"
+>
 	<div
-		class="inline-flex min-w-full items-end justify-start sm:justify-center px-2 sm:px-6 pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
-		style:--card-overlap={cardOverlap}
-		style:--card-overlap-mobile={cardOverlapMobile}
+		class="inline-flex min-w-full items-end pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
+		class:justify-center={overlapCalc.isCentered}
+		class:justify-start={!overlapCalc.isCentered}
+		style:padding-left={`${Math.round(horizontalPad / 2)}px`}
+		style:padding-right={`${Math.round(horizontalPad / 2)}px`}
+		style:--card-overlap={`${overlapCalc.overlap}px`}
 	>
 		{#if sorted.length === 0}
 			<div class="flex items-center justify-center w-full py-8 select-none">
@@ -106,11 +119,6 @@
 <style>
 	.card-hand-slot + .card-hand-slot {
 		margin-left: var(--card-overlap, -28px);
-	}
-	@media (max-width: 639px) {
-		.card-hand-slot + .card-hand-slot {
-			margin-left: var(--card-overlap-mobile, -22px);
-		}
 	}
 	.card-hand-slot.is-playable:hover,
 	.card-hand-slot.is-playable:focus-within {

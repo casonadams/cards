@@ -48,6 +48,9 @@
 				{/if}
 			</div>
 			<CardTitle class="text-lg font-black">{isGameOver ? 'Final Hand Completed — Scores' : 'Round Completed — Scores'}</CardTitle>
+			<p class="text-xs text-muted-foreground mt-0.5">
+				{isHighestScoreWins ? 'Highest total score wins' : 'Lowest penalty score wins'}
+			</p>
 		</CardHeader>
 		<CardContent class="gap-3.5 pt-1 px-4 sm:px-6 pb-4">
 			<div class="flex flex-col gap-1.5">
@@ -68,7 +71,7 @@
 									? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
 									: 'bg-rose-500/15 text-rose-300 border border-rose-500/30'}"
 						>
-							{entry.points} pts
+							{isHighestScoreWins ? `${entry.points} pts` : entry.points === 0 ? '0 penalty' : `+${entry.points} penalty`}
 						</span>
 					</div>
 				{/each}

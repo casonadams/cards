@@ -53,7 +53,12 @@
 			<ScoreTable {playerNames} {rounds} {playerIds} />
 
 			<div class="flex flex-col gap-2.5">
-				<h3 class="text-xs uppercase tracking-wider font-bold text-muted-foreground px-1">Final Standings</h3>
+				<div class="flex items-center justify-between px-1">
+					<h3 class="text-xs uppercase tracking-wider font-bold text-muted-foreground">Final Standings</h3>
+					<span class="text-[10px] text-muted-foreground/80 font-medium">
+						{isHighestScoreWins ? 'Highest Score Wins' : 'Lowest Penalty Wins'}
+					</span>
+				</div>
 				<div class="grid gap-1.5">
 					{#each totals as entry, i (entry.id)}
 						<div class="flex justify-between items-center p-2.5 rounded-lg bg-background/50 border border-border/60">
@@ -64,7 +69,7 @@
 								<span class="text-sm font-semibold">{playerNames[entry.id]}</span>
 							</div>
 							<span class="font-mono text-sm font-bold {i === 0 ? 'text-emerald-400' : 'text-muted-foreground'}">
-								{entry.total} pts
+								{isHighestScoreWins ? `${entry.total} pts` : `${entry.total} penalty pts`}
 							</span>
 						</div>
 					{/each}

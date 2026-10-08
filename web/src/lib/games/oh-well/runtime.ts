@@ -29,6 +29,6 @@ export const ohWellRuntime: GameRuntime = {
 	},
 
 	getRoundRules(): string {
-		return 'Bid exactly how many tricks you will take. Follow suit if able. 10 + bid for exact match.';
+		return 'Predict exact tricks. Exact bid = +10 bonus + 1 pt per trick; missed bid = 0 pts. Must follow led suit if able; trump beats led suit.';
 	}
 };

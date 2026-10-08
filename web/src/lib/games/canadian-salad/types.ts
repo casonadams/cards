@@ -27,12 +27,12 @@ export const HAND_LABELS: Record<HandType, string> = {
 };
 
 export const HAND_RULES: Record<HandType, string> = {
-	NO_TRICKS: '10 points per trick taken. Avoid winning any tricks.',
-	NO_HEARTS: '10 points per heart collected. Avoid taking hearts.',
-	NO_QUEENS: '25 points per queen collected. Avoid taking queens.',
-	NO_KING_SPADES: '100 points if you take the King of Spades.',
-	NO_LAST_TRICK: '100 points if you win the last trick of the hand.',
-	COMBINATION: 'All rules combined: tricks, hearts, queens, King of Spades, and last trick.'
+	NO_TRICKS: 'Avoid winning tricks: +10 penalty pts per trick. (Lowest total score wins)',
+	NO_HEARTS: 'Avoid hearts: +10 penalty pts per heart card collected.',
+	NO_QUEENS: 'Avoid queens: +25 penalty pts per Queen collected.',
+	NO_KING_SPADES: 'Avoid the King of Spades: +100 penalty pts for collecting the K♠.',
+	NO_LAST_TRICK: 'Avoid the final trick: +100 penalty pts for winning the last trick of the hand.',
+	COMBINATION: 'All penalties active: Tricks (+10), Hearts (+10 ea), Queens (+25 ea), K♠ (+100), Last Trick (+100).'
 };
 
 export interface PlayerCountConfig {

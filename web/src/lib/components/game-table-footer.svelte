@@ -74,8 +74,8 @@
 				<span class="font-bold text-foreground">{myStatLine(ctx, myId)}</span>
 			</div>
 			<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-background/60 border border-border">
-				<span class="text-muted-foreground">Points:</span>
-				<span class="font-bold text-foreground">
+				<span class="text-muted-foreground" title="Penalty points (lowest score wins)">Penalties:</span>
+				<span class="font-bold text-rose-300">
 					{(previousTotals[myId] ?? 0) +
 						(allPlayerStats.find((s) => s.playerId === myId)?.currentScore ?? 0)}
 				</span>

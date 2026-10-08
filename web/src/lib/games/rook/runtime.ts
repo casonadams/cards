@@ -34,6 +34,6 @@ export const rookRuntime: GameRuntime = {
 	},
 
 	getRoundRules(): string {
-		return 'Follow suit if able. Trump beats led suit. Bird is highest trump.';
+		return 'Partnership trick-taking: 5s = 5 pts, 10s & 14s = 10 pts, Rook Bird = 20 pts (100 total pts). Follow suit if able; trump beats led suit.';
 	}
 };

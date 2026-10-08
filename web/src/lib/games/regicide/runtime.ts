@@ -28,6 +28,6 @@ export const regicideRuntime: GameRuntime = {
 	},
 
 	getRoundRules(): string {
-		return 'Play cards to defeat enemies. Clubs double damage. Spades reduce attack. Hearts recycle. Diamonds draw.';
+		return 'Cooperative combat: defeat 12 enemy royalty. Suit powers: ♣ double damage, ♠ shield attack, ♥ heal tavern, ♦ draw cards.';
 	}
 };

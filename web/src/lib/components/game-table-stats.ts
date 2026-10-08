@@ -52,7 +52,7 @@ function defaultStatLine(ctx: StatContext, id: string, compact = false): string 
 	const score = prevScore(ctx, id) + st.currentScore;
 	return compact
 		? `${st.tricksTaken}t | ${score}p`
-		: `${st.tricksTaken} tricks | ${score} pts`;
+		: `${st.tricksTaken} tricks | ${score} pen`;
 }
 
 const STAT_LINE_FNS: Record<string, (ctx: StatContext, id: string, compact?: boolean) => string> = {

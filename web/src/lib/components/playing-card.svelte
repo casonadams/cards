@@ -160,22 +160,23 @@
 	{#if !faceDown && penaltyPoints > 0}
 		<span
 			class="absolute bottom-1.5 left-1 sm:left-1.5 text-[9px] sm:text-[10px] bg-rose-600 text-white rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-rose-400/30"
-			title="Penalty: +{penaltyPoints} pts"
+			title="Penalty: +{penaltyPoints} pts (Avoid collecting)"
 		>
-			{penaltyPoints}
+			+{penaltyPoints}
 		</span>
 	{/if}
 	{#if !faceDown && rookPoints > 0}
 		<span
 			class="absolute bottom-1.5 left-1.5 text-[9px] sm:text-[10px] bg-emerald-700 text-emerald-100 rounded px-1 sm:px-1.5 py-0.5 leading-none font-black shadow-xs z-10 border border-emerald-500/20"
+			title="Point Card: +{rookPoints} pts"
 		>
 			+{rookPoints}
 		</span>
 	{/if}
 	{#if !faceDown && isTrump}
 		<span
-			class="absolute bottom-1.5 left-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-xs z-10 border border-amber-600/30"
-			title="Trump Card"
+			class="absolute {rookPoints > 0 ? 'bottom-6 sm:bottom-7' : 'bottom-1.5'} left-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-xs z-10 border border-amber-600/30"
+			title={rookPoints > 0 ? `Trump Point Card (+${rookPoints} pts)` : 'Trump Card'}
 		>
 			T
 		</span>

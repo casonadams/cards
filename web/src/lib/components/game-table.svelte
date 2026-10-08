@@ -88,6 +88,22 @@
 			: (playerIds[currentTurnIndex] ?? playerIds[0])
 	);
 
+	let roundScoreReady = $state(false);
+
+	$effect(() => {
+		if (!isRoundComplete) {
+			roundScoreReady = false;
+		}
+	});
+
+	$effect(() => {
+		if (isRoundComplete && !roundScoreReady) {
+			const fallback = setTimeout(() => {
+				roundScoreReady = true;
+			}, 2400);
+			return () => clearTimeout(fallback);
+		}
+	});
 
 	function isPartner(id: string): boolean {
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
@@ -178,8 +194,7 @@
 	<div class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-4xl mx-auto px-2 py-2 gap-3">
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
-		{:else if isRoundComplete && roundScores && onNextRound}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} isRoundComplete={true} {myId} />
+		{:else if isRoundComplete && roundScores && onNextRound && roundScoreReady}
 			<RoundScoreOverlay
 				{gameId}
 				handLabel="Hand {currentRound + 1}: {roundLabel}"
@@ -190,7 +205,19 @@
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 			/>
 		{:else}
-			<TrickArea plays={trickPlays} {lastCompleteTrick} {playerNames} {gameId} {handType} {trumpSuit} winnerId={lastTrickWinnerId} winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null} {myId} />
+			<TrickArea
+				plays={trickPlays}
+				{lastCompleteTrick}
+				{playerNames}
+				{gameId}
+				{handType}
+				{trumpSuit}
+				winnerId={lastTrickWinnerId}
+				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
+				{myId}
+				isRoundComplete={isRoundComplete}
+				onCollectComplete={() => (roundScoreReady = true)}
+			/>
 			<LastTrick
 				plays={lastCompleteTrick}
 				winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}

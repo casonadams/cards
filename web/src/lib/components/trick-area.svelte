@@ -14,6 +14,7 @@
 		winnerId?: string | null;
 		winnerName?: string | null;
 		myId?: string;
+		onCollectComplete?: () => void;
 	}
 
 	let {
@@ -26,7 +27,8 @@
 		isRoundComplete = false,
 		winnerId = null,
 		winnerName = null,
-		myId = ''
+		myId = '',
+		onCollectComplete
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
@@ -59,7 +61,7 @@
 			return;
 		}
 
-		if (roundOver || currentSig.length === 0) return;
+		if (currentSig.length === 0) return;
 
 		if (currentSig !== handledTrickSig) {
 			handledTrickSig = currentSig;
@@ -85,14 +87,15 @@
 					}
 				}
 				animPhase = 'collecting';
-			}, 500);
+			}, 750);
 
 			finishTimer = setTimeout(() => {
 				animPhase = 'idle';
 				animatedCardKeys.clear();
 				settleTimer = null;
 				finishTimer = null;
-			}, 500 + 1100);
+				onCollectComplete?.();
+			}, 750 + 1100);
 		}
 	});
 

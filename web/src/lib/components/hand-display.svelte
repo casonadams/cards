@@ -32,10 +32,26 @@
 			: sortHand(cards, trumpSuit as Suit | null | undefined)
 	);
 	const cardOverlap = $derived(
-		sorted.length > 10 ? '-36px' : sorted.length > 7 ? '-26px' : sorted.length > 4 ? '-16px' : '10px'
+		sorted.length > 14
+			? '-54px'
+			: sorted.length > 10
+				? '-42px'
+				: sorted.length > 7
+					? '-28px'
+					: sorted.length > 4
+						? '-16px'
+						: '8px'
 	);
 	const cardOverlapMobile = $derived(
-		sorted.length > 10 ? '-26px' : sorted.length > 7 ? '-18px' : sorted.length > 4 ? '-10px' : '8px'
+		sorted.length > 14
+			? '-42px'
+			: sorted.length > 10
+				? '-34px'
+				: sorted.length > 7
+					? '-24px'
+					: sorted.length > 4
+						? '-12px'
+						: '6px'
 	);
 
 	function isPlayable(card: Card): boolean {

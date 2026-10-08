@@ -35,6 +35,7 @@
 	let prevTrickLen = $state(0);
 	let targetX = $state(0);
 	let targetY = $state(-220);
+	const animatedCardKeys = new Set<string>();
 
 	const shouldCollect = $derived(prevTrickLen > 0 && lastCompleteTrick.length > 0 && !isRoundComplete);
 	const settleDelay = 520;
@@ -46,10 +47,12 @@
 			collecting = false;
 			return;
 		}
-		if (!shouldCollect) return;
+		if (!shouldCollect) {
+			animatedCardKeys.clear();
+			return;
+		}
 		prevTrickLen = 0;
 		settling = true;
-
 		const tSettle = setTimeout(() => {
 			if (typeof document !== 'undefined' && containerEl && winnerId) {
 				const cRect = containerEl.getBoundingClientRect();
@@ -72,6 +75,7 @@
 
 		const tCollect = setTimeout(() => {
 			collecting = false;
+			animatedCardKeys.clear();
 		}, settleDelay + collectDuration);
 
 		return () => {
@@ -79,20 +83,22 @@
 			clearTimeout(tCollect);
 		};
 	});
-	function flyInFromBadge(node: HTMLElement, playerId: string) {
+
+	function flyInFromBadge(node: HTMLElement, params: { playerId: string; cardKey: string }) {
 		if (typeof document === 'undefined') return;
+		if (animatedCardKeys.has(params.cardKey)) return;
+		animatedCardKeys.add(params.cardKey);
 
 		let originCenterX = 0;
 		let originCenterY = 0;
 
-		const isLocal = Boolean(myId && playerId === myId);
+		const isLocal = Boolean(myId && params.playerId === myId);
 		const handPos = isLocal ? getLastPlayedCardPosition() : null;
-
 		if (handPos) {
 			originCenterX = handPos.x;
 			originCenterY = handPos.y;
 		} else {
-			const pill = document.querySelector(`[data-player-id="${playerId}"]`);
+			const pill = document.querySelector(`[data-player-id="${params.playerId}"]`);
 			if (pill) {
 				const pRect = pill.getBoundingClientRect();
 				originCenterX = Math.round(pRect.left + pRect.width / 2);
@@ -176,8 +182,9 @@
 	{:else}
 		<div class="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
 			{#each visible as play (play.playerId)}
+				{@const cardKey = `${play.card.suit}-${play.card.rank}`}
 				<div
-					use:flyInFromBadge={play.playerId}
+					use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
 					class="flex flex-col items-center gap-1.5 transition-all"
 				>
 					<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">

@@ -8,8 +8,6 @@
 	import OhWellBidding from './oh-well-bidding.svelte';
 	import RoundScoreOverlay from './round-score-overlay.svelte';
 	import { playerStatLine, teamFor, type StatContext } from './game-table-stats';
-	import CanadianSaladPenalties from './canadian-salad-penalties.svelte';
-	import OhWellTrumpBanner from './oh-well-trump-banner.svelte';
 	import type { Card, RoomPlayer, PlayerStats, ScoreEntry } from '$lib/platform/types/index';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 	import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
@@ -77,7 +75,6 @@
 		onNextRound
 	}: Props = $props();
 
-	let showRules = $state(false);
 	const isOhWell = $derived(gameId === 'oh-well');
 	const isRook = $derived(gameId === 'rook');
 	const ohWellUi = $derived(isOhWell && gameSpecific ? (gameSpecific as OhWellUiState) : null);
@@ -89,71 +86,6 @@
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
 	}
 </script>
-
-<div class="border-b border-border/80 bg-card/60 backdrop-blur-md px-4 sm:px-6 py-3 flex justify-between items-center gap-3">
-	<div class="flex items-center gap-2">
-		<button
-			class="cursor-pointer inline-flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
-			onclick={() => (showRules = !showRules)}
-			title="Click to view hand rules"
-		>
-			<Badge variant="outline" class="whitespace-nowrap font-bold text-xs sm:text-sm py-1.5 px-4 bg-background/50 hover:bg-accent border-border/80 shadow-xs">
-				<span class="opacity-70">Hand {currentRound + 1}:</span>
-				<span class="font-extrabold ml-1">{roundLabel}</span>
-				<span class="text-xs ml-1 opacity-70">ⓘ</span>
-			</Badge>
-		</button>
-	</div>
-
-	<div class="flex items-center gap-2">
-		{#if isMyTurn}
-			<Badge variant="success" class="whitespace-nowrap px-4 py-1.5 text-xs sm:text-sm font-black shadow-sm">
-				<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
-				Your Turn
-			</Badge>
-		{:else}
-			<Badge variant="secondary" class="whitespace-nowrap px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground bg-secondary/60">
-				Waiting for turn...
-			</Badge>
-		{/if}
-	</div>
-</div>
-{#if showRules}
-	<div class="bg-muted/50 border-b border-border px-6 py-3 text-xs sm:text-sm text-muted-foreground">
-		{roundRules}
-	</div>
-{/if}
-
-{#if gameId === 'canadian-salad' && handType}
-	<CanadianSaladPenalties {handType} />
-{/if}
-
-{#if gameId === 'oh-well' && ohWellUi}
-	<OhWellTrumpBanner trumpSuit={ohWellUi.trumpSuit} trumpCard={ohWellUi.trumpCard} />
-{/if}
-
-{#if rookUi}
-	<div
-		class="border-b border-border px-4 py-1 flex justify-between items-center text-xs text-muted-foreground"
-	>
-		<span>
-			Bid: <span class="text-foreground font-medium">{rookUi.highBid}</span> by {playerNames[
-				rookUi.highBidderName
-			] ?? rookUi.highBidderName}
-		</span>
-		{#if rookUi.trumpColor}
-			<Badge variant="warning" class="capitalize py-0 text-[10px] font-bold">
-				Trump: {rookUi.trumpColor}
-			</Badge>
-		{/if}
-		<span>
-			<span class="text-blue-400">T1: {rookUi.team1Score}</span>
-			|
-			<span class="text-amber-400">T2: {rookUi.team2Score}</span>
-		</span>
-	</div>
-{/if}
-
 <main class="flex-1 flex flex-col justify-between p-3 sm:p-5 max-w-6xl self-center mx-auto w-full gap-4">
 	<div class="flex flex-wrap justify-center items-center gap-3 sm:gap-4 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
 		{#each otherPlayers as other (other.id)}
@@ -249,4 +181,5 @@
 	{previousTotals}
 	{allPlayerStats}
 	onLeave={onLeave}
+	{isMyTurn}
 />

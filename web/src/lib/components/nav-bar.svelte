@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index';
+	import type { Card } from '$lib/platform/types/index';
+	import { RANK_NAMES } from '$lib/platform/types/card';
+	import type { RookUiState } from '$lib/games/rook/ui-state';
 
 	interface Props {
 		displayName: string;
@@ -8,9 +11,51 @@
 		onNameChange?: (name: string) => void;
 		showAdmin?: boolean;
 		onAdmin?: () => void;
+		roundLabel?: string;
+		currentRound?: number;
+		roundRules?: string;
+		trumpSuit?: string | null;
+		trumpCard?: Card | null;
+		handType?: string;
+		rookUi?: RookUiState | null;
 	}
 
-	let { displayName, title = 'Cards', onSignOut, onNameChange, showAdmin = false, onAdmin }: Props = $props();
+	let {
+		displayName,
+		title = 'Cards',
+		onSignOut,
+		onNameChange,
+		showAdmin = false,
+		onAdmin,
+		roundLabel = '',
+		currentRound = 0,
+		roundRules = '',
+		trumpSuit = null,
+		trumpCard = null,
+		handType = '',
+		rookUi = null
+	}: Props = $props();
+
+	const suitSymbols: Record<string, string> = {
+		hearts: '♥',
+		diamonds: '♦',
+		clubs: '♣',
+		spades: '♠'
+	};
+
+	function formatPenalty(type: string): string {
+		switch (type) {
+			case 'NO_TRICKS': return 'No Tricks (+10)';
+			case 'NO_HEARTS': return '♥ No Hearts (+10)';
+			case 'NO_QUEENS': return '♛ No Queens (+25)';
+			case 'NO_KING_SPADES': return '♠ No K♠ (+100)';
+			case 'NO_LAST_TRICK': return 'No Last Trick (+100)';
+			case 'COMBINATION': return 'All Penalties';
+			default: return type;
+		}
+	}
+
+	let showRules = $state(false);
 	const MAX_NAME_LENGTH = 10;
 	let editing = $state(false);
 	let editValue = $state('');
@@ -36,16 +81,49 @@
 	}
 </script>
 
-<nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-4 sm:px-6 py-2.5 flex justify-between items-center sticky top-0 z-40">
-	<div class="flex items-center gap-2">
-		<span class="text-base font-black tracking-tight inline-flex items-center gap-1.5 leading-none">
-			<span class="text-emerald-400 text-lg leading-none">♠</span>
+<nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-3 sm:px-6 py-2 flex justify-between items-center sticky top-0 z-40 gap-2">
+	<div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+		<span class="text-sm sm:text-base font-black tracking-tight inline-flex items-center gap-1.5 leading-none">
+			<span class="text-emerald-400 text-base sm:text-lg leading-none">♠</span>
 			<span class="leading-none">{title}</span>
 		</span>
-		{#if title !== 'Cards'}
+		{#if roundLabel}
+			<button
+				class="cursor-pointer inline-flex items-center transition-transform hover:scale-105 active:scale-95 leading-none"
+				onclick={() => (showRules = !showRules)}
+				title="Click to view rules"
+			>
+				<span class="text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-foreground hover:border-emerald-500/50 flex items-center gap-1 shadow-xs leading-none">
+					<span class="opacity-70">H{currentRound + 1}:</span>
+					<span class="font-extrabold truncate max-w-[75px] sm:max-w-[140px]">{roundLabel}</span>
+					<span class="text-[10px] opacity-60">ⓘ</span>
+				</span>
+			</button>
+		{:else if title !== 'Cards'}
 			<span class="hidden sm:inline-flex items-center text-[10px] text-muted-foreground/70 uppercase tracking-widest border border-border/70 rounded px-1.5 py-0.5 leading-none font-bold">
 				Cards
 			</span>
+		{/if}
+	</div>
+
+	<div class="flex items-center justify-center min-w-0">
+		{#if trumpSuit}
+			<div class="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold shadow-xs truncate">
+				<span class="capitalize">Trump: {trumpSuit} {suitSymbols[trumpSuit] ?? ''}</span>
+				{#if trumpCard}
+					<span class="border-l border-amber-500/30 pl-1.5 text-[10px] sm:text-[11px] opacity-80 hidden xs:inline">
+						Cut: {RANK_NAMES[trumpCard.rank]}{suitSymbols[trumpCard.suit]}
+					</span>
+				{/if}
+			</div>
+		{:else if handType}
+			<div class="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] sm:text-xs font-bold shadow-xs truncate">
+				<span>{formatPenalty(handType)}</span>
+			</div>
+		{:else if rookUi && rookUi.trumpColor}
+			<div class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold shadow-xs truncate capitalize">
+				Trump: {rookUi.trumpColor}
+			</div>
 		{/if}
 	</div>
 	<div class="flex items-center gap-3">
@@ -87,3 +165,10 @@
 		{/if}
 	</div>
 </nav>
+
+{#if showRules && roundRules}
+	<div class="border-b border-border/80 bg-muted/70 backdrop-blur-md px-4 sm:px-6 py-2 text-xs text-muted-foreground flex items-center justify-between animate-in fade-in duration-150">
+		<span>{roundRules}</span>
+		<button class="text-muted-foreground hover:text-foreground text-xs ml-2 cursor-pointer font-bold px-1.5 py-0.5 rounded hover:bg-card" onclick={() => (showRules = false)}>✕</button>
+	</div>
+{/if}

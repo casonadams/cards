@@ -328,6 +328,12 @@
 		displayName={myPlayer.displayName}
 		title={activeGameTitle}
 		onNameChange={handleNameChange}
+		roundLabel={gameDoc && runtime ? runtime.getRoundLabel(gameDoc.currentRound) : ''}
+		currentRound={gameDoc?.currentRound ?? 0}
+		roundRules={gameDoc && runtime ? runtime.getRoundRules(gameDoc.currentRound) : ''}
+		trumpSuit={trumpSuit}
+		trumpCard={ohWellUi?.trumpCard ?? null}
+		handType={gs?.handType ?? ''}
 	/>
 
 	{#if !room}

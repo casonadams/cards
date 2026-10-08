@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index';
+	import { getInitials } from '$lib/utils';
 	import type { Card } from '$lib/platform/types/index';
 	import { RANK_NAMES } from '$lib/platform/types/card';
 	import type { RookUiState } from '$lib/games/rook/ui-state';
@@ -63,7 +64,7 @@
 	}
 
 	let showRules = $state(false);
-	const MAX_NAME_LENGTH = 10;
+	const MAX_NAME_LENGTH = 20;
 	let editing = $state(false);
 	let editValue = $state('');
 
@@ -141,7 +142,7 @@
 		{#if editing}
 			<div class="flex items-center gap-1.5 bg-background border border-emerald-500/70 rounded-full px-2.5 py-1 shadow-sm">
 				<input
-					class="bg-transparent border-none outline-none text-xs w-24 sm:w-32 px-1 text-foreground font-semibold"
+					class="bg-transparent border-none outline-none text-xs w-32 sm:w-44 px-2 text-foreground font-semibold"
 					bind:value={editValue}
 					maxlength={MAX_NAME_LENGTH}
 					onkeydown={handleKeydown}
@@ -161,10 +162,10 @@
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
-				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[11px] font-black leading-none shrink-0">
-					{displayName.slice(0, 1).toUpperCase()}
+				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black leading-none shrink-0">
+					{getInitials(displayName)}
 				</div>
-				<span class="font-semibold truncate max-w-[100px] sm:max-w-[150px] leading-none">{displayName}</span>
+				<span class="font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
 				<span class="text-[11px] text-muted-foreground group-hover:text-emerald-400 opacity-70 leading-none">✎</span>
 			</button>
 		{/if}

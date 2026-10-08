@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn, getInitials } from '$lib/utils';
+	import { cn, getInitials, getFirstName } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge/index';
 	import HandDisplay from './hand-display.svelte';
 	import TrickArea from './trick-area.svelte';
@@ -103,6 +103,7 @@
 		{#each orderedPlayerIds as id, pos (id)}
 			{@const isMe = id === myId}
 			{@const displayName = playerNames[id] ?? id}
+			{@const shortName = getFirstName(displayName)}
 			{@const isTurn = currentTurnIndex === playerIds.indexOf(id)}
 			{@const team = teamFor(rookUi, id)}
 			{@const partner = isPartner(id)}
@@ -165,8 +166,9 @@
 								isMe && !isTurn && 'text-foreground font-extrabold',
 								partner && !isTurn && 'text-foreground'
 							)}
+							title={displayName}
 						>
-							{displayName}
+							{shortName}
 						</span>
 						{#if isMe}
 							<span class="text-[10px] text-emerald-400 font-black px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 leading-none">

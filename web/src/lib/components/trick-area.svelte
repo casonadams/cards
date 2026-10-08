@@ -41,6 +41,8 @@
 	let settleTimer: ReturnType<typeof setTimeout> | null = null;
 	let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
+	const totalSlots = $derived(Math.max(3, Object.keys(playerNames).length || 4));
+
 	const trickSig = $derived(
 		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
 	);
@@ -201,30 +203,36 @@
 					</div>
 				{/each}
 		</div>
-	{:else if visible.length === 0}
-		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/60 select-none">
-			<div class="w-12 h-16 rounded-xl border-2 border-dashed border-emerald-500/30 flex items-center justify-center bg-emerald-950/20 shadow-inner">
-				<span class="text-sm font-bold opacity-75">♠</span>
-			</div>
-			<span class="text-xs font-semibold tracking-wider uppercase text-emerald-300/70">Waiting for lead</span>
-		</div>
 	{:else}
-		<div class="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-			{#each visible as play (play.playerId)}
-				{@const cardKey = `${play.card.suit}-${play.card.rank}`}
-				<div
-					use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
-					class="flex flex-col items-center gap-1.5 transition-all"
-				>
-					<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
-						<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
-					</div>
-					<span
-						class="bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full"
-						title={playerNames[play.playerId] ?? '?'}
-					>
-						{getFirstName(playerNames[play.playerId] ?? '?')}
-					</span>
+		<div class="relative z-10 flex items-center justify-center gap-2 sm:gap-3.5 w-full">
+			{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
+				{@const play = visible[slotIdx]}
+				<div class="w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0">
+					{#if play}
+						{@const cardKey = `${play.card.suit}-${play.card.rank}`}
+						<div
+							use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
+							class="w-full flex flex-col items-center gap-1.5 transition-all"
+						>
+							<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl">
+								<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
+							</div>
+							<span
+								class="bg-card/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-foreground border border-border/80 shadow-md max-w-[64px] sm:max-w-[84px] truncate text-center block w-full"
+								title={playerNames[play.playerId] ?? '?'}
+							>
+								{getFirstName(playerNames[play.playerId] ?? '?')}
+							</span>
+						</div>
+					{:else}
+						<div class="w-full h-[94px] sm:h-[122px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
+							<span class="text-xs sm:text-sm opacity-40">♠</span>
+							<span class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-1">
+								{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
+							</span>
+						</div>
+						<span class="h-5 block opacity-0 select-none text-xs">...</span>
+					{/if}
 				</div>
 			{/each}
 		</div>

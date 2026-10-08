@@ -47,3 +47,13 @@
 - Seating Badge Compact Notation & Width Stability: On mobile viewports and in games with $\ge 6$ players, format player statistics compactly using `${st.tricksTaken}t | ${score}p` (and `${bid} | ${score}p` for Oh Well) with `tabular-nums font-mono`. Truncating `tricks` to `t` and `pts` to `p` cuts stat line width by over 50% (from ~110px to ~45px) and holds badge width stable across score changes. This prevents the staggered 1 - 1 - 2 - 2 wrapping artifact on mobile, allowing 6 players to sit in 2 balanced rows of 3 without reflow or screen bouncing when tricks are won.
 - Player display names support up to 20 characters (`MAX_NAME_LENGTH = 20`) to accommodate First and Last names. Avatar circles must compute "FL" initials via `getInitials(name)` (e.g. `John Doe` -> `JD`, `Cason Adams` -> `CA`). In compact table seating strips, format multi-word names as their first name via `getFirstName(name)` (`John Doe` -> `John`) while retaining the full name in tooltip and profile view. Preserve bot identifiers (`Bot Bob` -> `Bot Bob`).
 - Button selection groups (such as Table Size and Game Selector) must maintain stable dimensions between selected and unselected states without text wrapping shifts or layout jumps.
+
+## Quality Tooling & CI/CD Pipeline
+- **Make Targets**:
+  - `make all`: Runs lint (`oxlint`), typecheck (`svelte-check`), complexity (`cccc`), and build (`vite build`).
+  - `make lint`: Fast AST linting via `oxlint --deny-warnings`.
+  - `make check`: Strict TypeScript and Svelte validation via `svelte-check`.
+  - `make complexity`: Cognitive & Cyclomatic complexity enforcement via `cccc web/src` (max-cognitive $\le 20$, max-cyclomatic $\le 20$).
+  - `make ripwire`: Code intelligence and symbol ranking via `ripwire web/src --top-k=30`.
+- **GitHub Actions (`deploy.yml`)**:
+  - Every push to `main` runs `oxlint`, `svelte-check`, `cccc`, and production packaging before publishing to GitHub Pages.

@@ -41,6 +41,7 @@
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Input } from '$lib/components/ui/input/index';
+	import { getInitials } from '$lib/utils';
 	import './app.css';
 
 	registerAllGames();
@@ -59,19 +60,42 @@
 	const playerId = getOrCreatePlayerId();
 	let playerName = $state(
 		typeof window !== 'undefined'
-			? localStorage.getItem('cards_player_name') || 'Player'
-			: 'Player'
+			? localStorage.getItem('cards_player_name') || ''
+			: ''
+	);
+	const hasValidName = $derived(
+		playerName.trim().length > 0 && playerName.trim() !== 'Player'
+	);
+	let isEditingName = $state(
+		typeof window !== 'undefined'
+			? !localStorage.getItem('cards_player_name') || localStorage.getItem('cards_player_name') === 'Player'
+			: false
+	);
+	let nameInput = $state(
+		typeof window !== 'undefined' && localStorage.getItem('cards_player_name') !== 'Player'
+			? localStorage.getItem('cards_player_name') || ''
+			: ''
 	);
 	const myPlayer = $derived<Player>({
 		id: playerId,
-		displayName: playerName
+		displayName: playerName || 'Player'
 	});
 
-	function handleNameChange(name: string) {
-		playerName = name;
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('cards_player_name', name);
+	function savePlayerName(name: string) {
+		const trimmed = name.trim().slice(0, 20);
+		if (trimmed.length > 0) {
+			playerName = trimmed;
+			nameInput = trimmed;
+			if (typeof window !== 'undefined') {
+				localStorage.setItem('cards_player_name', trimmed);
+			}
+			isEditingName = false;
+			lobbyError = '';
 		}
+	}
+
+	function handleNameChange(name: string) {
+		savePlayerName(name);
 	}
 
 	// Platform state
@@ -220,6 +244,11 @@
 
 	// Action Handlers
 	async function handleCreateRoom() {
+		if (!hasValidName) {
+			isEditingName = true;
+			lobbyError = 'Please enter your name above first';
+			return;
+		}
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
@@ -256,6 +285,11 @@
 	}
 
 	async function handleJoinRoom() {
+		if (!hasValidName) {
+			isEditingName = true;
+			lobbyError = 'Please enter your name above first';
+			return;
+		}
 		if (!joinCode.trim()) return;
 		lobbyError = '';
 		loading = true;
@@ -323,7 +357,12 @@
 			const activeCode = match?.[1]?.toUpperCase() || sessionStorage.getItem('cards_active_room_code');
 			if (activeCode && !roomId && !room && !loading) {
 				joinCode = activeCode;
-				handleJoinRoom();
+				if (hasValidName) {
+					handleJoinRoom();
+				} else {
+					isEditingName = true;
+					lobbyError = 'Enter your name above to join table ' + activeCode;
+				}
 			}
 		}
 		syncHash();
@@ -376,7 +415,7 @@
 	<NavBar
 		displayName={myPlayer.displayName}
 		title={activeGameTitle}
-		onNameChange={handleNameChange}
+		onNameChange={!room ? savePlayerName : undefined}
 		roundLabel={gameDoc && runtime ? runtime.getRoundLabel(gameDoc.currentRound) : ''}
 		currentRound={gameDoc?.currentRound ?? 0}
 		roundRules={gameDoc && runtime ? runtime.getRoundRules(gameDoc.currentRound) : ''}
@@ -397,6 +436,50 @@
 			{#if lobbyError}
 				<p class="text-destructive text-xs bg-destructive/10 p-3 rounded-lg border border-destructive/20">{lobbyError}</p>
 			{/if}
+
+			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
+				<CardContent class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+					<div class="flex items-center gap-3.5 min-w-0">
+						<div class="w-11 h-11 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-sm font-black shrink-0">
+							{getInitials(playerName || 'Player')}
+						</div>
+						<div class="flex flex-col min-w-0">
+							<span class="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Player Name</span>
+							{#if isEditingName || !hasValidName}
+								<form onsubmit={(e) => { e.preventDefault(); savePlayerName(nameInput); }} class="flex items-center gap-2 mt-1.5">
+									<Input
+										class="text-sm h-9 w-44 sm:w-56 font-bold"
+										placeholder="Enter your name..."
+										bind:value={nameInput}
+										maxlength={20}
+										autofocus
+									/>
+									<Button
+										type="submit"
+										size="sm"
+										class="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg cursor-pointer"
+										disabled={!nameInput.trim()}
+									>
+										Save
+									</Button>
+								</form>
+							{:else}
+								<span class="text-base font-black truncate max-w-[200px] sm:max-w-[280px] text-foreground">{playerName}</span>
+							{/if}
+						</div>
+					</div>
+					{#if hasValidName && !isEditingName}
+						<Button
+							variant="outline"
+							size="sm"
+							class="text-xs h-8 border-border/80 hover:bg-background/80 shrink-0 font-semibold self-start sm:self-center cursor-pointer"
+							onclick={() => { nameInput = playerName; isEditingName = true; }}
+						>
+							Change Name
+						</Button>
+					{/if}
+				</CardContent>
+			</Card>
 
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
@@ -449,9 +532,9 @@
 					<Button
 						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 h-12 shadow-lg shadow-emerald-950/40 text-base rounded-xl"
 						onclick={handleCreateRoom}
-						disabled={loading}
+						disabled={loading || !hasValidName}
 					>
-						{loading ? 'Creating...' : 'Create Table'}
+						{loading ? 'Creating...' : !hasValidName ? 'Enter Name Above to Play' : 'Create Table'}
 					</Button>
 				</CardContent>
 			</Card>
@@ -470,9 +553,9 @@
 						variant="secondary"
 						class="w-full font-bold text-sm h-12 rounded-xl border border-border/80 hover:bg-card"
 						onclick={handleJoinRoom}
-						disabled={loading || joinCode.length < 4}
+						disabled={loading || joinCode.length < 4 || !hasValidName}
 					>
-						{loading ? 'Joining...' : 'Join Game'}
+						{loading ? 'Joining...' : !hasValidName ? 'Enter Name Above to Join' : 'Join Game'}
 					</Button>
 				</CardContent>
 			</Card>

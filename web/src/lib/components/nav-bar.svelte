@@ -166,7 +166,7 @@
 					✓
 				</button>
 			</div>
-		{:else}
+		{:else if onNameChange}
 			<button
 				class="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs leading-none shrink-0"
 				onclick={startEdit}
@@ -177,6 +177,13 @@
 				</div>
 				<span class="hidden sm:inline font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
 			</button>
+		{:else}
+			<div class="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground shadow-xs leading-none shrink-0">
+				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black leading-none shrink-0">
+					{getInitials(displayName)}
+				</div>
+				<span class="hidden sm:inline font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
+			</div>
 		{/if}
 		{#if showAdmin}
 			<Button variant="ghost" size="sm" class="text-xs h-8" onclick={() => onAdmin?.()}>Users</Button>

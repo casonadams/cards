@@ -82,22 +82,35 @@
 	const ctx = $derived<StatContext>({ gameId, allPlayerStats, previousTotals, ohWellUi, rookUi });
 	const myTeam = $derived(teamFor(rookUi, myId));
 
+	const leaderId = $derived(
+		trickPlays.length > 0
+			? trickPlays[0].playerId
+			: (playerIds[currentTurnIndex] ?? playerIds[0])
+	);
+
+	const orderedPlayerIds = $derived.by(() => {
+		const leadIndex = playerIds.indexOf(leaderId);
+		if (leadIndex <= 0) return playerIds;
+		return [...playerIds.slice(leadIndex), ...playerIds.slice(0, leadIndex)];
+	});
+
 	function isPartner(id: string): boolean {
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
 	}
 </script>
 <main class="flex-1 flex flex-col justify-between p-3 sm:p-5 max-w-6xl self-center mx-auto w-full gap-4">
-	<div class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3.5 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
-		{#each playerIds as id (id)}
+	<div class="flex flex-wrap justify-center items-center gap-2 sm:gap-3 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
+		{#each orderedPlayerIds as id, pos (id)}
 			{@const isMe = id === myId}
 			{@const displayName = playerNames[id] ?? id}
 			{@const isTurn = currentTurnIndex === playerIds.indexOf(id)}
 			{@const team = teamFor(rookUi, id)}
 			{@const partner = isPartner(id)}
-			{@const isLeader = trickPlays.length > 0 ? trickPlays[0].playerId === id : currentTurnIndex === playerIds.indexOf(id)}
+			{@const isLeader = pos === 0}
+			{@const isLast = pos === orderedPlayerIds.length - 1}
 			<div
 				class={cn(
-					'flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
+					'flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
 					isTurn
 						? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-md ring-1 ring-emerald-500/40'
 						: isMe
@@ -132,14 +145,22 @@
 								T{team}
 							</span>
 						{/if}
-						{#if isLeader}
-							<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 leading-none" title="Trick Leader">
-								🎯 Lead
-							</span>
-						{/if}
 						<span
 							class={cn(
-								'font-bold truncate max-w-[80px] sm:max-w-[130px]',
+								'text-[9px] font-black px-1.5 py-0.2 rounded leading-none border',
+								isLeader
+									? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+									: isLast
+										? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+										: 'bg-muted/80 text-muted-foreground border-border/60'
+							)}
+							title={isLeader ? 'Leader (plays 1st)' : isLast ? `Last (plays ${orderedPlayerIds.length})` : `Plays ${pos + 1}`}
+						>
+							{isLeader ? '🎯 1st' : isLast ? 'Last' : `${pos + 1}`}
+						</span>
+						<span
+							class={cn(
+								'font-bold truncate max-w-[70px] sm:max-w-[120px]',
 								isTurn && 'text-emerald-300 font-extrabold',
 								isMe && !isTurn && 'text-foreground font-extrabold',
 								partner && !isTurn && 'text-foreground'

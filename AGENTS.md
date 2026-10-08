@@ -30,5 +30,7 @@
 - Focal play areas (trick arena) must render cards at prominent scale (`size="md"`), never smaller than inactive hand cards.
 - Trick fade-out animations must remain concise (1.5s to 2.0s) so completed tricks do not obscure subsequent lead plays.
 - Active player turn indicators must use a dual-span structure (a stationary solid dot over an animated ping pulse), avoiding erratic border scaling artifacts from isolated `animate-ping` elements.
+- Display all players (including the local player with a `(You)` badge) in the top seating lineup, dynamically rotating the array so the current trick leader is positioned first (`top-left -> right last`). This allows players to read the current trick's chronological order left-to-right: `1st` -> `2` -> `3` -> `Last`.
+- Prefer concise typography badges (`1st`, `2`, `3`, `Last`) over emojis (like `🎯`). Clean typography maintains professional contrast and avoids OS-dependent emoji rendering variations.
 - Avatar initials must split on whitespace (e.g. `Bot Bob` -> `BB`, `Bot Carol` -> `BC`), preventing identical multi-bot initials (`BO`).
 - Button selection groups (such as Table Size and Game Selector) must maintain stable dimensions between selected and unselected states without text wrapping shifts or layout jumps.

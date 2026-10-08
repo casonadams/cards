@@ -75,15 +75,29 @@
 					const cRect = containerEl.getBoundingClientRect();
 					const centerX = cRect.left + cRect.width / 2;
 					const centerY = cRect.top + cRect.height / 2;
-
-					const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
-					if (winnerPill) {
-						const wRect = winnerPill.getBoundingClientRect();
-						targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
-						targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+					const isUserWinner = Boolean(myId && winnerId === myId);
+					if (isUserWinner) {
+						// User won: collect cards down to bottom-right of screen (personal trick pile)
+						const footerStats = document.querySelector('footer div.flex');
+						if (footerStats) {
+							const fRect = footerStats.getBoundingClientRect();
+							targetX = Math.round((fRect.left + fRect.width / 2) - centerX);
+							targetY = Math.round((fRect.top + fRect.height / 2) - centerY);
+						} else {
+							targetX = Math.round((window.innerWidth - 80) - centerX);
+							targetY = Math.round((window.innerHeight - 50) - centerY);
+						}
 					} else {
-						targetX = 0;
-						targetY = -220;
+						// Bot/opponent won: collect cards up to their top avatar pill
+						const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
+						if (winnerPill) {
+							const wRect = winnerPill.getBoundingClientRect();
+							targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+							targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+						} else {
+							targetX = 0;
+							targetY = -220;
+						}
 					}
 				}
 				animPhase = 'collecting';
@@ -162,9 +176,10 @@
 	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
 	{#if animPhase === 'collecting'}
 		{#if winnerName}
+			{@const isUserWinner = Boolean(myId && winnerId === myId)}
 			<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
 				<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
-					<span>{winnerName} won the trick!</span>
+					<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
 				</div>
 			</div>
 		{/if}

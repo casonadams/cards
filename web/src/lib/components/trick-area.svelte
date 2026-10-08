@@ -44,18 +44,32 @@
 
 		// Calculate delta vector (dx, dy) from center of trick area to winner's avatar pill
 		if (typeof document !== 'undefined' && containerEl && winnerId) {
+			const cRect = containerEl.getBoundingClientRect();
+			const centerX = cRect.left + cRect.width / 2;
+			const centerY = cRect.top + cRect.height / 2;
+
 			const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
 			if (winnerPill) {
-				const cRect = containerEl.getBoundingClientRect();
 				const wRect = winnerPill.getBoundingClientRect();
-				targetX = Math.round((wRect.left + wRect.width / 2) - (cRect.left + cRect.width / 2));
-				targetY = Math.round((wRect.top + wRect.height / 2) - (cRect.top + cRect.height / 2));
+				targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+				targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
 			} else {
 				targetX = 0;
 				targetY = -220;
 			}
-		}
 
+			// Calculate individual card offsets to center so cards merge into a single card stack
+			const cols = containerEl.querySelectorAll('.trick-card-col');
+			cols.forEach((col) => {
+				const r = col.getBoundingClientRect();
+				const colCenterX = r.left + r.width / 2;
+				const colCenterY = r.top + r.height / 2;
+				const toCenterX = Math.round(centerX - colCenterX);
+				const toCenterY = Math.round(centerY - colCenterY);
+				(col as HTMLElement).style.setProperty('--to-center-x', `${toCenterX}px`);
+				(col as HTMLElement).style.setProperty('--to-center-y', `${toCenterY}px`);
+			});
+		}
 		collecting = true;
 		const t = setTimeout(() => (collecting = false), collectDuration);
 		return () => clearTimeout(t);
@@ -119,23 +133,24 @@
 	}
 	.trick-collecting .trick-player-label {
 		opacity: 0;
+		transition: opacity 120ms ease-out;
 	}
 	.trick-collecting .trick-card-col {
-		animation: collectCard 1000ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+		animation: collectCard 950ms cubic-bezier(0.2, 0.9, 0.35, 1) forwards;
 	}
 	@keyframes collectCard {
 		0% {
 			transform: translate(0, 0) scale(1) rotate(0deg);
 			opacity: 1;
 		}
-		28% {
-			/* Cards gather and stack together into a neat pack */
-			transform: translate(var(--stack-offset-x, 0px), var(--stack-offset-y, 0px)) scale(0.92) rotate(var(--stack-rot, 0deg));
+		32% {
+			/* All cards collapse into a single stacked deck at the exact center */
+			transform: translate(var(--to-center-x, 0px), calc(var(--to-center-y, 0px) + var(--stack-offset-y, 0px))) scale(0.95) rotate(var(--stack-rot, 0deg));
 			opacity: 1;
 		}
 		100% {
-			/* Stack shrinks and flies into the winner's pill */
-			transform: translate(var(--target-x, 0px), var(--target-y, -220px)) scale(0.18) rotate(var(--stack-rot, 0deg));
+			/* The single stacked deck flies together directly into the winner's pill */
+			transform: translate(calc(var(--to-center-x, 0px) + var(--target-x, 0px)), calc(var(--to-center-y, 0px) + var(--target-y, -220px))) scale(0.16) rotate(0deg);
 			opacity: 0;
 		}
 	}

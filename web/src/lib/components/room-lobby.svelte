@@ -72,11 +72,11 @@
 							</div>
 							{#if player.isHost}
 								<Badge variant="secondary" class="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-xs font-bold px-2.5 py-0.5">
-									👑 Host
+									Host
 								</Badge>
 							{:else if isAiPlayer(player.id)}
-								<Badge variant="outline" class="text-xs font-medium border-border/80 px-2.5 py-0.5">
-									🤖 AI
+								<Badge variant="outline" class="text-xs font-bold border-border/80 px-2.5 py-0.5">
+									AI
 								</Badge>
 							{/if}
 						</div>

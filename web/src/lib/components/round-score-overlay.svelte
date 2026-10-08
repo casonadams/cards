@@ -32,7 +32,7 @@
 				</Badge>
 				{#if winnerName}
 					<span class="text-xs font-bold text-amber-300">
-						👑 {winnerName} won trick
+						{winnerName} won trick
 					</span>
 				{/if}
 			</div>

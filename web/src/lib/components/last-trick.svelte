@@ -58,7 +58,7 @@
 		</div>
 		{#if winnerName}
 			<span class="text-[11px] text-emerald-400 font-bold border-l border-border/80 pl-2">
-				👑 {winnerName}
+				{winnerName}
 			</span>
 		{/if}
 	</div>

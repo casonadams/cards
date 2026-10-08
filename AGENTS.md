@@ -1,0 +1,25 @@
+# Cards Repository Rules & Standards
+
+## UX & UI Design Rules
+
+### CSS Layering & Tailwind Precedence
+- Never define unlayered CSS resets (such as `* { margin: 0; padding: 0; }`) in HTML `<style>` tags or unlayered stylesheets. In CSS Cascade Layers, unlayered declarations override all `@layer utilities` regardless of specificity, breaking Tailwind layout classes.
+- Consolidate design tokens inside `@theme` in `app.css`. Do not maintain parallel, conflicting CSS custom properties in `index.html`.
+
+### Card Hand & Fanning Conventions
+- In fanned hands with left-to-right stacking (`z-index` increasing left to right), each card overlaps the right edge of the preceding card. Never place critical status badges (penalties, points, trump marks) on the top-right corner alone; anchor them along the exposed top-left rail.
+- Visually distinguish Aces from regular number cards (2-10). Do not render identical oversized center suit glyphs on number cards; show crisp rank numerals with subtle suit watermarks.
+- Scope hover and focus elevation to playable cards (`.card-hand-slot.is-playable:hover`). Disabled and unplayable cards must remain seated and subdued (`opacity-65`, no translation).
+- Horizontal scroll containers (`overflow-x-auto`) must not use `mx-auto` or `justify-center` on overflowing children (`w-max`), as CSS centering clips the left edge and prevents scrolling back to initial items. Use `inline-flex min-w-full justify-start sm:justify-center px-4`.
+
+### Overlays & Viewport Containment
+- Modal dialogs and bidding overlays must fit viewports down to 576px height and 375px width. Constrain modal cards with `max-h-[92vh] flex flex-col` and scrollable content bodies (`overflow-y-auto`).
+- Keep overlays informative without redundant layout bloat. When cards are already dealt on table, summarize hand cards compactly in bidding overlays rather than rendering multi-row unscaled card grids.
+- Decorative accent bars placed at the top of rounded cards must explicitly specify matching rounded top corners (`rounded-t-lg`, `rounded-t-xl`) to prevent subpixel corner clipping artifacts.
+
+### Arena & Interaction Precision
+- Focal play areas (trick arena) must render cards at prominent scale (`size="md"`), never smaller than inactive hand cards.
+- Trick fade-out animations must remain concise (1.5s to 2.0s) so completed tricks do not obscure subsequent lead plays.
+- Active player turn indicators must use a dual-span structure (a stationary solid dot over an animated ping pulse), avoiding erratic border scaling artifacts from isolated `animate-ping` elements.
+- Avatar initials must split on whitespace (e.g. `Bot Bob` -> `BB`, `Bot Carol` -> `BC`), preventing identical multi-bot initials (`BO`).
+- Button selection groups (such as Table Size and Game Selector) must maintain stable dimensions between selected and unselected states without text wrapping shifts or layout jumps.

@@ -175,13 +175,11 @@ export class P2pNetworkManager {
 		});
 	}
 
-	/**
-	 * Broadcast a room update or game doc to all connected P2P peers.
-	 */
-	public broadcast(msg: P2pMessage) {
+	/** Broadcast message to all connected peers */
+	public broadcast(msg: P2pMessage, excludePeerId?: string) {
 		const serialized = JSON.parse(JSON.stringify(msg));
-		for (const conn of this.connections.values()) {
-			if (conn.open) {
+		for (const [peerId, conn] of this.connections.entries()) {
+			if (peerId !== excludePeerId && conn.open) {
 				try {
 					conn.send(serialized);
 				} catch (e) {

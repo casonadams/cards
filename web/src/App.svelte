@@ -79,14 +79,21 @@
 	if (typeof window !== 'undefined') {
 		p2p = new P2pNetworkManager({
 			onRoomMessage(updatedRoom) {
+				if (!updatedRoom || !updatedRoom.id) return;
+				if (room && room.id === updatedRoom.id && JSON.stringify(room) === JSON.stringify(updatedRoom)) {
+					return;
+				}
 				room = updatedRoom;
 				roomId = updatedRoom.id;
-				roomRepo.update(updatedRoom.id, updatedRoom);
+				roomRepo.update(updatedRoom.id, updatedRoom, false);
 			},
 			onDocMessage(docRoomId, doc) {
-				if (roomId === docRoomId) {
-					gameDoc = doc;
+				if (!doc || docRoomId !== roomId) return;
+				if (gameDoc && JSON.stringify(gameDoc) === JSON.stringify(doc)) {
+					return;
 				}
+				gameDoc = doc;
+				sync.publish(docRoomId, doc, false);
 			},
 			onQueryRoom(conn) {
 				if (room) {

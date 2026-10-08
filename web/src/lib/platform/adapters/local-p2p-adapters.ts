@@ -130,14 +130,14 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 			return null;
 		},
 
-		async update(id: string, data: Partial<GameRoom>): Promise<void> {
+		async update(id: string, data: Partial<GameRoom>, broadcast = true): Promise<void> {
 			const cached = typeof window !== 'undefined'
 				? sessionStorage.getItem('cards_room_id_' + id) || localStorage.getItem('cards_room_id_' + id)
 				: null;
 			const existing = rooms.get(id) ?? (cached ? JSON.parse(cached) : null);
 			const updated = { ...existing, ...data } as GameRoom;
 			rooms.set(id, updated);
-			notify(id);
+			notify(id, broadcast);
 		},
 
 		async delete(id: string): Promise<void> {
@@ -236,8 +236,8 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 			};
 		},
 
-		async publish(roomId: string, state: GameDocument): Promise<void> {
-			notify(roomId, state);
+		async publish(roomId: string, state: GameDocument, broadcast = true): Promise<void> {
+			notify(roomId, state, broadcast);
 		},
 
 		async appendMove(roomId: string, move: unknown): Promise<void> {

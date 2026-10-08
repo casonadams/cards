@@ -156,7 +156,7 @@
 							)}
 							title={isLeader ? 'Leader (plays 1st)' : isLast ? `Last (plays ${orderedPlayerIds.length})` : `Plays ${pos + 1}`}
 						>
-							{isLeader ? '🎯 1st' : isLast ? 'Last' : `${pos + 1}`}
+							{isLeader ? '1st' : isLast ? 'Last' : `${pos + 1}`}
 						</span>
 						<span
 							class={cn(

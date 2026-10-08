@@ -46,7 +46,7 @@
 			{#if uiState.leaderId}
 				<div class="flex items-center justify-between mt-2 px-3 py-1.5 rounded-xl bg-background/60 border border-border/80 text-xs">
 					<div class="flex items-center gap-1.5">
-						<span class="text-emerald-400 font-black">🎯 1st Bid & Lead:</span>
+						<span class="text-emerald-400 font-black">1st Bid & Lead:</span>
 						<span class="font-extrabold text-foreground">{playerNames[uiState.leaderId] ?? uiState.leaderId}</span>
 					</div>
 					{#if uiState.dealerId}
@@ -65,9 +65,9 @@
 					{#each uiState.bids as bid (bid.playerId)}
 						<span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full bg-card border border-border/80">
 							{#if bid.playerId === uiState.leaderId}
-								<span class="text-[10px] text-emerald-400" title="Bids 1st & leads">🎯</span>
+								<span class="text-[9px] font-black text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1 py-0.2 rounded" title="Bids 1st & leads">1st</span>
 							{:else if bid.playerId === uiState.dealerId}
-								<span class="text-[10px] text-amber-400" title="Dealer (bids last)">🃏</span>
+								<span class="text-[9px] font-black text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1 py-0.2 rounded" title="Dealer (bids last)">D</span>
 							{/if}
 							<span class="font-semibold text-muted-foreground">{playerNames[bid.playerId] ?? bid.playerId}:</span>
 							<span class="font-mono font-black text-foreground">{bid.bid}</span>

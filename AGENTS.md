@@ -12,6 +12,7 @@
 - Scope hover and focus elevation to playable cards (`.card-hand-slot.is-playable:hover`). Disabled and unplayable cards must remain seated and subdued (no translation).
 - Never apply container opacity (`opacity < 1`) to cards in fanned hands. Translucent card backgrounds cause additive overlap brightening (white capsule stripes) and ghosted bleed-through of the underlying card's rotated indices. Unplayable cards must use solid opaque muted backgrounds (e.g. `bg-slate-200 border-slate-300 text-zinc-700`).
 - Horizontal scroll containers (`overflow-x-auto`) must not use `mx-auto` or `justify-center` on overflowing children (`w-max`), as CSS centering clips the left edge and prevents scrolling back to initial items. Use `inline-flex min-w-full justify-start sm:justify-center px-4`.
+- Hand Container Height Preservation: When a player plays their final card (`myCards.length === 0`), the hand container must never vertically collapse (which previously collapsed 122px, causing parent flex layouts to drop the playing arena downward by ~60px). Maintain a permanent reserved minimum height (`min-h-[130px] sm:min-h-[160px]`) on both the hand wrapper and `HandDisplay`, displaying a quiet centered placeholder (`All cards played`) to ensure zero layout shift when the hand empties.
 
 ### In-Table Flow vs Blocking Overlays
 - Prefer embedding phase transitions (such as bidding consoles and round-end summaries) directly in the tabletop arena between the trick area and the hand rather than full-screen blackout modals.

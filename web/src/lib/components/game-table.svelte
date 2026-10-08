@@ -87,27 +87,36 @@
 	}
 </script>
 <main class="flex-1 flex flex-col justify-between p-3 sm:p-5 max-w-6xl self-center mx-auto w-full gap-4">
-	<div class="flex flex-wrap justify-center items-center gap-3 sm:gap-4 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
-		{#each otherPlayers as other (other.id)}
-			{@const isTurn = currentTurnIndex === playerIds.indexOf(other.id)}
-			{@const team = teamFor(rookUi, other.id)}
-			{@const partner = isPartner(other.id)}
+	<div class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3.5 px-2 py-1 max-w-5xl mx-auto w-full shrink-0">
+		{#each playerIds as id (id)}
+			{@const isMe = id === myId}
+			{@const displayName = playerNames[id] ?? id}
+			{@const isTurn = currentTurnIndex === playerIds.indexOf(id)}
+			{@const team = teamFor(rookUi, id)}
+			{@const partner = isPartner(id)}
+			{@const isLeader = trickPlays.length > 0 ? trickPlays[0].playerId === id : currentTurnIndex === playerIds.indexOf(id)}
 			<div
 				class={cn(
-					'flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
+					'flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border transition-all duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm',
 					isTurn
-						? 'bg-emerald-950/40 border-2 border-emerald-400 text-emerald-100 shadow-md'
-						: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
+						? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-md ring-1 ring-emerald-500/40'
+						: isMe
+							? 'bg-card/95 border-emerald-500/40 text-foreground shadow-xs'
+							: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
 				)}
 			>
 				<div class="relative">
 					<div
 						class={cn(
 							'w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner',
-							isTurn ? 'bg-emerald-400 text-zinc-950 font-black' : 'bg-muted text-foreground'
+							isTurn
+								? 'bg-emerald-400 text-zinc-950 font-black'
+								: isMe
+									? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+									: 'bg-muted text-foreground'
 						)}
 					>
-						{getInitials(other.displayName)}
+						{getInitials(displayName)}
 					</div>
 					{#if isTurn}
 						<span class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center pointer-events-none">
@@ -123,18 +132,29 @@
 								T{team}
 							</span>
 						{/if}
+						{#if isLeader}
+							<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 leading-none" title="Trick Leader">
+								🎯 Lead
+							</span>
+						{/if}
 						<span
 							class={cn(
-								'font-bold truncate max-w-[95px] sm:max-w-[140px]',
+								'font-bold truncate max-w-[80px] sm:max-w-[130px]',
 								isTurn && 'text-emerald-300 font-extrabold',
+								isMe && !isTurn && 'text-foreground font-extrabold',
 								partner && !isTurn && 'text-foreground'
 							)}
 						>
-							{other.displayName}
+							{displayName}
 						</span>
+						{#if isMe}
+							<span class="text-[10px] text-emerald-400 font-black px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 leading-none">
+								You
+							</span>
+						{/if}
 					</div>
-					<span class="text-xs font-mono text-muted-foreground/90 font-medium">
-						{playerStatLine(ctx, other.id)}
+					<span class="text-[11px] sm:text-xs font-mono text-muted-foreground/90 font-medium">
+						{playerStatLine(ctx, id)}
 					</span>
 				</div>
 			</div>

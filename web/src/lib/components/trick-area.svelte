@@ -30,58 +30,70 @@
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
-	let settling = $state(false);
-	let collecting = $state(false);
-	let prevTrickLen = $state(0);
+	let animPhase = $state<'idle' | 'landing' | 'collecting'>('idle');
 	let targetX = $state(0);
 	let targetY = $state(-220);
+
+	let handledTrickSig = '';
 	const animatedCardKeys = new Set<string>();
+	let settleTimer: ReturnType<typeof setTimeout> | null = null;
+	let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const shouldCollect = $derived(prevTrickLen > 0 && lastCompleteTrick.length > 0 && !isRoundComplete);
-	const settleDelay = 520;
-	const collectDuration = 1100;
+	const trickSig = $derived(
+		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
+	);
+
 	$effect(() => {
-		if (plays.length > 0) {
-			prevTrickLen = plays.length;
-			settling = false;
-			collecting = false;
-			return;
-		}
-		if (!shouldCollect) {
-			animatedCardKeys.clear();
-			return;
-		}
-		prevTrickLen = 0;
-		settling = true;
-		const tSettle = setTimeout(() => {
-			if (typeof document !== 'undefined' && containerEl && winnerId) {
-				const cRect = containerEl.getBoundingClientRect();
-				const centerX = cRect.left + cRect.width / 2;
-				const centerY = cRect.top + cRect.height / 2;
+		const currentPlaysLen = plays.length;
+		const currentSig = trickSig;
+		const roundOver = isRoundComplete;
 
-				const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
-				if (winnerPill) {
-					const wRect = winnerPill.getBoundingClientRect();
-					targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
-					targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
-				} else {
-					targetX = 0;
-					targetY = -220;
-				}
+		if (currentPlaysLen > 0) {
+			if (settleTimer) clearTimeout(settleTimer);
+			if (finishTimer) clearTimeout(finishTimer);
+			settleTimer = null;
+			finishTimer = null;
+			if (animPhase !== 'idle') {
+				animPhase = 'idle';
 			}
-			settling = false;
-			collecting = true;
-		}, settleDelay);
+			return;
+		}
 
-		const tCollect = setTimeout(() => {
-			collecting = false;
-			animatedCardKeys.clear();
-		}, settleDelay + collectDuration);
+		if (roundOver || currentSig.length === 0) return;
 
-		return () => {
-			clearTimeout(tSettle);
-			clearTimeout(tCollect);
-		};
+		if (currentSig !== handledTrickSig) {
+			handledTrickSig = currentSig;
+			animPhase = 'landing';
+
+			if (settleTimer) clearTimeout(settleTimer);
+			if (finishTimer) clearTimeout(finishTimer);
+
+			settleTimer = setTimeout(() => {
+				if (typeof document !== 'undefined' && containerEl && winnerId) {
+					const cRect = containerEl.getBoundingClientRect();
+					const centerX = cRect.left + cRect.width / 2;
+					const centerY = cRect.top + cRect.height / 2;
+
+					const winnerPill = document.querySelector(`[data-player-id="${winnerId}"]`);
+					if (winnerPill) {
+						const wRect = winnerPill.getBoundingClientRect();
+						targetX = Math.round((wRect.left + wRect.width / 2) - centerX);
+						targetY = Math.round((wRect.top + wRect.height / 2) - centerY);
+					} else {
+						targetX = 0;
+						targetY = -220;
+					}
+				}
+				animPhase = 'collecting';
+			}, 500);
+
+			finishTimer = setTimeout(() => {
+				animPhase = 'idle';
+				animatedCardKeys.clear();
+				settleTimer = null;
+				finishTimer = null;
+			}, 500 + 1100);
+		}
 	});
 
 	function flyInFromBadge(node: HTMLElement, params: { playerId: string; cardKey: string }) {
@@ -130,7 +142,11 @@
 	}
 
 	const visible = $derived(
-		plays.length > 0 ? plays : (settling || collecting || isRoundComplete) ? lastCompleteTrick : []
+		plays.length > 0
+			? plays
+			: (animPhase === 'landing' || animPhase === 'collecting' || isRoundComplete)
+				? lastCompleteTrick
+				: []
 	);
 </script>
 
@@ -146,7 +162,7 @@
 	style:--target-y={`${targetY}px`}
 >
 	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
-	{#if collecting}
+	{#if animPhase === 'collecting'}
 		<div class="relative z-20 flex flex-col items-center gap-3 animate-in fade-in duration-150">
 			{#if winnerName}
 				<div class="px-4 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in zoom-in-95 duration-150 whitespace-nowrap">

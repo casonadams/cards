@@ -53,15 +53,20 @@
 	}
 </script>
 
-<div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll">
+<div class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll min-h-[130px] sm:min-h-[160px] flex items-end">
 	<div
-		class="inline-flex min-w-full items-end justify-start sm:justify-center px-4 sm:px-6 pt-7 pb-2"
+		class="inline-flex min-w-full items-end justify-start sm:justify-center px-4 sm:px-6 pt-7 pb-2 min-h-[130px] sm:min-h-[160px]"
 		style:--card-overlap={cardOverlap}
 		style:--card-overlap-mobile={cardOverlapMobile}
 	>
-		{#each sorted as card, index (`${card.suit}-${card.rank}`)}
-			{@const key = `${card.suit}-${card.rank}`}
-			<div
+		{#if sorted.length === 0}
+			<div class="flex items-center justify-center w-full py-8 select-none">
+				<span class="text-xs text-muted-foreground/40 font-medium">All cards played</span>
+			</div>
+		{:else}
+			{#each sorted as card, index (`${card.suit}-${card.rank}`)}
+				{@const key = `${card.suit}-${card.rank}`}
+				<div
 				data-card-key={key}
 				class="card-hand-slot relative transition-transform duration-150 ease-out"
 				class:is-playable={isPlayable(card)}
@@ -76,8 +81,9 @@
 					{inspection}
 					onclick={interactive && isPlayable(card) && onCardPlayed ? () => handleCardClick(card, key) : undefined}
 				/>
-			</div>
-		{/each}
+				</div>
+			{/each}
+		{/if}
 	</div>
 </div>
 

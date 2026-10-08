@@ -229,7 +229,7 @@
 	</div>
 
 	<!-- Bottom Player Hand Container with anchored absolute Your Turn banner -->
-	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible relative">
+	<div class="w-full border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible relative min-h-[130px] sm:min-h-[160px] flex flex-col justify-end">
 		{#if isMyTurn && !showBidding && !isRoundComplete}
 			<div class="absolute -top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
 				<div class="inline-flex items-center gap-2 px-4 sm:px-5 py-1 sm:py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.5)] backdrop-blur-md animate-pulse whitespace-nowrap">

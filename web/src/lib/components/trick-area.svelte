@@ -166,17 +166,18 @@
 >
 	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
 	{#if animPhase === 'collecting'}
-		<div class="relative z-20 flex flex-col items-center gap-3 animate-in fade-in duration-150">
-			{#if winnerName}
-				<div class="px-4 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in zoom-in-95 duration-150 whitespace-nowrap">
+		{#if winnerName}
+			<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+				<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
 					<span>{winnerName} won the trick!</span>
 				</div>
-			{/if}
-			<div
-				class="trick-deck-flyer relative w-[64px] h-[94px] sm:w-[84px] sm:h-[122px] mx-auto shadow-2xl"
-				style:--target-x={`${targetX}px`}
-				style:--target-y={`${targetY}px`}
-			>
+			</div>
+		{/if}
+		<div
+			class="trick-deck-flyer relative z-20 w-[64px] h-[94px] sm:w-[84px] sm:h-[122px] mx-auto shadow-2xl"
+			style:--target-x={`${targetX}px`}
+			style:--target-y={`${targetY}px`}
+		>
 				{#each lastCompleteTrick as play, idx (play.playerId)}
 					{@const isWinnerCard = play.playerId === winnerId}
 					<div
@@ -189,7 +190,6 @@
 						</div>
 					</div>
 				{/each}
-			</div>
 		</div>
 	{:else if visible.length === 0}
 		<div class="flex flex-col items-center justify-center gap-2 py-4 text-emerald-400/60 select-none">

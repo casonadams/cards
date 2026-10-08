@@ -74,7 +74,11 @@
 	const rookBg = $derived(
 		rookCard ? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '') : ''
 	);
-	const suitBg = 'bg-white border-zinc-200 text-zinc-900 shadow-md';
+	const suitBg = $derived(
+		playable
+			? 'bg-white border-zinc-200 text-zinc-900 shadow-md'
+			: 'bg-slate-200 border-slate-300 text-zinc-700 shadow-xs'
+	);
 	const bgClass = $derived(faceDown ? FACE_DOWN_BG : isRook ? rookBg : suitBg);
 </script>
 
@@ -83,10 +87,10 @@
 		'relative rounded-lg border font-bold transition-all select-none overflow-hidden duration-150',
 		sizes[size],
 		bgClass,
-		isTrump && !faceDown && 'ring-2 ring-amber-400/80 border-amber-400/90 shadow-amber-950/20',
+		isTrump && !faceDown && 'ring-2 ring-amber-400/90 border-amber-400 shadow-amber-950/20',
 		playable &&
 			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80 hover:-translate-y-1',
-		!playable && !faceDown && 'opacity-65 saturate-50 cursor-not-allowed shadow-xs',
+		!playable && !faceDown && 'saturate-60 brightness-95 cursor-not-allowed shadow-xs',
 		selected && '-translate-y-3.5 border-2 border-emerald-500 shadow-2xl'
 	)}
 	aria-label={faceDown ? 'Face-down card' : label}
@@ -209,7 +213,8 @@
 	{/if}
 	{#if !faceDown && isTrump}
 		<span
-			class="absolute bottom-1 left-1 text-[10px] sm:text-xs bg-amber-500 text-amber-950 rounded px-1.5 py-0.5 leading-none font-black shadow-sm z-10 border border-amber-400/20"
+			class="absolute bottom-1.5 left-1.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-500 text-amber-950 flex items-center justify-center text-[9px] sm:text-[10px] font-black shadow-xs z-10 border border-amber-600/30"
+			title="Trump Card"
 		>
 			T
 		</span>

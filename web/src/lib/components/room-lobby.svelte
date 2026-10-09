@@ -71,7 +71,7 @@
 								? "border-dashed border-amber-400 bg-amber-950/20 text-amber-200"
 								: isAi
 									? "border-blue-500/60 bg-blue-950/25 text-blue-200"
-									: "bg-background/50 border-border/60"
+									: "border-emerald-500/30 bg-card/60 text-foreground"
 						)}>
 							<div class="flex items-center gap-3">
 								<div class={cn(

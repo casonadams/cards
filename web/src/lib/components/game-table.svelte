@@ -162,8 +162,8 @@
 							: isTurn
 								? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400/50'
 								: isMe
-									? 'bg-card/95 border-2 border-emerald-500/40 text-foreground shadow-xs'
-									: 'bg-card/85 border-2 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
+									? 'bg-card/95 border-2 border-emerald-500/60 text-foreground shadow-xs ring-1 ring-emerald-500/25'
+									: 'bg-card/90 border-2 border-emerald-500/35 text-foreground hover:border-emerald-500/50 hover:bg-card'
 				)}
 			>
 				<div class="relative">
@@ -179,8 +179,8 @@
 									: isTurn
 										? 'bg-emerald-400 text-zinc-950 border-emerald-400'
 										: isMe
-											? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-											: 'bg-muted text-foreground border-transparent'
+											? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/50'
+											: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
 						)}
 					>
 						{getInitials(displayName)}
@@ -217,12 +217,12 @@
 									: isAi
 										? 'text-blue-300'
 										: isTurn
-											? 'text-emerald-300'
+											? 'text-emerald-300 font-extrabold'
 											: isMe
-												? 'text-foreground'
+												? 'text-foreground font-bold'
 												: partner
-													? 'text-foreground'
-													: 'text-muted-foreground'
+													? 'text-foreground font-bold'
+													: 'text-foreground/90 font-medium'
 							)}
 							title={displayName}
 						>

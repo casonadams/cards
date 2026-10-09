@@ -1053,15 +1053,15 @@
 						{/each}
 					</div>
 
-					<div class="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
+					<div class="flex flex-col p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
 						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Players</span>
-						<div class="grid grid-cols-4 gap-1.5 sm:flex sm:items-center">
+						<div class="flex items-center gap-1.5 w-full">
 							{#each playerOptions as n (n)}
 								<button
 									type="button"
 									data-player-count={n}
 									aria-label={`${n} Players`}
-									class="rounded-lg px-3.5 py-1.5 min-w-[36px] h-9 text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center {playerCount === n
+									class="flex-1 h-9 rounded-lg text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center {playerCount === n
 										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
 										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}

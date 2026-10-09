@@ -275,6 +275,7 @@
 				{myId}
 				isRoundComplete={isRoundComplete}
 				onCollectComplete={() => (roundScoreReady = true)}
+				{isMyTurn}
 			/>
 			<div class="h-6 min-h-[24px] sm:tall:h-7 sm:tall:min-h-[28px] flex items-center justify-center shrink-0 w-full">
 				<LastTrick
@@ -282,24 +283,6 @@
 					winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
 					{gameId}
 				/>
-			</div>
-			<!-- Turn Banner centered between Last Trick bar and cards dock -->
-			<div class="h-9 min-h-[36px] sm:tall:h-11 sm:tall:min-h-[44px] flex items-center justify-center shrink-0 w-full z-30 transition-all duration-200">
-				{#if isMyTurn && !showBidding && !isRoundComplete}
-					<div class="inline-flex items-center gap-2 sm:gap-3 px-5 sm:tall:px-7 py-1 sm:tall:py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_28px_rgba(16,185,129,0.7)] backdrop-blur-md animate-pulse whitespace-nowrap">
-						<span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
-							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-							<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-						</span>
-						<span class="font-black text-xs sm:tall:text-sm md:text-base tracking-wider uppercase drop-shadow-sm">
-							Your Turn — Play a Card
-						</span>
-						<span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
-							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-							<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-						</span>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>

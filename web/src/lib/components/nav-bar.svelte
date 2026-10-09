@@ -4,6 +4,7 @@
 	import type { Card } from '$lib/platform/types/index';
 	import { RANK_NAMES } from '$lib/platform/types/card';
 	import type { RookUiState } from '$lib/games/rook/ui-state';
+	import type { NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 
 	interface Props {
 		displayName: string;
@@ -19,6 +20,7 @@
 		trumpCard?: Card | null;
 		handType?: string;
 		rookUi?: RookUiState | null;
+		networkStatus?: NetworkStatusInfo | null;
 	}
 
 	let {
@@ -34,7 +36,8 @@
 		trumpSuit = null,
 		trumpCard = null,
 		handType = '',
-		rookUi = null
+		rookUi = null,
+		networkStatus = null
 	}: Props = $props();
 
 	const suitSymbols: Record<string, string> = {
@@ -91,6 +94,37 @@
 		if (e.key === 'Enter') confirmEdit();
 		if (e.key === 'Escape') editing = false;
 	}
+
+	const statusBadge = $derived.by(() => {
+		if (!networkStatus) return null;
+		switch (networkStatus.mode) {
+			case 'p2p':
+				return {
+					label: 'P2P',
+					colorClass: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]',
+					tooltip: `Direct WebRTC P2P DataChannel active with ${networkStatus.directPeersCount} peer(s)${networkStatus.latencyMs ? ` (${networkStatus.latencyMs}ms RTT)` : ''}`
+				};
+			case 'relay':
+				return {
+					label: 'Relay',
+					colorClass: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]',
+					tooltip: `MQTT Relay fallback active via ${networkStatus.brokerUrl || 'broker'}`
+				};
+			case 'connecting':
+				return {
+					label: 'Connecting',
+					colorClass: 'bg-amber-400/80 animate-pulse',
+					tooltip: `Connecting to signaling broker ${networkStatus.brokerUrl || ''}`
+				};
+			case 'disconnected':
+			default:
+				return {
+					label: 'Offline',
+					colorClass: 'bg-rose-400',
+					tooltip: 'Disconnected from network (local play only)'
+				};
+		}
+	});
 </script>
 
 <nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-3 sm:px-6 py-2 flex justify-between items-center sticky top-0 z-40 gap-2">
@@ -149,6 +183,21 @@
 		{/if}
 	</div>
 	<div class="flex items-center gap-3">
+		{#if statusBadge}
+			<div
+				class="hidden xs:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-[11px] font-medium leading-none shrink-0 cursor-default select-none shadow-xs"
+				title={statusBadge.tooltip}
+			>
+				<span class="w-2 h-2 rounded-full {statusBadge.colorClass} shrink-0"></span>
+				<span class="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">{statusBadge.label}</span>
+				{#if networkStatus?.mode === 'p2p' && (networkStatus?.directPeersCount ?? 0) > 0}
+					<span class="text-[10px] text-emerald-400 font-mono font-bold">({networkStatus?.directPeersCount})</span>
+				{/if}
+				{#if networkStatus?.latencyMs}
+					<span class="text-[9px] text-muted-foreground font-mono">{networkStatus?.latencyMs}ms</span>
+				{/if}
+			</div>
+		{/if}
 		{#if editing}
 			<div class="flex items-center gap-1.5 bg-background border border-emerald-500/70 rounded-full px-2.5 py-1 shadow-sm">
 				<input

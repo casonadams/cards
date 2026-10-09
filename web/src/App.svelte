@@ -9,7 +9,7 @@
 		createLocalP2pRoomRepo,
 		createLocalP2pSync
 	} from '$lib/platform/adapters/local-p2p-adapters';
-	import { P2pNetworkManager } from '$lib/platform/adapters/p2p-webrtc';
+	import { P2pNetworkManager, type NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 	import {
 		deriveRoomGs,
 		buildPlayerNames,
@@ -99,9 +99,13 @@
 	}
 
 	// Platform state
+	let networkStatus = $state<NetworkStatusInfo | null>(null);
 	let p2p: P2pNetworkManager | null = null;
 	if (typeof window !== 'undefined') {
 		p2p = new P2pNetworkManager({
+			onStatusChange(status) {
+				networkStatus = status;
+			},
 			onJoinRequest(code, joiningPlayer) {
 				if (!isHost || !room) return;
 				if (room.code.trim().toUpperCase() !== code.trim().toUpperCase()) return;
@@ -252,7 +256,7 @@
 		lobbyError = '';
 		loading = true;
 		const code = generateRoomCode();
-		p2p?.connect(code, myPlayer.id).catch(() => {});
+		p2p?.connect(code, myPlayer.id, true).catch(() => {});
 		try {
 			const newRoom = await roomRepo.create({
 				code,
@@ -298,7 +302,7 @@
 			window.location.hash = '#code=' + code;
 		}
 
-		await p2p?.connect(code, myPlayer.id).catch(() => {});
+		await p2p?.connect(code, myPlayer.id, false).catch(() => {});
 
 		const myRoomPlayer: RoomPlayer = {
 			id: myPlayer.id,
@@ -342,6 +346,17 @@
 				await roomRepo.update(target.id, updatedRoom);
 				room = updatedRoom;
 				roomId = target.id;
+			} else {
+				// Retry handshake over network up to 4 times (1.5s intervals)
+				for (let attempt = 1; attempt <= 4; attempt++) {
+					await new Promise((resolve) => setTimeout(resolve, 1500));
+					if (room) break;
+					p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
+					p2p?.broadcast({ type: 'query_room', code });
+				}
+				if (!room) {
+					lobbyError = `Unable to connect to table ${code}. Verify the room code or check network connection.`;
+				}
 			}
 		} catch (e: unknown) {
 			lobbyError = (e as Error).message;
@@ -398,6 +413,7 @@
 			await actions.destroyRoom();
 		}
 		p2p?.destroy();
+		networkStatus = null;
 		roomId = '';
 		room = null;
 		gameDoc = null;
@@ -422,6 +438,7 @@
 		trumpSuit={trumpSuit}
 		trumpCard={ohWellUi?.trumpCard ?? null}
 		handType={gs?.handType ?? ''}
+		networkStatus={networkStatus}
 	/>
 
 	{#if !room}

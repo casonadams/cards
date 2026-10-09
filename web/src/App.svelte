@@ -979,49 +979,69 @@
 			{/if}
 
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
-				<CardContent class="p-4 sm:p-5 flex items-center justify-between gap-3.5">
-					<div class="w-11 h-11 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-sm font-black shrink-0">
-						{getInitials(playerName || nameInput || 'Player')}
-					</div>
-					<div class="flex flex-col min-w-0 flex-1 justify-center">
-						<span class="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider leading-none">Player Name</span>
-						<div class="h-9 flex items-center mt-1.5 w-full">
-							{#if isEditingName || !hasValidName}
-								<form
-									onsubmit={(e) => { e.preventDefault(); savePlayerName(nameInput); }}
-									class="flex items-center gap-2 w-full"
-								>
-									<Input
-										class="text-sm h-9 flex-1 font-bold"
-										placeholder="Enter your name..."
-										bind:value={nameInput}
-										maxlength={20}
-										autofocus
-									/>
-									<Button
-										type="submit"
-										size="sm"
-										class="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg cursor-pointer shrink-0"
-										disabled={!nameInput.trim()}
-									>
-										Save
-									</Button>
-								</form>
-							{:else}
-								<div class="flex items-center justify-between gap-2 w-full">
-									<span class="text-base sm:text-lg font-black truncate text-foreground leading-none">{playerName}</span>
-									<Button
-										variant="outline"
-										size="sm"
-										class="text-xs h-9 px-3.5 border-border/80 hover:bg-background/80 shrink-0 font-semibold cursor-pointer"
-										onclick={() => { nameInput = playerName; isEditingName = true; }}
-									>
-										Change Name
-									</Button>
+				<CardContent class="p-3.5 sm:p-4">
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							if (isEditingName || !hasValidName) {
+								savePlayerName(nameInput);
+							}
+						}}
+						class="flex items-center justify-between gap-3 w-full"
+					>
+						<div class="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
+							<div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs sm:text-sm font-black shrink-0">
+								{getInitials(playerName || nameInput || 'Player')}
+							</div>
+							<div class="flex flex-col min-w-0">
+								<span class="text-[10px] sm:text-[11px] text-muted-foreground font-semibold uppercase tracking-wider leading-tight">Player Name</span>
+								<div class="h-8 flex items-center mt-0.5">
+									{#if isEditingName || !hasValidName}
+										<Input
+											class="text-sm h-8 font-bold w-36 sm:w-56 bg-background/80"
+											placeholder="Enter your name..."
+											bind:value={nameInput}
+											maxlength={20}
+											autofocus
+											onkeydown={(e) => {
+												if (e.key === 'Escape' && hasValidName) {
+													isEditingName = false;
+													nameInput = playerName;
+												}
+											}}
+										/>
+									{:else}
+										<span class="text-base sm:text-lg font-black truncate max-w-[160px] sm:max-w-[260px] text-foreground leading-none">
+											{playerName}
+										</span>
+									{/if}
 								</div>
+							</div>
+						</div>
+
+						<div class="flex items-center shrink-0">
+							{#if isEditingName || !hasValidName}
+								<Button
+									type="submit"
+									size="sm"
+									class="h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg cursor-pointer shrink-0"
+									disabled={!nameInput.trim()}
+								>
+									Save
+								</Button>
+							{:else}
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									class="text-xs h-8 px-3 sm:px-3.5 border-border/80 hover:bg-background/80 shrink-0 font-semibold cursor-pointer"
+									onclick={() => { nameInput = playerName; isEditingName = true; }}
+								>
+									Change Name
+								</Button>
 							{/if}
 						</div>
-					</div>
+					</form>
 				</CardContent>
 			</Card>
 

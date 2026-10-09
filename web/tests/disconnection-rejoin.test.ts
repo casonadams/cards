@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test';
-import { getAiCurrentId, executeSingleSkipTurn } from '$lib/room/room-helpers';
+import {
+	getAiCurrentId,
+	executeSingleSkipTurn,
+	shouldDestroyRoomOnHostLeave,
+	shouldPruneActiveSession
+} from '$lib/room/room-helpers';
 import { shouldRunOhWellAiBid } from '$lib/room/oh-well-helpers';
 import { setupTrickTakingAi, setupOhWellAiBid } from '$lib/room/ai-effects';
 import type { GameRoom, RoomPlayer, GameRuntime, Card } from '$lib/platform/types/index';
@@ -643,6 +648,191 @@ describe('Disconnection & Rejoin Management', () => {
 			};
 			const isAliceReclaiming = lateAliceJoin.id === permanentlyPromotedRoom.hostId;
 			expect(isAliceReclaiming).toBe(false); // Alice is no longer the room's hostId
+		});
+	});
+
+	describe('Host Departure & Zombie Room Destruction', () => {
+		const hostAlice: RoomPlayer = {
+			id: 'host-alice',
+			displayName: 'Alice',
+			isHost: true,
+			isConnected: true,
+			lastSeen: 1000
+		};
+		const botBob: RoomPlayer = {
+			id: 'ai-0',
+			displayName: 'Bot Bob',
+			isHost: false,
+			isConnected: true,
+			lastSeen: 1000
+		};
+		const botCharlie: RoomPlayer = {
+			id: 'ai-1',
+			displayName: 'Bot Charlie',
+			isHost: false,
+			isConnected: true,
+			lastSeen: 1000
+		};
+		const humanDan: RoomPlayer = {
+			id: 'player-dan',
+			displayName: 'Dan',
+			isHost: false,
+			isConnected: true,
+			lastSeen: 1000
+		};
+
+		it('kills room when host leaves and all other players are AI bots', () => {
+			const roomWithOnlyBots: GameRoom = {
+				id: 'room-bots-only',
+				code: 'BOTS01',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 3,
+				players: [hostAlice, botBob, botCharlie],
+				playerIds: ['host-alice', 'ai-0', 'ai-1'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+
+			const shouldDestroy = shouldDestroyRoomOnHostLeave(roomWithOnlyBots, 'host-alice', true);
+			expect(shouldDestroy).toBe(true);
+		});
+
+		it('kills room when host leaves and all other human players have disconnected (only AI bots left)', () => {
+			const roomWithDisconnectedHuman: GameRoom = {
+				id: 'room-dc-human',
+				code: 'DCHUM1',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 4,
+				players: [
+					hostAlice,
+					{ ...humanDan, isConnected: false, isAiControlled: true },
+					botBob,
+					botCharlie
+				],
+				playerIds: ['host-alice', 'player-dan', 'ai-0', 'ai-1'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+
+			const shouldDestroy = shouldDestroyRoomOnHostLeave(roomWithDisconnectedHuman, 'host-alice', true);
+			expect(shouldDestroy).toBe(true);
+		});
+
+		it('does NOT kill room when host leaves if another connected human player remains', () => {
+			const roomWithConnectedHuman: GameRoom = {
+				id: 'room-conn-human',
+				code: 'CONNH1',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 4,
+				players: [hostAlice, humanDan, botBob, botCharlie],
+				playerIds: ['host-alice', 'player-dan', 'ai-0', 'ai-1'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+
+			const shouldDestroy = shouldDestroyRoomOnHostLeave(roomWithConnectedHuman, 'host-alice', true);
+			expect(shouldDestroy).toBe(false);
+		});
+
+		it('does NOT kill room when a non-host guest leaves', () => {
+			const roomWithGuest: GameRoom = {
+				id: 'room-guest',
+				code: 'GUEST1',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 4,
+				players: [hostAlice, humanDan, botBob, botCharlie],
+				playerIds: ['host-alice', 'player-dan', 'ai-0', 'ai-1'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+
+			const shouldDestroy = shouldDestroyRoomOnHostLeave(roomWithGuest, 'player-dan', false);
+			expect(shouldDestroy).toBe(false);
+		});
+
+		it('kills room when temporary acting host leaves with only AI bots remaining', () => {
+			const roomWithActingHost: GameRoom = {
+				id: 'room-acting-host',
+				code: 'ACTING',
+				hostId: 'host-alice',
+				tempHostId: 'player-dan',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 3,
+				players: [
+					{ ...hostAlice, isConnected: false },
+					{ ...humanDan, isHost: false },
+					botBob
+				],
+				playerIds: ['host-alice', 'player-dan', 'ai-0'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+
+			const shouldDestroy = shouldDestroyRoomOnHostLeave(roomWithActingHost, 'player-dan', true);
+			expect(shouldDestroy).toBe(true);
+		});
+
+		it('prunes active session when room is null or gameOver or has only AI bots left for host', () => {
+			// Null room for host -> prune
+			expect(shouldPruneActiveSession(null, 'host-alice', 'host-alice')).toBe(true);
+
+			// Null room for remote guest -> do NOT prune
+			expect(shouldPruneActiveSession(null, 'player-dan', 'host-alice')).toBe(false);
+
+			// Game over room -> prune for both host and guest
+			const gameOverRoom: GameRoom = {
+				id: 'room-ended',
+				code: 'ENDED1',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 3,
+				players: [],
+				playerIds: [],
+				phase: 'gameOver',
+				createdAt: 1000
+			};
+			expect(shouldPruneActiveSession(gameOverRoom, 'host-alice')).toBe(true);
+			expect(shouldPruneActiveSession(gameOverRoom, 'player-dan')).toBe(true);
+
+			// Bot-only abandoned room -> host checking session must prune!
+			const botOnlyRoom: GameRoom = {
+				id: 'room-bots',
+				code: 'BOTS02',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 3,
+				players: [
+					{ ...hostAlice, isConnected: false },
+					botBob,
+					botCharlie
+				],
+				playerIds: ['host-alice', 'ai-0', 'ai-1'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+			expect(shouldPruneActiveSession(botOnlyRoom, 'host-alice')).toBe(true);
+
+			// Live room with connected human -> must NOT prune
+			const liveRoom: GameRoom = {
+				id: 'room-live',
+				code: 'LIVE01',
+				hostId: 'host-alice',
+				gameDefinitionId: 'oh-well',
+				maxPlayers: 3,
+				players: [
+					{ ...hostAlice, isConnected: false },
+					humanDan,
+					botBob
+				],
+				playerIds: ['host-alice', 'player-dan', 'ai-0'],
+				phase: 'playing',
+				createdAt: 1000
+			};
+			expect(shouldPruneActiveSession(liveRoom, 'player-dan')).toBe(false);
 		});
 	});
 });

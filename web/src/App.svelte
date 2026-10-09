@@ -19,7 +19,9 @@
 		deriveRoomGs,
 		buildPlayerNames,
 		needsGameSync,
-		executeSingleSkipTurn
+		executeSingleSkipTurn,
+		shouldDestroyRoomOnHostLeave,
+		shouldPruneActiveSession
 	} from '$lib/room/room-helpers';
 	import {
 		handleStart,
@@ -436,8 +438,11 @@
 					roomId = '';
 					gameDoc = null;
 					networkStatus = null;
+					activeSession = null;
+					showRejoinModal = false;
 					if (typeof window !== 'undefined') {
 						sessionStorage.removeItem('cards_active_room_code');
+						localStorage.removeItem(ACTIVE_SESSION_KEY);
 						window.location.hash = '';
 					}
 					void roomRepo.delete(updatedRoom.id);
@@ -676,6 +681,8 @@
 				await roomRepo.update(target.id, updatedRoom);
 				room = updatedRoom;
 				roomId = target.id;
+				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+				p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
 				if (target.phase === 'playing' || target.phase === 'roundScoring') {
 					p2p?.broadcast({ type: 'query_doc', roomId: target.id });
 				}
@@ -733,14 +740,29 @@
 					const parsed = JSON.parse(raw);
 					if (parsed?.code && parsed?.gameName) {
 						if (Date.now() - (parsed.timestamp || 0) < 6 * 3600 * 1000) {
-							activeSession = parsed;
-							showRejoinModal = true;
+							void roomRepo.getByCode(parsed.code).then((target) => {
+								if (shouldPruneActiveSession(target, myPlayer.id, parsed.hostId)) {
+									if (target) {
+										void roomRepo.delete(target.id);
+									}
+									localStorage.removeItem(ACTIVE_SESSION_KEY);
+									activeSession = null;
+									showRejoinModal = false;
+									return;
+								}
+								activeSession = parsed;
+								showRejoinModal = true;
+							});
 						} else {
 							localStorage.removeItem(ACTIVE_SESSION_KEY);
+							activeSession = null;
+							showRejoinModal = false;
 						}
 					}
 				} catch {
 					localStorage.removeItem(ACTIVE_SESSION_KEY);
+					activeSession = null;
+					showRejoinModal = false;
 				}
 			}
 		} else {
@@ -750,7 +772,14 @@
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		if (room && room.code && room.phase !== 'gameOver') {
+		if (room && room.code) {
+			if (room.phase === 'gameOver' || (room.players && room.players.length === 0)) {
+				localStorage.removeItem(ACTIVE_SESSION_KEY);
+				sessionStorage.removeItem('cards_active_room_code');
+				activeSession = null;
+				showRejoinModal = false;
+				return;
+			}
 			sessionStorage.setItem('cards_active_room_code', room.code);
 			const sessionData: ActiveGameSession = {
 				code: room.code,
@@ -767,11 +796,18 @@
 		if (typeof window === 'undefined') return;
 		function handleBeforeUnload() {
 			if (room) {
-				p2p?.broadcast({
-					type: 'player_leave',
-					roomId: room.id,
-					playerId: myPlayer.id
-				});
+				if (shouldDestroyRoomOnHostLeave(room, myPlayer.id, isActingHost || isHost)) {
+					localStorage.removeItem(ACTIVE_SESSION_KEY);
+					sessionStorage.removeItem('cards_active_room_code');
+					void roomRepo.delete(room.id);
+					void actions.destroyRoom();
+				} else {
+					void p2p?.broadcast({
+						type: 'player_leave',
+						roomId: room.id,
+						playerId: myPlayer.id
+					});
+				}
 			}
 		}
 		function handleVisibilityChange() {
@@ -868,28 +904,38 @@
 		await actions.returnToLobby();
 	};
 	const onLeave = async () => {
-		if (room) {
+		const currentRoom = room;
+		const isMeHost = isActingHost || isHost;
+		const mustDestroy = shouldDestroyRoomOnHostLeave(currentRoom, myPlayer.id, isMeHost);
+
+		if (mustDestroy) {
+			activeSession = null;
+			showRejoinModal = false;
+			if (typeof window !== 'undefined') {
+				localStorage.removeItem(ACTIVE_SESSION_KEY);
+				sessionStorage.removeItem('cards_active_room_code');
+				if (window.location.hash) window.location.hash = '';
+			}
+			if (currentRoom) {
+				void roomRepo.delete(currentRoom.id);
+				await actions.destroyRoom();
+			}
+		} else if (currentRoom) {
 			await p2p?.broadcast({
 				type: 'player_leave',
-				roomId: room.id,
+				roomId: currentRoom.id,
 				playerId: myPlayer.id
 			});
 		}
-		const hasOtherConnectedHumans = Boolean(
-			room?.players.some((p) => p.id !== myPlayer.id && p.isConnected && !isAiPlayer(p.id))
-		);
-		if (isHost && !hasOtherConnectedHumans) {
-			await actions.destroyRoom();
-			if (typeof window !== 'undefined') {
-				localStorage.removeItem(ACTIVE_SESSION_KEY);
-			}
-		}
+
 		docDedup.clear();
 		p2p?.destroy();
 		networkStatus = null;
 		roomId = '';
 		room = null;
 		gameDoc = null;
+		activeSession = null;
+		showRejoinModal = false;
 		if (typeof window !== 'undefined') {
 			sessionStorage.removeItem('cards_active_room_code');
 			window.location.hash = '';

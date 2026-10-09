@@ -688,5 +688,52 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			await guest3Context.close();
 		}
 	});
+
+	test('Scenario 8: Host Leaves Table When Only AI Bots Remain - Room Killed & No Reconnect Modal', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const hostPage = await hostContext.newPage();
+
+		try {
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'SoloHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 4);
+
+			// Fill room with 3 AI bots
+			const addAiButton = hostPage.getByRole('button', { name: '+ Add AI Player' });
+			for (let i = 0; i < 3; i++) {
+				await expect(addAiButton).toBeVisible();
+				await addAiButton.click();
+				await hostPage.waitForTimeout(300);
+			}
+
+			// Start game
+			const startButton = hostPage.getByRole('button', { name: 'Start Game' });
+			await expect(startButton).toBeVisible();
+			await startButton.click();
+
+			// Verify table surface is active
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// Host leaves table
+			await hostPage.getByRole('button', { name: 'Leave' }).click();
+
+			// Host returns to lobby
+			await expect(hostPage.getByRole('button', { name: 'Create Table' })).toBeVisible({ timeout: 10000 });
+
+			// Verify Rejoin Modal is NOT visible
+			const rejoinModal = hostPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).not.toBeVisible();
+
+			// Wait 1s and refresh page; verify Rejoin Modal still does NOT appear
+			await hostPage.waitForTimeout(1000);
+			await hostPage.reload();
+			await expect(hostPage.getByRole('button', { name: 'Create Table' })).toBeVisible({ timeout: 10000 });
+			await expect(rejoinModal).not.toBeVisible();
+		} finally {
+			await hostContext.close();
+		}
+	});
 });
 }

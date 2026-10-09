@@ -178,3 +178,42 @@ export async function addAiToRoom(p: AddAiParams): Promise<void> {
 	const np = [...p.room.players, makeAiPlayer(p.aiIndex)];
 	await p.roomRepo.update(p.roomId, { players: np, playerIds: np.map((pl) => pl.id) });
 }
+
+export function shouldDestroyRoomOnHostLeave(
+	room: { players: readonly RoomPlayer[]; hostId?: string; tempHostId?: string } | null,
+	leavingPlayerId: string,
+	isHostOrActing: boolean
+): boolean {
+	if (!room || !isHostOrActing) return false;
+	const isMeHost = room.hostId === leavingPlayerId || room.tempHostId === leavingPlayerId || isHostOrActing;
+	if (!isMeHost) return false;
+	const hasOtherConnectedHumans = room.players.some(
+		(p) => p.id !== leavingPlayerId && p.isConnected && !isAiPlayer(p.id)
+	);
+	return !hasOtherConnectedHumans;
+}
+
+export function shouldPruneActiveSession(
+	room: GameRoom | null,
+	myPlayerId: string,
+	sessionHostId?: string
+): boolean {
+	if (room && (room.phase === 'gameOver' || (room.players && room.players.length === 0))) {
+		return true;
+	}
+
+	const isMeHost = room
+		? room.hostId === myPlayerId || room.tempHostId === myPlayerId
+		: sessionHostId === myPlayerId;
+
+	if (isMeHost) {
+		if (!room) return true;
+		const hasOtherConnectedHumans = room.players.some(
+			(p) => p.id !== myPlayerId && p.isConnected && !isAiPlayer(p.id)
+		);
+		if (!hasOtherConnectedHumans) return true;
+	}
+
+	return false;
+}
+

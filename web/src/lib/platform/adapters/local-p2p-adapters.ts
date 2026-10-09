@@ -200,8 +200,10 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 					try {
 						sessionStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
 						sessionStorage.removeItem('cards_room_id_' + existing.id);
+						sessionStorage.removeItem('cards_active_room_code');
 						localStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
 						localStorage.removeItem('cards_room_id_' + existing.id);
+						localStorage.removeItem('cards_last_active_session');
 					} catch {
 						// Ignore
 					}

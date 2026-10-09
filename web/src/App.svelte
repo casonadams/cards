@@ -1048,8 +1048,8 @@
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
 					<CardTitle class="text-lg font-black flex items-center justify-between">
-						<span>Create a Match</span>
-						<span class="text-xs text-muted-foreground font-semibold">Step 1: Choose game</span>
+						<span>Table Selector</span>
+						<span class="text-xs text-muted-foreground font-semibold">Choose Game and Players</span>
 					</CardTitle>
 				</CardHeader>
 				<CardContent class="gap-5">

@@ -43,16 +43,57 @@
 	let finishTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const totalSlots = $derived(Math.max(3, Object.keys(playerNames).length || 4));
+	const useTwoRows = $derived(totalSlots > 4);
 
-	const trickOverlap = $derived(
-		totalSlots >= 6 ? '-14px' : totalSlots === 5 ? '-6px' : '10px'
-	);
-	const trickOverlapMobile = $derived(
-		totalSlots >= 6 ? '-16px' : totalSlots === 5 ? '-10px' : totalSlots === 4 ? '-4px' : '4px'
-	);
+	interface SlotItem {
+		slotIdx: number;
+		rowIdx: number;
+		colIdx: number;
+		rowLength: number;
+	}
 
-	const slotPitchMobile = $derived(52 + parseInt(trickOverlapMobile));
-	const slotPitchDesktop = $derived(80 + parseInt(trickOverlap));
+	const rows = $derived.by<SlotItem[][]>(() => {
+		if (!useTwoRows) {
+			return [
+				Array.from({ length: totalSlots }, (_, i) => ({
+					slotIdx: i,
+					rowIdx: 0,
+					colIdx: i,
+					rowLength: totalSlots
+				}))
+			];
+		}
+		const row1Len = 4;
+		const row2Len = totalSlots - 4;
+		const row1: SlotItem[] = Array.from({ length: row1Len }, (_, i) => ({
+			slotIdx: i,
+			rowIdx: 0,
+			colIdx: i,
+			rowLength: row1Len
+		}));
+		const row2: SlotItem[] = Array.from({ length: row2Len }, (_, i) => ({
+			slotIdx: i + 4,
+			rowIdx: 1,
+			colIdx: i,
+			rowLength: row2Len
+		}));
+		return [row1, row2];
+	});
+
+	function getGatherCoords(item: SlotItem) {
+		const pitchMobile = useTwoRows ? 50 : 60;
+		const pitchDesktop = useTwoRows ? 72 : 90;
+		const yOffsetMobile = useTwoRows ? (item.rowIdx === 0 ? -38 : 38) : 0;
+		const yOffsetDesktop = useTwoRows ? (item.rowIdx === 0 ? -54 : 54) : 0;
+
+		const xMobile = Math.round(-1 * (item.colIdx - (item.rowLength - 1) / 2) * pitchMobile);
+		const xDesktop = Math.round(-1 * (item.colIdx - (item.rowLength - 1) / 2) * pitchDesktop);
+		const yMobile = -1 * yOffsetMobile;
+		const yDesktop = -1 * yOffsetDesktop;
+		const rot = Math.round((item.slotIdx - (totalSlots - 1) / 2) * 5);
+
+		return { xMobile, xDesktop, yMobile, yDesktop, rot };
+	}
 	const trickSig = $derived(
 		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
 	);
@@ -204,47 +245,66 @@
 		</div>
 	{/if}
 
-	<div
-		class="relative z-10 flex items-center justify-center w-full px-2"
-		style:--trick-overlap={trickOverlap}
-		style:--trick-overlap-mobile={trickOverlapMobile}
-	>
-		{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
-			{@const play = visible[slotIdx]}
-			<div
-				class="trick-slot w-[52px] sm:tall:w-[80px] flex flex-col items-center gap-1 sm:gap-1.5 shrink-0"
-				class:is-gathering={animPhase === 'gathering'}
-				class:is-flying={animPhase === 'flying'}
-				style:z-index={play ? 10 + slotIdx : 0}
-				style:--gather-x-mobile={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchMobile)}px`}
-				style:--gather-x-desktop={`${Math.round(-1 * (slotIdx - (totalSlots - 1) / 2) * slotPitchDesktop)}px`}
-				style:--gather-rot={`${Math.round((slotIdx - (totalSlots - 1) / 2) * 4)}deg`}
-			>
-				{#if play}
-					{@const cardKey = `${play.card.suit}-${play.card.rank}`}
+	<div class="relative z-10 flex flex-col items-center justify-center w-full px-2 gap-1 sm:gap-2">
+		{#each rows as row, rIdx (rIdx)}
+			<div class="flex items-center justify-center gap-1.5 sm:gap-2.5">
+				{#each row as item (item.slotIdx)}
+					{@const slotIdx = item.slotIdx}
+					{@const play = visible[slotIdx]}
+					{@const coords = getGatherCoords(item)}
 					<div
-						use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
-						class="w-full flex flex-col items-center gap-1 transition-all"
+						class={cn(
+							'trick-slot flex flex-col items-center shrink-0',
+							useTwoRows
+								? 'w-[44px] sm:tall:w-[64px] gap-0.5 sm:gap-1'
+								: 'w-[52px] sm:tall:w-[80px] gap-1 sm:gap-1.5'
+						)}
+						class:is-gathering={animPhase === 'gathering'}
+						class:is-flying={animPhase === 'flying'}
+						style:z-index={play ? 10 + slotIdx : 0}
+						style:--gather-x-mobile={`${coords.xMobile}px`}
+						style:--gather-x-desktop={`${coords.xDesktop}px`}
+						style:--gather-y-mobile={`${coords.yMobile}px`}
+						style:--gather-y-desktop={`${coords.yDesktop}px`}
+						style:--gather-rot={`${coords.rot}deg`}
 					>
-						<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
-							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
-						</div>
-						<span
-							class="trick-slot-meta text-[9px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
-							title={playerNames[play.playerId] ?? '?'}
-						>
-							{getFirstName(playerNames[play.playerId] ?? '?')}
-						</span>
+						{#if play}
+							{@const cardKey = `${play.card.suit}-${play.card.rank}`}
+							<div
+								use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
+								class="w-full flex flex-col items-center gap-0.5 sm:gap-1 transition-all"
+							>
+								<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
+									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} />
+								</div>
+								<span
+									class={cn(
+										'trick-slot-meta font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-0.5 leading-none',
+										useTwoRows ? 'text-[8px] sm:text-[10px]' : 'text-[9px] sm:text-xs'
+									)}
+									title={playerNames[play.playerId] ?? '?'}
+								>
+									{getFirstName(playerNames[play.playerId] ?? '?')}
+								</span>
+							</div>
+						{:else}
+							<div
+								class={cn(
+									'trick-slot-empty w-full rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none',
+									useTwoRows
+										? 'h-[64px] sm:tall:h-[92px]'
+										: 'h-[76px] sm:tall:h-[116px]'
+								)}
+							>
+								<span class={cn('opacity-40', useTwoRows ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm')}>♠</span>
+								<span class={cn('uppercase font-bold tracking-wider opacity-40 mt-0.5', useTwoRows ? 'text-[7px] sm:text-[9px]' : 'text-[8px] sm:text-[10px]')}>
+									{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
+								</span>
+							</div>
+							<span class={cn('trick-slot-meta block opacity-0 select-none text-[8px]', useTwoRows ? 'h-2 sm:h-2.5' : 'h-3')}>...</span>
+						{/if}
 					</div>
-				{:else}
-					<div class="trick-slot-empty w-full h-[76px] sm:tall:h-[116px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
-						<span class="text-xs sm:text-sm opacity-40">♠</span>
-						<span class="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-0.5">
-							{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
-						</span>
-					</div>
-					<span class="trick-slot-meta h-3 block opacity-0 select-none text-[9px]">...</span>
-				{/if}
+				{/each}
 			</div>
 		{/each}
 	</div>
@@ -253,20 +313,22 @@
 <style>
 	.trick-slot {
 		--gather-x: var(--gather-x-desktop);
+		--gather-y: var(--gather-y-desktop);
 		will-change: transform, opacity;
 	}
-	@media (max-width: 639px) {
+	@media (max-width: 639px), (max-height: 519px) {
 		.trick-slot {
 			--gather-x: var(--gather-x-mobile);
+			--gather-y: var(--gather-y-mobile);
 		}
 	}
 	.trick-slot.is-gathering {
-		transform: translate(var(--gather-x), 0px) rotate(var(--gather-rot)) scale(1);
+		transform: translate(var(--gather-x), var(--gather-y)) rotate(var(--gather-rot)) scale(1);
 		transition: transform 700ms cubic-bezier(0.25, 1, 0.5, 1);
 		pointer-events: none;
 	}
 	.trick-slot.is-flying {
-		transform: translate(calc(var(--gather-x) + var(--target-x)), var(--target-y)) rotate(calc(var(--gather-rot) + 12deg)) scale(0.2);
+		transform: translate(calc(var(--gather-x) + var(--target-x)), calc(var(--gather-y) + var(--target-y))) rotate(calc(var(--gather-rot) + 12deg)) scale(0.2);
 		opacity: 0;
 		transition: transform 750ms cubic-bezier(0.22, 0.9, 0.32, 1), opacity 750ms ease-in;
 		pointer-events: none;
@@ -295,18 +357,6 @@
 		100% {
 			transform: translate(0, 0) scale(1) rotate(0deg);
 			opacity: 1;
-		}
-	}
-
-	.trick-slot + .trick-slot {
-		margin-left: var(--trick-overlap, 10px);
-	}
-	@media (max-width: 639px), (max-height: 519px) {
-		.trick-slot {
-			--gather-x: var(--gather-x-mobile);
-		}
-		.trick-slot + .trick-slot {
-			margin-left: var(--trick-overlap-mobile, 4px);
 		}
 	}
 </style>

@@ -238,32 +238,32 @@
 	style:--target-y={`${targetY}px`}
 >
 	<div class="hidden sm:tall:block absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
-	{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
-		{@const isUserWinner = Boolean(myId && winnerId === myId)}
-		<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
-			<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
-				<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
-			</div>
-		</div>
-	{:else if isMyTurn && !isRoundComplete}
-		<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
-			<div class="inline-flex items-center gap-2 sm:gap-2.5 px-4 sm:tall:px-6 py-1 sm:tall:py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_28px_rgba(16,185,129,0.7)] backdrop-blur-md animate-pulse whitespace-nowrap">
-				<span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
-					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-					<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-				</span>
-				<span class="font-black text-xs sm:tall:text-sm md:text-base tracking-wider uppercase drop-shadow-sm">
-					Your Turn — Play a Card
-				</span>
-				<span class="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
-					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-					<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-				</span>
-			</div>
-		</div>
-	{/if}
 
-	<div class="relative z-10 flex flex-col items-center justify-center w-full px-2 gap-1 sm:gap-2">
+	<div class="relative z-10 flex flex-col items-center justify-center w-full px-2 gap-1.5 sm:tall:gap-3">
+		<!-- Status Banner (Winner Announcement or Your Turn) directly above trick cards in user-specified red box spot -->
+		<div class="h-7 sm:tall:h-12 min-h-[28px] sm:tall:min-h-[48px] flex items-center justify-center shrink-0 w-full z-30 transition-all duration-200">
+			{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
+				{@const isUserWinner = Boolean(myId && winnerId === myId)}
+				<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:tall:text-base shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
+					<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
+				</div>
+			{:else if isMyTurn && !isRoundComplete}
+				<div class="inline-flex items-center gap-2 sm:tall:gap-3 px-4 sm:tall:px-8 py-1 sm:tall:py-2.5 rounded-full bg-emerald-950/95 border-2 sm:tall:border-3 border-emerald-400 text-emerald-100 shadow-[0_0_35px_rgba(16,185,129,0.75)] backdrop-blur-md animate-pulse whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+					<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">
+						<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+						<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5 bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+					</span>
+					<span class="font-black text-xs sm:tall:text-base md:tall:text-xl tracking-wider uppercase drop-shadow-md">
+						Your Turn — Play a Card
+					</span>
+					<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">
+						<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+						<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5 bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+					</span>
+				</div>
+			{/if}
+		</div>
+
 		{#each rows as row, rIdx (rIdx)}
 			<div class="flex items-center justify-center gap-1.5 sm:gap-2.5">
 				{#each row as item (item.slotIdx)}

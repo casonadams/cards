@@ -725,7 +725,8 @@ export class P2pNetworkManager {
 			payload.type === 'join_request' ||
 			payload.type === 'sync_room' ||
 			payload.type === 'query_doc' ||
-			payload.type === 'sync_doc';
+			payload.type === 'sync_doc' ||
+			payload.type === 'player_leave';
 
 		if (needsMqttBroadcast) {
 			await this.broadcastMqtt(payload);

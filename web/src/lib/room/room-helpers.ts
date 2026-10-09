@@ -14,7 +14,8 @@ export function getAiCurrentId(
 	const id = playerIds[gs.currentTurnIndex];
 	if (!id) return null;
 	if (isAiPlayer(id)) return id;
-	if (room?.players?.some((p) => p.id === id && p.isAiControlled)) {
+	const player = room?.players?.find((p) => p.id === id);
+	if (player && player.isAiControlled && !player.isConnected) {
 		return id;
 	}
 	return null;

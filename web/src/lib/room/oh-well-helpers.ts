@@ -72,7 +72,8 @@ function isCurrentBidderAi(doc: GameDocument, room?: GameRoom | null): boolean {
 	const currentId = getCurrentOhWellBidderId(doc);
 	if (!currentId) return false;
 	if (isAiPlayer(currentId)) return true;
-	if (room?.players?.some((p) => p.id === currentId && p.isAiControlled)) return true;
+	const player = room?.players?.find((p) => p.id === currentId);
+	if (player && player.isAiControlled && !player.isConnected) return true;
 	return false;
 }
 

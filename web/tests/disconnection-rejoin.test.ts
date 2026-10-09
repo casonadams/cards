@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { getAiCurrentId, executeSingleSkipTurn } from '$lib/room/room-helpers';
 import { shouldRunOhWellAiBid } from '$lib/room/oh-well-helpers';
+import { setupTrickTakingAi, setupOhWellAiBid } from '$lib/room/ai-effects';
 import type { GameRoom, RoomPlayer, GameRuntime, Card } from '$lib/platform/types/index';
 import type { DerivedGameState } from '$lib/platform/stores/game-store';
 import type { GameDocument } from '$lib/platform/engine/index';
@@ -97,6 +98,56 @@ describe('Disconnection & Rejoin Management', () => {
 				room: roomWithAiBob
 			});
 			expect(canBidAi).toBe(true);
+		});
+
+		it('returns null for human player even if isAiControlled is true when isConnected is true', () => {
+			const roomWithConnectedAiBob: GameRoom = {
+				...mockRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: true, isAiControlled: true },
+					mockPlayers[2]
+				]
+			};
+			const gs = { currentTurnIndex: 1 } as unknown as DerivedGameState;
+			const result = getAiCurrentId(roomWithConnectedAiBob.playerIds, gs, roomWithConnectedAiBob);
+			expect(result).toBeNull();
+		});
+
+		it('shouldRunOhWellAiBid returns false for connected human player even if isAiControlled is true', () => {
+			const roomWithConnectedAiBob: GameRoom = {
+				...mockRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: true, isAiControlled: true },
+					mockPlayers[2]
+				]
+			};
+
+			const doc = {
+				playerIds: ['player-host', 'player-bob', 'ai-0'],
+				gameSpecific: {
+					currentRound: 1,
+					bids: { 'player-host': 1 },
+					dealerIndex: 0,
+					currentBidder: 1
+				}
+			} as unknown as GameDocument;
+
+			const gs = {
+				isRoundComplete: false,
+				gameSpecific: {
+					phase: 'bidding'
+				}
+			} as unknown as DerivedGameState;
+
+			const canBid = shouldRunOhWellAiBid({
+				isHost: true,
+				doc,
+				gs,
+				room: roomWithConnectedAiBob
+			});
+			expect(canBid).toBe(false);
 		});
 	});
 
@@ -292,6 +343,166 @@ describe('Disconnection & Rejoin Management', () => {
 				lastUpdate: 2000
 			};
 			expect(shouldAcceptDocUpdate(validNextDoc, liveAuthoritativeDoc)).toBe(true);
+		});
+
+		it('clears isAiControlled when peer reconnects via onPeerConnectionChange', () => {
+			const initialRoom: GameRoom = {
+				...mockRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: false, isAiControlled: true },
+					mockPlayers[2]
+				]
+			};
+
+			// Reconnection handler logic from onPeerConnectionChange
+			const peerId = 'player-bob';
+			const isConnected = true;
+			const updatedPlayers = initialRoom.players.map((p) =>
+				p.id === peerId
+					? {
+							...p,
+							isConnected,
+							lastSeen: Date.now(),
+							isAiControlled: isConnected ? false : p.isAiControlled
+					  }
+					: p
+			);
+
+			expect(updatedPlayers[1].isConnected).toBe(true);
+			expect(updatedPlayers[1].isAiControlled).toBe(false);
+		});
+
+		it('cancels scheduled in-flight AI move if human player reconnects before timer fires', async () => {
+			const runtime = getGame('canadian-salad')!;
+			let liveRoom: GameRoom = {
+				...mockRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: false, isAiControlled: true },
+					mockPlayers[2]
+				]
+			};
+
+			let playedCard: Card | null = null;
+			const mockActions = {
+				playCard: async (args: { card: Card }) => {
+					playedCard = args.card;
+				}
+			};
+
+			const testDoc: GameDocument = {
+				id: 'doc-cancel-test',
+				gameId: 'canadian-salad',
+				roomId: 'room-1',
+				phase: 'playing',
+				currentRound: 0,
+				seed: 42,
+				dealerIndex: 0,
+				playerIds: mockRoom.playerIds,
+				roundScores: [],
+				moves: [],
+				lastUpdate: 1000
+			};
+
+			const gs = {
+				currentTurnIndex: 1, // player-bob
+				trickPlays: [],
+				lastCompleteTrick: [],
+				isRoundComplete: false
+			} as unknown as DerivedGameState;
+
+			const cleanup = setupTrickTakingAi({
+				isHost: true,
+				gameDoc: testDoc,
+				gs,
+				playerIds: mockRoom.playerIds,
+				runtime,
+				actions: mockActions as any,
+				room: liveRoom,
+				getRoom: () => liveRoom,
+				isOhWell: false
+			});
+
+			// Human player reconnects mid-timer!
+			liveRoom = {
+				...liveRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: true, isAiControlled: false },
+					mockPlayers[2]
+				]
+			};
+
+			// Wait past AI delay (500ms)
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			cleanup?.();
+
+			// Card was NOT played because in-flight guard detected reconnected human!
+			expect(playedCard).toBeNull();
+		});
+
+		it('cancels scheduled in-flight Oh Well AI bid if human player reconnects before timer fires', async () => {
+			let liveRoom: GameRoom = {
+				...mockRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: false, isAiControlled: true },
+					mockPlayers[2]
+				]
+			};
+
+			let updatedDoc: GameDocument | null = null;
+			const mockActions = {
+				updateGameState: async (doc: GameDocument) => {
+					updatedDoc = doc;
+				}
+			};
+
+			const doc = {
+				playerIds: ['player-host', 'player-bob', 'ai-0'],
+				gameSpecific: {
+					currentRound: 1,
+					bids: { 'player-host': 1 },
+					dealerIndex: 0,
+					currentBidder: 1 // player-bob
+				}
+			} as unknown as GameDocument;
+
+			const gs = {
+				isRoundComplete: false,
+				gameSpecific: {
+					phase: 'bidding'
+				}
+			} as unknown as DerivedGameState;
+
+			const cleanup = setupOhWellAiBid({
+				isHost: true,
+				gameDoc: doc,
+				gs,
+				playerIds: mockRoom.playerIds,
+				runtime: null,
+				actions: mockActions as any,
+				room: liveRoom,
+				getRoom: () => liveRoom
+			});
+
+			// Human player reconnects mid-timer!
+			liveRoom = {
+				...liveRoom,
+				players: [
+					mockPlayers[0],
+					{ ...mockPlayers[1], isConnected: true, isAiControlled: false },
+					mockPlayers[2]
+				]
+			};
+
+			// Wait past Oh Well bid delay (800ms)
+			await new Promise((resolve) => setTimeout(resolve, 900));
+			cleanup?.();
+
+			// Bid was NOT placed because in-flight guard detected reconnected human!
+			expect(updatedDoc).toBeNull();
 		});
 	});
 

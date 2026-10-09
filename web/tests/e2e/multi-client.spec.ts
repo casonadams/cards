@@ -555,6 +555,22 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
 			const reconnectToast = hostPage.locator('[role="alert"]').filter({ hasText: /DisconGuest reconnected/i });
 			await expect(reconnectToast).toBeVisible({ timeout: 10000 });
+
+			// 10. Verify AI options are removed from the notice
+			await expect(
+				hostPage.locator('[role="alert"]').getByRole('button', { name: /Turn AI On|Play Turn|AI Active/i })
+			).toHaveCount(0);
+
+			// 11. Verify player badge on both host and guest restored to connected human (Emerald, not AI)
+			const guestBadgeOnHost = hostPage.locator('[data-player-id]').filter({ hasText: /DisconGuest/i });
+			await expect(guestBadgeOnHost).not.toHaveAttribute('data-is-ai', 'true');
+			await expect(guestBadgeOnHost).not.toHaveAttribute('data-is-disconnected', 'true');
+			await expect(guestBadgeOnHost).toHaveClass(/border-emerald/);
+
+			const guestBadgeOnGuest = guestPage.locator('[data-player-id]').filter({ hasText: /DisconGuest/i });
+			await expect(guestBadgeOnGuest).not.toHaveAttribute('data-is-ai', 'true');
+			await expect(guestBadgeOnGuest).not.toHaveAttribute('data-is-disconnected', 'true');
+			await expect(guestBadgeOnGuest).toHaveClass(/border-emerald/);
 		} finally {
 			await hostContext.close();
 			await guestContext.close();

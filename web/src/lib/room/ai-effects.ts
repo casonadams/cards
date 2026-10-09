@@ -19,6 +19,7 @@ export interface AiEffectDeps {
 	readonly runtime: GameRuntime | null;
 	readonly actions: RoomActions;
 	readonly room?: GameRoom | null;
+	readonly getRoom?: () => GameRoom | null | undefined;
 }
 
 interface TrickTakingDeps extends AiEffectDeps {
@@ -38,6 +39,10 @@ export function setupTrickTakingAi(deps: TrickTakingDeps): (() => void) | undefi
 	const doc = deps.gameDoc!;
 	const delay = getAiDelay(deps.gs!);
 	const t = setTimeout(async () => {
+		const currentRoom = deps.getRoom ? deps.getRoom() : deps.room;
+		const currentAiId = getAiCurrentId(deps.playerIds, deps.gs!, currentRoom);
+		if (currentAiId !== id) return;
+
 		const m = buildAiMove({
 			runtime: deps.runtime!,
 			doc,
@@ -56,6 +61,9 @@ export function setupOhWellAiBid(deps: AiEffectDeps): (() => void) | undefined {
 		return undefined;
 	const doc = deps.gameDoc!;
 	const t = setTimeout(async () => {
+		const currentRoom = deps.getRoom ? deps.getRoom() : deps.room;
+		if (!shouldRunOhWellAiBid({ isHost: deps.isHost, doc, gs: deps.gs, room: currentRoom }))
+			return;
 		const bidderId = getCurrentOhWellBidderId(doc);
 		if (!bidderId) return;
 		const bid = computeOhWellAiBid(doc);

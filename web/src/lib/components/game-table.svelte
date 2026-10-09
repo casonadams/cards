@@ -143,8 +143,9 @@
 			{@const trickOrder = ((playerIndex - leadIndex + playerIds.length) % playerIds.length) + 1}
 			{@const isLeader = trickOrder === 1}
 			{@const playerObj = (allPlayers ?? otherPlayers).find((p) => p.id === id)}
-			{@const isAi = isAiPlayer(id) || Boolean(playerObj?.isAiControlled)}
-			{@const isDisconnected = !isAi && playerObj !== undefined && !playerObj.isConnected}
+			{@const isRealAi = isAiPlayer(id)}
+			{@const isAi = isRealAi || Boolean(playerObj?.isAiControlled && !playerObj?.isConnected)}
+			{@const isDisconnected = !isRealAi && playerObj !== undefined && !playerObj.isConnected}
 			<div
 				data-player-id={id}
 				data-is-ai={isAi ? "true" : undefined}

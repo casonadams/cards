@@ -63,8 +63,9 @@
 				</div>
 				<div class="grid gap-2.5">
 					{#each room.players as player, index (`${player.id}-${index}`)}
-						{@const isAi = isAiPlayer(player.id) || Boolean(player.isAiControlled)}
-						{@const isDisconnected = !isAi && !player.isConnected}
+						{@const isRealAi = isAiPlayer(player.id)}
+						{@const isAi = isRealAi || Boolean(player.isAiControlled && !player.isConnected)}
+						{@const isDisconnected = !isRealAi && !player.isConnected}
 						<div class={cn(
 							"flex items-center justify-between p-3 rounded-xl transition-all shadow-xs border-2",
 							isDisconnected

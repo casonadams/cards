@@ -495,7 +495,7 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
 			await rejoinBtn.click();
 			await expect(guestPage.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
-			await expect(hostPage.getByText('LifecycleGuest')).toBeVisible({ timeout: 5000 });
+			await expect(hostPage.getByRole('main').getByText('LifecycleGuest')).toBeVisible({ timeout: 5000 });
 		} finally {
 			await hostContext.close();
 			await guestContext.close();

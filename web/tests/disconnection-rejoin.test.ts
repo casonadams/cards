@@ -192,5 +192,106 @@ describe('Disconnection & Rejoin Management', () => {
 			expect(updatedPlayers[1].isAiControlled).toBe(false);
 			expect(updatedPlayers[1].displayName).toBe('Bob (Phone)');
 		});
+
+		it('advances rejoining client from stale doc to live authoritative doc when AI took turns', () => {
+			const runtime = getGame('canadian-salad');
+			const testPlayerIds = ['player-host', 'player-bob', 'player-charlie', 'player-dave'];
+			const seed = 42;
+
+			// Deal hands
+			const deal = runtime.deal(4, seed);
+			const hostCard1 = deal.hands[0][0];
+			const bobCard1 = deal.hands[1][0];
+
+			// Stale doc on Bob's phone when Bob disconnected mid-trick 1:
+			const bobStaleDoc: GameDocument = {
+				roomId: 'room-1',
+				phase: 'playing',
+				currentRound: 0,
+				seed,
+				dealerIndex: 0,
+				playerIds: testPlayerIds,
+				roundScores: [],
+				moves: [
+					{ playerId: 'player-host', card: hostCard1, timestamp: 1000 }
+				],
+				lastUpdate: 1000
+			};
+
+			// Derive state on Bob's phone before catch-up: Bob only sees host's 1 card
+			const staleGs = runtime.deriveState({
+				moves: bobStaleDoc.moves,
+				seed: bobStaleDoc.seed,
+				currentRound: bobStaleDoc.currentRound,
+				playerCount: 4,
+				playerIds: testPlayerIds,
+				myId: 'player-bob',
+				dealerIndex: 0
+			});
+			expect(staleGs.trickPlays.length).toBe(1);
+			expect(staleGs.lastCompleteTrick.length).toBe(0);
+			expect(staleGs.lastTrickWinnerId).toBeNull();
+
+			// While Bob was away, AI played for Bob, Charlie, and Dave, finishing trick 1:
+			const charlieCard1 = deal.hands[2][0];
+			const daveCard1 = deal.hands[3][0];
+			const liveAuthoritativeDoc: GameDocument = {
+				roomId: 'room-1',
+				phase: 'playing',
+				currentRound: 0,
+				seed,
+				dealerIndex: 0,
+				playerIds: testPlayerIds,
+				roundScores: [],
+				moves: [
+					{ playerId: 'player-host', card: hostCard1, timestamp: 1000 },
+					{ playerId: 'player-bob', card: bobCard1, timestamp: 1001 },
+					{ playerId: 'player-charlie', card: charlieCard1, timestamp: 1002 },
+					{ playerId: 'player-dave', card: daveCard1, timestamp: 1003 }
+				],
+				lastUpdate: 1005
+			};
+
+			// 1. Should accept doc update from host
+			const { shouldAcceptDocUpdate } = require('$lib/platform/engine/game-sync');
+			expect(shouldAcceptDocUpdate(liveAuthoritativeDoc, bobStaleDoc)).toBe(true);
+
+			// 2. Derive state on Bob's phone after receiving liveAuthoritativeDoc
+			const caughtUpGs = runtime.deriveState({
+				moves: liveAuthoritativeDoc.moves,
+				seed: liveAuthoritativeDoc.seed,
+				currentRound: liveAuthoritativeDoc.currentRound,
+				playerCount: 4,
+				playerIds: testPlayerIds,
+				myId: 'player-bob',
+				dealerIndex: 0
+			});
+
+			// Bob's UI is now 100% caught up to the live table!
+			expect(caughtUpGs.lastCompleteTrick.length).toBe(4);
+			expect(caughtUpGs.lastTrickWinnerId).not.toBeNull();
+			expect(caughtUpGs.trickPlays.length).toBe(0);
+			// Bob's remaining hand excludes bobCard1 which AI played
+			expect(caughtUpGs.myRemainingHand.some((c: Card) => c.suit === bobCard1.suit && c.rank === bobCard1.rank)).toBe(false);
+			expect(caughtUpGs.myRemainingHand.length).toBe(deal.hands[1].length - 1);
+
+			// 3. Stale move rejection test: verify that playing against the stale doc would have failed
+			const staleAttemptDoc: GameDocument = {
+				...bobStaleDoc,
+				moves: [...bobStaleDoc.moves, { playerId: 'player-bob', card: bobCard1, timestamp: 2000 }],
+				lastUpdate: 2000
+			};
+			// Host comparing incoming stale attempt (length 2) against host's live doc (length 4) correctly rejects it
+			expect(shouldAcceptDocUpdate(staleAttemptDoc, liveAuthoritativeDoc)).toBe(false);
+
+			// 4. Playing against caughtUp doc succeeds: Bob plays next card
+			const bobCard2 = caughtUpGs.myRemainingHand[0];
+			const validNextDoc: GameDocument = {
+				...liveAuthoritativeDoc,
+				moves: [...liveAuthoritativeDoc.moves, { playerId: 'player-bob', card: bobCard2, timestamp: 2000 }],
+				lastUpdate: 2000
+			};
+			expect(shouldAcceptDocUpdate(validNextDoc, liveAuthoritativeDoc)).toBe(true);
+		});
 	});
 });

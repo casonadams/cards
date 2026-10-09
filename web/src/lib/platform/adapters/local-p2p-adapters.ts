@@ -235,7 +235,7 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
 	function persistDoc(roomId: string, doc: GameDocument): boolean {
-		const current = docs.get(roomId);
+		const current = docs.get(roomId) ?? loadStorage<GameDocument>('cards_doc', roomId);
 		if (current && !shouldAcceptDocUpdate(doc, current)) {
 			return false;
 		}
@@ -264,7 +264,7 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 		if (data?.type === 'sync_doc' && data.roomId && data.doc) {
 			notify(data.roomId, data.doc, false);
 		} else if (data?.type === 'query_doc' && data.roomId) {
-			const current = docs.get(data.roomId);
+			const current = docs.get(data.roomId) ?? loadStorage<GameDocument>('cards_doc', data.roomId);
 			if (current) {
 				try {
 					channel?.postMessage({ type: 'sync_doc', roomId: data.roomId, doc: current });
@@ -284,6 +284,9 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 				callback(existing);
 			}
 			channel?.postMessage({ type: 'query_doc', roomId });
+			try {
+				broadcaster?.()?.broadcast({ type: 'query_doc', roomId });
+			} catch {}
 			return () => {
 				listeners.get(roomId)?.delete(callback);
 			};

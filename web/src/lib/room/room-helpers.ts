@@ -160,7 +160,10 @@ export function buildPlayerNames(players: readonly RoomPlayer[]): Record<string,
 }
 
 export function needsGameSync(room: GameRoom | null, isDominion: boolean): boolean {
-	return room?.phase === 'playing' && !isDominion;
+	return (
+		(room?.phase === 'playing' || room?.phase === 'roundScoring' || room?.phase === 'paused') &&
+		!isDominion
+	);
 }
 
 interface AddAiParams {

@@ -178,6 +178,10 @@
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
 				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 
+				if (gameDoc) {
+					p2p?.broadcast({ type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc });
+				}
+
 				if (wasDisconnected) {
 					addNotice({
 						playerId: joiningPlayer.id,
@@ -198,6 +202,10 @@
 				room = updatedRoom;
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
 				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+
+				if (isConnected && gameDoc) {
+					p2p?.broadcast({ type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc });
+				}
 
 				if (!isConnected) {
 					addNotice({
@@ -265,19 +273,23 @@
 						}
 					}
 				}
-				if (room && room.id === updatedRoom.id && JSON.stringify(room) === JSON.stringify(updatedRoom)) {
-					return;
+				const isNewOrChanged = !room || room.id !== updatedRoom.id || JSON.stringify(room) !== JSON.stringify(updatedRoom);
+				if (isNewOrChanged) {
+					room = updatedRoom;
+					roomId = updatedRoom.id;
+					roomRepo.update(updatedRoom.id, updatedRoom, false);
 				}
-				room = updatedRoom;
-				roomId = updatedRoom.id;
-				roomRepo.update(updatedRoom.id, updatedRoom, false);
+				if (!isHost && (updatedRoom.phase === 'playing' || updatedRoom.phase === 'roundScoring')) {
+					p2p?.broadcast({ type: 'query_doc', roomId: updatedRoom.id });
+				}
 			},
 			onDocMessage(docRoomId, doc) {
 				if (!doc) return;
-				if (!roomId && room?.id === docRoomId) {
-					roomId = docRoomId;
+				const targetRoomId = room?.id ?? doc.roomId ?? docRoomId;
+				if (!roomId && (room?.id === docRoomId || room?.code === docRoomId || doc.roomId === room?.id)) {
+					roomId = targetRoomId;
 				}
-				if (docRoomId !== roomId && room?.id !== docRoomId) return;
+				if (docRoomId !== roomId && room?.id !== docRoomId && room?.code !== docRoomId && doc.roomId !== roomId) return;
 				// Monotonic Move Reconciliation & Dedup
 				if (!shouldAcceptDocUpdate(doc, gameDoc)) {
 					return;
@@ -290,7 +302,7 @@
 					return;
 				}
 				gameDoc = doc;
-				sync.publish(docRoomId, doc, false);
+				sync.publish(targetRoomId, doc, false);
 			},
 			onQueryRoom() {
 				if (room) {
@@ -298,8 +310,8 @@
 				}
 			},
 			onQueryDoc(docRoomId) {
-				if (gameDoc && (roomId === docRoomId || room?.id === docRoomId)) {
-					p2p?.broadcast({ type: 'sync_doc', roomId: docRoomId, doc: gameDoc });
+				if (gameDoc && (roomId === docRoomId || room?.id === docRoomId || room?.code === docRoomId)) {
+					p2p?.broadcast({ type: 'sync_doc', roomId: room?.id ?? docRoomId, doc: gameDoc });
 				}
 			}
 		});
@@ -444,6 +456,8 @@
 
 		// 1. Send join_request to host over P2P network
 		p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
+		p2p?.broadcast({ type: 'query_room', code });
+		p2p?.broadcast({ type: 'query_doc', roomId: code });
 
 		// 2. Also check if room exists in local cache (same machine)
 		try {
@@ -476,6 +490,9 @@
 				await roomRepo.update(target.id, updatedRoom);
 				room = updatedRoom;
 				roomId = target.id;
+				if (target.phase === 'playing' || target.phase === 'roundScoring') {
+					p2p?.broadcast({ type: 'query_doc', roomId: target.id });
+				}
 			} else {
 				// Retry handshake over network up to 4 times (1s intervals)
 				for (let attempt = 1; attempt <= 4; attempt++) {
@@ -483,6 +500,7 @@
 					if (room) break;
 					p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
 					p2p?.broadcast({ type: 'query_room', code });
+					p2p?.broadcast({ type: 'query_doc', roomId: code });
 				}
 				if (!room) {
 					lobbyError = `Unable to connect to table ${code}. Verify the room code or check network connection.`;
@@ -570,8 +588,18 @@
 				});
 			}
 		}
+		function handleVisibilityChange() {
+			if (!document.hidden && room && !isHost) {
+				p2p?.broadcast({ type: 'query_room', code: room.code });
+				p2p?.broadcast({ type: 'query_doc', roomId: room.id });
+			}
+		}
 		window.addEventListener('beforeunload', handleBeforeUnload);
-		return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 
 	function handleRejoinActiveSession(code: string) {

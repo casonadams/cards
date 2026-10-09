@@ -722,7 +722,9 @@ export class P2pNetworkManager {
 			sentCount < this.peers.size ||
 			payload.type === 'query_room' ||
 			payload.type === 'join_request' ||
-			payload.type === 'sync_room';
+			payload.type === 'sync_room' ||
+			payload.type === 'query_doc' ||
+			payload.type === 'sync_doc';
 
 		if (needsMqttBroadcast) {
 			await this.broadcastMqtt(payload);

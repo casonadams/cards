@@ -565,8 +565,9 @@ export class P2pNetworkManager {
 		if (msg.type === 'sync_room') {
 			this.callbacks.onRoomMessage?.(msg.room);
 			// If we are a non-host peer receiving room info and don't have a peer connection to host, initiate it
-			if (!this.isHost && msg.room.hostId && !this.peers.has(msg.room.hostId)) {
-				this.initiateWebRtcToHost(msg.room.hostId);
+			const activeHost = msg.room.tempHostId || msg.room.hostId;
+			if (!this.isHost && activeHost && !this.peers.has(activeHost) && activeHost !== this.myId) {
+				this.initiateWebRtcToHost(activeHost);
 			}
 		} else if (msg.type === 'join_request') {
 			this.callbacks.onJoinRequest?.(msg.code, msg.player);
@@ -736,7 +737,7 @@ export class P2pNetworkManager {
 		try {
 			const fullMsg: P2pMessage = { ...payload, senderId: this.myId } as P2pMessage;
 			const encrypted = await encryptData(this.cryptoKey, fullMsg);
-			this.client.publish(this.topic, encrypted);
+			this.client?.publish(this.topic, encrypted);
 		} catch (e) {
 			console.warn('Failed to broadcast encrypted P2P message', e);
 		}

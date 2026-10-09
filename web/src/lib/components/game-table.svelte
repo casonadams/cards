@@ -8,6 +8,7 @@
 	import OhWellBidding from './oh-well-bidding.svelte';
 	import RoundScoreOverlay from './round-score-overlay.svelte';
 	import { playerStatLine, teamFor, type StatContext } from './game-table-stats';
+	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import type { Card, RoomPlayer, PlayerStats, ScoreEntry } from '$lib/platform/types/index';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 	import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
@@ -28,6 +29,7 @@
 		lastTrickWinnerId: string | null;
 		playerNames: Record<string, string>;
 		otherPlayers: readonly RoomPlayer[];
+		allPlayers?: readonly RoomPlayer[];
 		currentTurnIndex: number;
 		playerIds: readonly string[];
 		allPlayerStats: readonly PlayerStats[];
@@ -61,6 +63,7 @@
 		lastTrickWinnerId,
 		playerNames,
 		otherPlayers,
+		allPlayers = otherPlayers,
 		currentTurnIndex,
 		playerIds,
 		allPlayerStats,
@@ -139,34 +142,53 @@
 			{@const leadIndex = playerIds.indexOf(leaderId)}
 			{@const trickOrder = ((playerIndex - leadIndex + playerIds.length) % playerIds.length) + 1}
 			{@const isLeader = trickOrder === 1}
+			{@const playerObj = (allPlayers ?? otherPlayers).find((p) => p.id === id)}
+			{@const isAi = isAiPlayer(id) || Boolean(playerObj?.isAiControlled)}
+			{@const isDisconnected = !isAi && playerObj !== undefined && !playerObj.isConnected}
 			<div
 				data-player-id={id}
+				data-is-ai={isAi ? "true" : undefined}
+				data-is-disconnected={isDisconnected ? "true" : undefined}
 				class={cn(
 					'flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-2xl border-2 transition-colors duration-150 text-xs sm:text-sm backdrop-blur-md shadow-sm shrink-0',
-					isTurn
-						? 'bg-emerald-950/60 border-emerald-400 text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400/50'
-						: isMe
-							? 'bg-card/95 border-emerald-500/40 text-foreground shadow-xs'
-							: 'bg-card/85 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
+					isDisconnected
+						? isTurn
+							? 'bg-amber-950/60 border-2 border-dashed border-amber-300 text-amber-100 shadow-[0_0_12px_rgba(251,191,36,0.3)] ring-1 ring-amber-400/50'
+							: 'bg-amber-950/30 border-2 border-dashed border-amber-400 text-amber-200 shadow-amber-950/30'
+						: isAi
+							? isTurn
+								? 'bg-blue-950/70 border-2 border-blue-400 text-blue-100 shadow-[0_0_12px_rgba(96,165,250,0.3)] ring-1 ring-blue-400/50'
+								: 'bg-blue-950/40 border-2 border-blue-500 text-blue-200'
+							: isTurn
+								? 'bg-emerald-950/60 border-2 border-emerald-400 text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400/50'
+								: isMe
+									? 'bg-card/95 border-2 border-emerald-500/40 text-foreground shadow-xs'
+									: 'bg-card/85 border-2 border-border/80 text-muted-foreground hover:border-border hover:bg-card'
 				)}
 			>
 				<div class="relative">
 					<div
 						class={cn(
 							'w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shrink-0 shadow-inner border transition-colors duration-150',
-							isTurn
-								? 'bg-emerald-400 text-zinc-950 border-emerald-400'
-								: isMe
-									? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-									: 'bg-muted text-foreground border-transparent'
+							isDisconnected
+								? 'bg-amber-500/20 text-amber-300 border-2 border-dashed border-amber-400'
+								: isAi
+									? isTurn
+										? 'bg-blue-400 text-zinc-950 border-blue-400'
+										: 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+									: isTurn
+										? 'bg-emerald-400 text-zinc-950 border-emerald-400'
+										: isMe
+											? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+											: 'bg-muted text-foreground border-transparent'
 						)}
 					>
 						{getInitials(displayName)}
 					</div>
 					{#if isTurn}
 						<div class="absolute -top-1 -right-1 flex h-4 w-4 sm:h-4.5 sm:w-4.5 items-center justify-center pointer-events-none">
-							<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-							<span class="relative inline-flex items-center justify-center h-4 w-4 sm:h-4.5 sm:w-4.5 rounded-full bg-emerald-400 text-zinc-950 font-black text-[10px] border border-background shadow-xs animate-pulse" title="Current Turn (Plays #{trickOrder})">
+							<span class="animate-ping absolute inline-flex h-full w-full rounded-full {isDisconnected ? 'bg-amber-400' : isAi ? 'bg-blue-400' : 'bg-emerald-400'} opacity-75"></span>
+							<span class="relative inline-flex items-center justify-center h-4 w-4 sm:h-4.5 sm:w-4.5 rounded-full {isDisconnected ? 'bg-amber-400' : isAi ? 'bg-blue-400' : 'bg-emerald-400'} text-zinc-950 font-black text-[10px] border border-background shadow-xs animate-pulse" title="Current Turn (Plays #{trickOrder})">
 								{trickOrder}
 							</span>
 						</div>
@@ -190,13 +212,17 @@
 						<span
 							class={cn(
 								'font-bold truncate max-w-[70px] sm:max-w-[130px] transition-colors duration-150',
-								isTurn
-									? 'text-emerald-300'
-									: isMe
-										? 'text-foreground'
-										: partner
-											? 'text-foreground'
-											: 'text-muted-foreground'
+								isDisconnected
+									? 'text-amber-200'
+									: isAi
+										? 'text-blue-300'
+										: isTurn
+											? 'text-emerald-300'
+											: isMe
+												? 'text-foreground'
+												: partner
+													? 'text-foreground'
+													: 'text-muted-foreground'
 							)}
 							title={displayName}
 						>

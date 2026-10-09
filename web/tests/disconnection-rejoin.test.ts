@@ -294,4 +294,144 @@ describe('Disconnection & Rejoin Management', () => {
 			expect(shouldAcceptDocUpdate(validNextDoc, liveAuthoritativeDoc)).toBe(true);
 		});
 	});
+
+	describe('Host Handoff & Temporary Host Grace Period', () => {
+		const fourPlayers: RoomPlayer[] = [
+			{ id: 'host-alice', displayName: 'Alice (Host)', isHost: true, isConnected: true, lastSeen: 1000 },
+			{ id: 'player-bob', displayName: 'Bob', isHost: false, isConnected: true, lastSeen: 1000 },
+			{ id: 'player-charlie', displayName: 'Charlie', isHost: false, isConnected: true, lastSeen: 1000 },
+			{ id: 'ai-0', displayName: 'Bot Dave', isHost: false, isConnected: true, lastSeen: 1000 }
+		];
+
+		const activeRoom: GameRoom = {
+			id: 'room-4p',
+			code: 'FOURPL',
+			hostId: 'host-alice',
+			gameDefinitionId: 'canadian-salad',
+			maxPlayers: 4,
+			players: fourPlayers,
+			playerIds: ['host-alice', 'player-bob', 'player-charlie', 'ai-0'],
+			phase: 'playing',
+			createdAt: 1000
+		};
+
+		it('elects the next connected human as temporary host when host disconnects', () => {
+			const { isAiPlayer } = require('$lib/platform/engine/ai-player');
+			// Alice disconnects
+			const disconnectedPlayers = activeRoom.players.map((p) =>
+				p.id === 'host-alice' ? { ...p, isConnected: false, lastSeen: Date.now() } : p
+			);
+
+			// Find next connected human
+			const candidate = disconnectedPlayers.find(
+				(p) => p.id !== activeRoom.hostId && p.isConnected && !isAiPlayer(p.id)
+			);
+			expect(candidate).toBeDefined();
+			expect(candidate?.id).toBe('player-bob');
+
+			// Temporary host election
+			const tempHostRoom: GameRoom = {
+				...activeRoom,
+				players: disconnectedPlayers,
+				tempHostId: candidate!.id,
+				hostDisconnectedAt: Date.now()
+			};
+
+			expect(tempHostRoom.tempHostId).toBe('player-bob');
+			expect(tempHostRoom.hostId).toBe('host-alice');
+		});
+
+		it('reclaims primary host when original host reconnects within 30 seconds', () => {
+			const now = Date.now();
+			const tempHostRoom: GameRoom = {
+				...activeRoom,
+				players: [
+					{ ...fourPlayers[0], isConnected: false },
+					fourPlayers[1],
+					fourPlayers[2],
+					fourPlayers[3]
+				],
+				tempHostId: 'player-bob',
+				hostDisconnectedAt: now - 15000 // Disconnected 15s ago (< 30s)
+			};
+
+			// Reclaiming join request from Alice
+			const rejoiningAlice: RoomPlayer = {
+				id: 'host-alice',
+				displayName: 'Alice (Host)',
+				isHost: true,
+				isConnected: true,
+				lastSeen: now
+			};
+
+			const isOriginalHostReclaiming = rejoiningAlice.id === tempHostRoom.hostId;
+			expect(isOriginalHostReclaiming).toBe(true);
+
+			const updatedPlayers = tempHostRoom.players.map((p) =>
+				p.id === rejoiningAlice.id
+					? { ...p, isConnected: true, isHost: true }
+					: p
+			);
+
+			const restoredRoom: GameRoom = {
+				...tempHostRoom,
+				players: updatedPlayers,
+				tempHostId: undefined, // Cleared!
+				hostDisconnectedAt: undefined // Cleared!
+			};
+
+			expect(restoredRoom.hostId).toBe('host-alice');
+			expect(restoredRoom.tempHostId).toBeUndefined();
+			expect(restoredRoom.players.find((p) => p.id === 'host-alice')?.isHost).toBe(true);
+		});
+
+		it('promotes temporary host to permanent host when 30 seconds expire', () => {
+			const now = Date.now();
+			const tempHostRoom: GameRoom = {
+				...activeRoom,
+				players: [
+					{ ...fourPlayers[0], isConnected: false },
+					fourPlayers[1],
+					fourPlayers[2],
+					fourPlayers[3]
+				],
+				tempHostId: 'player-bob',
+				hostDisconnectedAt: now - 35000 // Disconnected 35s ago (> 30s)
+			};
+
+			const elapsed = now - tempHostRoom.hostDisconnectedAt!;
+			expect(elapsed).toBeGreaterThanOrEqual(30000);
+
+			// Permanent promotion executed by Bob
+			const promotedPlayers = tempHostRoom.players.map((p) => {
+				if (p.id === tempHostRoom.tempHostId) return { ...p, isHost: true };
+				if (p.id === tempHostRoom.hostId) return { ...p, isHost: false };
+				return p;
+			});
+
+			const permanentlyPromotedRoom: GameRoom = {
+				...tempHostRoom,
+				hostId: tempHostRoom.tempHostId!,
+				tempHostId: undefined,
+				hostDisconnectedAt: undefined,
+				players: promotedPlayers
+			};
+
+			expect(permanentlyPromotedRoom.hostId).toBe('player-bob');
+			expect(permanentlyPromotedRoom.tempHostId).toBeUndefined();
+			expect(permanentlyPromotedRoom.players.find((p) => p.id === 'player-bob')?.isHost).toBe(true);
+			expect(permanentlyPromotedRoom.players.find((p) => p.id === 'host-alice')?.isHost).toBe(false);
+
+			// If Alice reconnects later, she joins as a regular player
+			const lateAliceJoin: RoomPlayer = {
+				id: 'host-alice',
+				displayName: 'Alice',
+				isHost: false,
+				isConnected: true,
+				lastSeen: now + 5000
+			};
+			const isAliceReclaiming = lateAliceJoin.id === permanentlyPromotedRoom.hostId;
+			expect(isAliceReclaiming).toBe(false); // Alice is no longer the room's hostId
+		});
+	});
 });

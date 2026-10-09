@@ -5,7 +5,7 @@
 	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import { getGame } from '$lib/platform/engine/index';
 	import type { GameRoom } from '$lib/platform/types/index';
-	import { getInitials } from '$lib/utils';
+	import { cn, getInitials } from '$lib/utils';
 
 	interface Props {
 		room: GameRoom;
@@ -63,9 +63,25 @@
 				</div>
 				<div class="grid gap-2.5">
 					{#each room.players as player, index (`${player.id}-${index}`)}
-						<div class="flex items-center justify-between p-3 rounded-xl bg-background/50 border border-border/60 transition-all shadow-xs">
+						{@const isAi = isAiPlayer(player.id) || Boolean(player.isAiControlled)}
+						{@const isDisconnected = !isAi && !player.isConnected}
+						<div class={cn(
+							"flex items-center justify-between p-3 rounded-xl transition-all shadow-xs border-2",
+							isDisconnected
+								? "border-dashed border-amber-400 bg-amber-950/20 text-amber-200"
+								: isAi
+									? "border-blue-500/60 bg-blue-950/25 text-blue-200"
+									: "bg-background/50 border-border/60"
+						)}>
 							<div class="flex items-center gap-3">
-								<div class="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xs font-black text-emerald-300 shadow-inner">
+								<div class={cn(
+									"w-9 h-9 rounded-full flex items-center justify-center text-xs font-black shadow-inner border",
+									isDisconnected
+										? "border-2 border-dashed border-amber-400 bg-amber-500/20 text-amber-300"
+										: isAi
+											? "border-blue-500/40 bg-blue-500/20 text-blue-300"
+											: "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+								)}>
 									{getInitials(player.displayName)}
 								</div>
 								<span class="text-base font-bold text-foreground">{player.displayName}</span>
@@ -74,8 +90,12 @@
 								<Badge variant="secondary" class="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-xs font-bold px-2.5 py-0.5">
 									Host
 								</Badge>
-							{:else if isAiPlayer(player.id)}
-								<Badge variant="outline" class="text-xs font-bold border-border/80 px-2.5 py-0.5">
+							{:else if isDisconnected}
+								<Badge variant="outline" class="border-amber-400/60 text-amber-300 bg-amber-950/30 text-xs font-bold px-2.5 py-0.5 border-dashed">
+									Disconnected
+								</Badge>
+							{:else if isAi}
+								<Badge variant="outline" class="border-blue-500/60 text-blue-300 bg-blue-950/30 text-xs font-bold px-2.5 py-0.5">
 									AI
 								</Badge>
 							{/if}

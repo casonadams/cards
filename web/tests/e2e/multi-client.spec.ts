@@ -560,5 +560,117 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			await guestContext.close();
 		}
 	});
+
+	test('Scenario 7: 4-Player Browser Game (Host + 3 Guests) - Visual Badges, Disconnects, AI Play Turn & Host Handoff', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guest1Context = await createInstrumentedContext(browser);
+		const guest2Context = await createInstrumentedContext(browser);
+		const guest3Context = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guest1Page = await guest1Context.newPage();
+			const guest2Page = await guest2Context.newPage();
+			const guest3Page = await guest3Context.newPage();
+
+			hostPage.on('console', (msg) => console.log(`[HOST] ${msg.text()}`));
+			guest1Page.on('console', (msg) => console.log(`[GUEST1] ${msg.text()}`));
+			guest2Page.on('console', (msg) => console.log(`[GUEST2] ${msg.text()}`));
+			guest3Page.on('console', (msg) => console.log(`[GUEST3] ${msg.text()}`));
+
+			// 1. Host creates 4-player Canadian Salad room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'HostAlex');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 4);
+
+			// 2. Guest 1 joins
+			await guest1Page.goto('/');
+			await setPlayerName(guest1Page, 'Guest1Bob');
+			await joinRoomByCode(guest1Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest1Bob')).toBeVisible({ timeout: 15000 });
+
+			// 3. Guest 2 joins
+			await guest2Page.goto('/');
+			await setPlayerName(guest2Page, 'Guest2Carol');
+			await joinRoomByCode(guest2Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest2Carol')).toBeVisible({ timeout: 15000 });
+
+			// 4. Guest 3 joins
+			await guest3Page.goto('/');
+			await setPlayerName(guest3Page, 'Guest3Dave');
+			await joinRoomByCode(guest3Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest3Dave')).toBeVisible({ timeout: 15000 });
+
+			// 5. Host starts 4-player game
+			const startBtn = hostPage.getByRole('button', { name: 'Start Game' });
+			await expect(startBtn).toBeEnabled({ timeout: 10000 });
+			await startBtn.click();
+
+			// All 4 real browsers reach table surface
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest1Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest2Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest3Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 6. Test Guest 3 Disconnection & Yellow/Gold Dashed Border Styling
+			await guest3Page.getByRole('button', { name: 'Leave' }).click();
+
+			// Host and remaining guests detect disconnection: Guest 3's badge turns dashed
+			const davePill = hostPage.locator('[data-player-id]').filter({ hasText: 'Dave' }).first();
+			await expect(davePill).toHaveAttribute('data-is-disconnected', 'true', { timeout: 10000 });
+
+			// Host sees disconnect toast with "Play Turn" and "Turn AI On"
+			const toast = hostPage.locator('[role="alert"]').filter({ hasText: /Guest3Dave disconnected/i });
+			await expect(toast).toBeVisible({ timeout: 10000 });
+			const playTurnBtn = toast.getByRole('button', { name: /Play Turn/i });
+			const turnAiBtn = toast.getByRole('button', { name: /Turn AI On/i });
+			await expect(playTurnBtn).toBeVisible();
+			await expect(turnAiBtn).toBeVisible();
+
+			// Host turns AI on for Dave
+			await turnAiBtn.click();
+			await expect(toast.getByRole('button', { name: /AI Active/i })).toBeVisible({ timeout: 5000 });
+
+			// 7. Guest 3 rejoins: Rejoin modal appears and Dave returns
+			const rejoinModal = guest3Page.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
+
+			// Guest 3 returns to table surface
+			await expect(guest3Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			// Guest 3 badge on host is no longer marked disconnected
+			await expect(davePill).not.toHaveAttribute('data-is-disconnected', 'true', { timeout: 10000 });
+
+			// 8. Test Host Disconnection & 30s Temporary Host Grace Period Handoff
+			await hostPage.getByRole('button', { name: 'Leave' }).click();
+
+			// Guest 1 (next connected human) becomes Acting Host; visible 30s countdown toast appears on Guest 1, 2, 3
+			const actingToast = guest1Page.locator('[role="alert"]').filter({ hasText: /acting host/i });
+			await expect(actingToast).toBeVisible({ timeout: 10000 });
+			await expect(actingToast.getByText(/remaining/i)).toBeVisible();
+
+			// Guest 2 also sees the acting host countdown notice
+			const guest2Toast = guest2Page.locator('[role="alert"]').filter({ hasText: /acting host/i });
+			await expect(guest2Toast).toBeVisible({ timeout: 10000 });
+
+			// 9. Host rejoins within 30s and reclaims primary host
+			const hostRejoinModal = hostPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(hostRejoinModal).toBeVisible({ timeout: 5000 });
+			const hostRejoinBtn = hostRejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await hostRejoinBtn.click();
+
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			// Acting host countdown toast is dismissed once original host reclaims
+			await expect(guest1Page.locator('[role="alert"]').filter({ hasText: /acting host/i })).not.toBeVisible({ timeout: 10000 });
+		} finally {
+			await hostContext.close();
+			await guest1Context.close();
+			await guest2Context.close();
+			await guest3Context.close();
+		}
+	});
 });
 }

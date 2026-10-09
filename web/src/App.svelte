@@ -14,6 +14,7 @@
 		DocDedupCache
 	} from '$lib/platform/engine/game-sync';
 	import { P2pNetworkManager, type NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
+	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import {
 		deriveRoomGs,
 		buildPlayerNames,
@@ -112,6 +113,86 @@
 	const docDedup = new DocDedupCache();
 	let networkStatus = $state<NetworkStatusInfo | null>(null);
 	let notices = $state<DisconnectNotice[]>([]);
+	let roomId = $state('');
+	let room = $state<GameRoom | null>(null);
+	let gameDoc = $state<GameDocument | null>(null);
+	let aiCounter = $state(1);
+
+	const isHost = $derived(room?.hostId === myPlayer.id);
+	const isTempHost = $derived(Boolean(room?.tempHostId === myPlayer.id));
+	const isActingHost = $derived(isHost || isTempHost);
+
+	let hostGraceTimer: ReturnType<typeof setInterval> | null = null;
+
+	function startHostGraceCountdown(targetRoom: GameRoom) {
+		if (hostGraceTimer) clearInterval(hostGraceTimer);
+		const actingHostPlayer = targetRoom.players.find((p) => p.id === targetRoom.tempHostId);
+		const hostPlayer = targetRoom.players.find((p) => p.id === targetRoom.hostId);
+		const startTime = targetRoom.hostDisconnectedAt || Date.now();
+		const totalWindowMs = 30000;
+
+		function tick() {
+			const elapsed = Date.now() - startTime;
+			const remaining = Math.max(0, Math.ceil((totalWindowMs - elapsed) / 1000));
+
+			if (remaining > 0) {
+				const existingNotice = notices.find((n) => n.type === 'host_disconnecting');
+				const noticeData: DisconnectNotice = {
+					id: existingNotice?.id || 'notice-host-grace',
+					playerId: targetRoom.hostId,
+					playerName: hostPlayer?.displayName || 'Host',
+					actingHostName: actingHostPlayer?.displayName || 'Temporary Host',
+					type: 'host_disconnecting',
+					remainingSeconds: remaining,
+					timestamp: Date.now()
+				};
+				notices = [...notices.filter((n) => n.type !== 'host_disconnecting'), noticeData];
+			} else {
+				if (hostGraceTimer) {
+					clearInterval(hostGraceTimer);
+					hostGraceTimer = null;
+				}
+				notices = notices.filter((n) => n.type !== 'host_disconnecting');
+
+				// If I am the temporary host, finalize permanent host promotion
+				if (room && room.tempHostId === myPlayer.id) {
+					const originalHostId = room.hostId;
+					const promotedPlayers = room.players.map((p) => {
+						if (p.id === myPlayer.id) return { ...p, isHost: true };
+						if (p.id === originalHostId) return { ...p, isHost: false };
+						return p;
+					});
+					const promotedRoom: GameRoom = {
+						...room,
+						hostId: myPlayer.id,
+						tempHostId: undefined,
+						hostDisconnectedAt: undefined,
+						players: promotedPlayers
+					};
+					room = promotedRoom;
+					roomRepo.update(promotedRoom.id, promotedRoom, true);
+					p2p?.broadcast({ type: 'sync_room', room: promotedRoom });
+
+					addNotice({
+						playerId: myPlayer.id,
+						playerName: myPlayer.displayName,
+						type: 'reconnected'
+					});
+				}
+			}
+		}
+
+		tick();
+		hostGraceTimer = setInterval(tick, 1000);
+	}
+
+	function stopHostGraceCountdown() {
+		if (hostGraceTimer) {
+			clearInterval(hostGraceTimer);
+			hostGraceTimer = null;
+		}
+		notices = notices.filter((n) => n.type !== 'host_disconnecting');
+	}
 
 	function addNotice(item: Omit<DisconnectNotice, 'id' | 'timestamp'>) {
 		const id = 'notice-' + Math.random().toString(36).slice(2, 9);
@@ -140,13 +221,15 @@
 				networkStatus = status;
 			},
 			onJoinRequest(code, joiningPlayer) {
-				if (!isHost || !room) return;
+				if (!isActingHost || !room) return;
 				if (room.code.trim().toUpperCase() !== code.trim().toUpperCase()) return;
 				if (room.players.length >= room.maxPlayers) return;
 
 				const existingIndex = room.players.findIndex((p) => p.id === joiningPlayer.id);
 				let updatedPlayers: RoomPlayer[];
 				const wasDisconnected = existingIndex >= 0 && !room.players[existingIndex].isConnected;
+				const isOriginalHostReclaiming = joiningPlayer.id === room.hostId;
+
 				if (existingIndex >= 0) {
 					updatedPlayers = [...room.players];
 					updatedPlayers[existingIndex] = {
@@ -154,7 +237,8 @@
 						displayName: joiningPlayer.displayName,
 						isConnected: true,
 						lastSeen: Date.now(),
-						isAiControlled: false
+						isAiControlled: false,
+						isHost: isOriginalHostReclaiming ? true : room.players[existingIndex].isHost
 					};
 				} else {
 					updatedPlayers = [
@@ -162,17 +246,28 @@
 						{
 							id: joiningPlayer.id,
 							displayName: joiningPlayer.displayName,
-							isHost: false,
+							isHost: isOriginalHostReclaiming,
 							isConnected: true,
 							lastSeen: Date.now(),
 							isAiControlled: false
 						}
 					];
 				}
+
+				let updatedTempHostId = room.tempHostId;
+				let updatedHostDisconnectedAt = room.hostDisconnectedAt;
+				if (isOriginalHostReclaiming) {
+					updatedTempHostId = undefined;
+					updatedHostDisconnectedAt = undefined;
+					stopHostGraceCountdown();
+				}
+
 				const updatedRoom: GameRoom = {
 					...room,
 					players: updatedPlayers,
-					playerIds: updatedPlayers.map((p) => p.id)
+					playerIds: updatedPlayers.map((p) => p.id),
+					tempHostId: updatedTempHostId,
+					hostDisconnectedAt: updatedHostDisconnectedAt
 				};
 				room = updatedRoom;
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
@@ -191,9 +286,35 @@
 				}
 			},
 			onPeerConnectionChange(peerId, isConnected) {
-				if (!isHost || !room) return;
+				if (!room) return;
 				const player = room.players.find((p) => p.id === peerId);
 				if (!player || player.isConnected === isConnected) return;
+
+				// Check if the host disconnected and we need to elect a temporary host
+				if (peerId === room.hostId && !isConnected) {
+					const originalHostId = room.hostId;
+					const updatedPlayers = room.players.map((p) =>
+						p.id === peerId ? { ...p, isConnected: false, lastSeen: Date.now() } : p
+					);
+					const candidateNextHost = updatedPlayers.find(
+						(p) => p.id !== originalHostId && p.isConnected && !isAiPlayer(p.id)
+					);
+					if (candidateNextHost && candidateNextHost.id === myPlayer.id) {
+						const updatedRoom: GameRoom = {
+							...room,
+							players: updatedPlayers,
+							tempHostId: myPlayer.id,
+							hostDisconnectedAt: Date.now()
+						};
+						room = updatedRoom;
+						roomRepo.update(updatedRoom.id, updatedRoom, true);
+						p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+						startHostGraceCountdown(updatedRoom);
+						return;
+					}
+				}
+
+				if (!isActingHost) return;
 
 				const updatedPlayers = room.players.map((p) =>
 					p.id === peerId ? { ...p, isConnected, lastSeen: Date.now() } : p
@@ -227,7 +348,30 @@
 				const player = room.players.find((p) => p.id === playerId);
 				if (!player) return;
 
-				if (isHost) {
+				if (playerId === room.hostId) {
+					const originalHostId = room.hostId;
+					const updatedPlayers = room.players.map((p) =>
+						p.id === playerId ? { ...p, isConnected: false, lastSeen: Date.now() } : p
+					);
+					const candidateNextHost = updatedPlayers.find(
+						(p) => p.id !== originalHostId && p.isConnected && !isAiPlayer(p.id)
+					);
+					if (candidateNextHost && candidateNextHost.id === myPlayer.id) {
+						const updatedRoom: GameRoom = {
+							...room,
+							players: updatedPlayers,
+							tempHostId: myPlayer.id,
+							hostDisconnectedAt: Date.now()
+						};
+						room = updatedRoom;
+						roomRepo.update(updatedRoom.id, updatedRoom, true);
+						p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+						startHostGraceCountdown(updatedRoom);
+						return;
+					}
+				}
+
+				if (isActingHost) {
 					const updatedPlayers = room.players.map((p) =>
 						p.id === playerId ? { ...p, isConnected: false, lastSeen: Date.now() } : p
 					);
@@ -273,13 +417,20 @@
 						}
 					}
 				}
+				if (updatedRoom.tempHostId && updatedRoom.hostDisconnectedAt) {
+					if (!hostGraceTimer) {
+						startHostGraceCountdown(updatedRoom);
+					}
+				} else if (!updatedRoom.tempHostId && hostGraceTimer) {
+					stopHostGraceCountdown();
+				}
 				const isNewOrChanged = !room || room.id !== updatedRoom.id || JSON.stringify(room) !== JSON.stringify(updatedRoom);
 				if (isNewOrChanged) {
 					room = updatedRoom;
 					roomId = updatedRoom.id;
 					roomRepo.update(updatedRoom.id, updatedRoom, false);
 				}
-				if (!isHost && (updatedRoom.phase === 'playing' || updatedRoom.phase === 'roundScoring')) {
+				if (!isActingHost && (updatedRoom.phase === 'playing' || updatedRoom.phase === 'roundScoring')) {
 					p2p?.broadcast({ type: 'query_doc', roomId: updatedRoom.id });
 				}
 			},
@@ -305,12 +456,12 @@
 				sync.publish(targetRoomId, doc, false);
 			},
 			onQueryRoom() {
-				if (room) {
+				if (room && isActingHost) {
 					p2p?.broadcast({ type: 'sync_room', room });
 				}
 			},
 			onQueryDoc(docRoomId) {
-				if (gameDoc && (roomId === docRoomId || room?.id === docRoomId || room?.code === docRoomId)) {
+				if (gameDoc && isActingHost && (roomId === docRoomId || room?.id === docRoomId || room?.code === docRoomId)) {
 					p2p?.broadcast({ type: 'sync_doc', roomId: room?.id ?? docRoomId, doc: gameDoc });
 				}
 			}
@@ -318,10 +469,6 @@
 	}
 	const roomRepo = createLocalP2pRoomRepo(() => p2p);
 	const sync = createLocalP2pSync(() => p2p);
-	let roomId = $state('');
-	let room = $state<GameRoom | null>(null);
-	let gameDoc = $state<GameDocument | null>(null);
-	let aiCounter = $state(1);
 
 	// Lobby UI state
 	let selectedGameId = $state(games[0]?.id ?? 'oh-well');
@@ -346,7 +493,6 @@
 
 	// Derived room and game state
 	const actions = $derived(createRoomActions({ roomRepo, sync, roomId }));
-	const isHost = $derived(room?.hostId === myPlayer.id);
 	const isFull = $derived(room ? room.players.length >= room.maxPlayers : false);
 	const playerIds = $derived((room?.players ?? []).map((p) => p.id));
 	const playerNames = $derived(buildPlayerNames(room?.players ?? []));
@@ -359,7 +505,7 @@
 	const showOhWellBidding = $derived(Boolean(isOhWell && gs && isOhWellBiddingPhase(gs)));
 	const otherPlayers = $derived((room?.players ?? []).filter((p) => p.id !== myPlayer.id));
 
-	const aiDeps = $derived({ isHost, gameDoc, gs, playerIds, runtime, actions, room });
+	const aiDeps = $derived({ isHost: isActingHost, gameDoc, gs, playerIds, runtime, actions, room });
 	const cardParams = $derived({ gameDoc, playerId: myPlayer.id, actions });
 	const nrDeps = $derived({
 		runtime: runtime!,
@@ -589,7 +735,7 @@
 			}
 		}
 		function handleVisibilityChange() {
-			if (!document.hidden && room && !isHost) {
+			if (!document.hidden && room && !isActingHost) {
 				p2p?.broadcast({ type: 'query_room', code: room.code });
 				p2p?.broadcast({ type: 'query_doc', roomId: room.id });
 			}
@@ -620,8 +766,8 @@
 		}
 	}
 
-	async function handleHostSkipTurn(targetPlayerId: string) {
-		if (!isHost || !room || !gameDoc || !gs || !runtime) return;
+	async function handleHostPlayTurn(targetPlayerId: string) {
+		if (!isActingHost || !room || !gameDoc || !gs || !runtime) return;
 		const currentTurnPlayerId = playerIds[gs.currentTurnIndex];
 		if (currentTurnPlayerId !== targetPlayerId) {
 			return;
@@ -646,7 +792,7 @@
 	}
 
 	async function handleHostToggleAi(targetPlayerId: string) {
-		if (!isHost || !room) return;
+		if (!isActingHost || !room) return;
 		const target = room.players.find((p) => p.id === targetPlayerId);
 		if (!target) return;
 
@@ -689,7 +835,10 @@
 				playerId: myPlayer.id
 			});
 		}
-		if (isHost) {
+		const hasOtherConnectedHumans = Boolean(
+			room?.players.some((p) => p.id !== myPlayer.id && p.isConnected && !isAiPlayer(p.id))
+		);
+		if (isHost && !hasOtherConnectedHumans) {
 			await actions.destroyRoom();
 			if (typeof window !== 'undefined') {
 				localStorage.removeItem(ACTIVE_SESSION_KEY);
@@ -864,7 +1013,7 @@
 	{:else if room.phase === 'lobby'}
 		<RoomLobby
 			{room}
-			{isHost}
+			isHost={isActingHost}
 			{isFull}
 			{onStart}
 			{onLeave}
@@ -880,9 +1029,10 @@
 			roundRules={runtime?.getRoundRules(gameDoc?.currentRound ?? 0) ?? ''}
 			{playerNames}
 			{playerIds}
-			{isHost}
+			isHost={isActingHost}
 			myId={myPlayer.id}
 			{otherPlayers}
+			allPlayers={room?.players ?? []}
 			allRounds={computeAllRounds({ gameDoc, gs, runtime })}
 			onCardPlayed={onPlayCard}
 			{onNextRound}
@@ -899,8 +1049,8 @@
 
 	<DisconnectionToast
 		{notices}
-		{isHost}
-		onSkipTurn={handleHostSkipTurn}
+		isHost={isActingHost}
+		onPlayTurn={handleHostPlayTurn}
 		onToggleAi={handleHostToggleAi}
 		onDismissNotice={dismissNotice}
 	/>

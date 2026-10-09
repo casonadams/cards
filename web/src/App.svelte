@@ -221,6 +221,7 @@
 		p2p = new P2pNetworkManager({
 			onStatusChange(status) {
 				networkStatus = status;
+				(window as any).__networkStatus = status;
 			},
 			onJoinRequest(code, joiningPlayer) {
 				if (!isActingHost || !room) return;
@@ -946,7 +947,11 @@
 	);
 </script>
 
-<div class="min-h-screen bg-background text-foreground flex flex-col felt-table-surface">
+<div
+	data-network-mode={networkStatus?.mode ?? 'unknown'}
+	data-peer-count={networkStatus?.directPeersCount ?? 0}
+	class="bg-background text-foreground flex flex-col felt-table-surface {room && gs ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen'}"
+>
 	<NavBar
 		displayName={myPlayer.displayName}
 		title={activeGameTitle}

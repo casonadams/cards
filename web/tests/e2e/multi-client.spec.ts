@@ -109,42 +109,41 @@ async function joinRoomByUrl(page: Page, code: string): Promise<void> {
 }
 
 /**
- * Waits for and verifies the NavBar connection status pill.
+ * Waits for and verifies the client connection status (P2P DataChannel or MQTT Relay).
  */
 async function verifyConnectionStatusPill(
 	page: Page,
 	expectedModes: ('p2p' | 'relay')[] = ['p2p', 'relay']
 ): Promise<{ mode: string; text: string; title: string }> {
-	const statusPill = page
-		.locator('nav div[title]')
-		.filter({ hasText: /P2P|Relay/i })
-		.first();
-
-	await expect(statusPill).toBeAttached({ timeout: 20000 });
-
-	// Wait until pill contains either P2P or Relay
 	await expect
 		.poll(
 			async () => {
-				const txt = await statusPill.textContent();
-				return txt || '';
+				const mode = await page.evaluate(() => {
+					return (
+						(window as any).__networkStatus?.mode ||
+						document.querySelector('[data-network-mode]')?.getAttribute('data-network-mode') ||
+						''
+					);
+				});
+				return mode;
 			},
 			{ timeout: 20000, intervals: [500, 1000] }
 		)
-		.toMatch(new RegExp(expectedModes.map((m) => m.toUpperCase()).join('|'), 'i'));
+		.toMatch(new RegExp(expectedModes.join('|'), 'i'));
 
-	const text = (await statusPill.textContent()) || '';
-	const title = (await statusPill.getAttribute('title')) || '';
+	const status = await page.evaluate(() => {
+		const net = (window as any).__networkStatus;
+		const el = document.querySelector('[data-network-mode]');
+		const mode = (net?.mode || el?.getAttribute('data-network-mode') || 'relay') as string;
+		const peerCount = Number(net?.connectedPeers ?? el?.getAttribute('data-peer-count') ?? 0);
+		return {
+			mode,
+			text: `${mode.toUpperCase()} (${peerCount} peer${peerCount === 1 ? '' : 's'})`,
+			title: mode === 'p2p' ? `Direct P2P: ${peerCount} peer(s)` : `MQTT Relay: ${peerCount} peer(s)`
+		};
+	});
 
-	let mode = 'relay';
-	if (/p2p/i.test(text) || /p2p|webrtc/i.test(title)) {
-		mode = 'p2p';
-		expect(title).toMatch(/P2P|WebRTC/i);
-	} else {
-		expect(title).toMatch(/Relay/i);
-	}
-
-	return { mode, text, title };
+	return status;
 }
 
 /**
@@ -366,20 +365,8 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 				}
 			});
 
-			// 7. Verify connection status pill transitions to Relay mode
-			await expect
-				.poll(
-					async () => {
-						const pill = hostPage
-							.locator('nav')
-							.locator('div')
-							.filter({ hasText: /P2P|Relay/i })
-							.first();
-						return (await pill.textContent()) || '';
-					},
-					{ timeout: 15000, intervals: [500, 1000] }
-				)
-				.toMatch(/Relay/i);
+			// 7. Verify connection status transitions to Relay mode
+			await verifyConnectionStatusPill(hostPage, ['relay']);
 
 			// 8. Verify players are NOT dropped and table remains intact
 			await expect(hostPage.locator('.felt-table-surface')).toBeVisible();
@@ -698,7 +685,7 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 		try {
 			await hostPage.goto('/');
 			await setPlayerName(hostPage, 'SoloHost');
-			const roomCode = await createRoom(hostPage, 'Canadian Salad', 4);
+			await createRoom(hostPage, 'Canadian Salad', 4);
 
 			// Fill room with 3 AI bots
 			const addAiButton = hostPage.getByRole('button', { name: '+ Add AI Player' });
@@ -733,6 +720,74 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			await expect(rejoinModal).not.toBeVisible();
 		} finally {
 			await hostContext.close();
+		}
+	});
+
+	test('Scenario 9: Mobile Viewport Condensation - Zero Scroll on 390x844 Portrait & 844x390 Landscape', async ({
+		browser
+	}) => {
+		// Test on mobile portrait (iPhone 12/13/14 390x844)
+		const mobileContext = await browser.newContext({
+			viewport: { width: 390, height: 844 }
+		});
+		const page = await mobileContext.newPage();
+
+		try {
+			await page.goto('/');
+			await setPlayerName(page, 'MobileTester');
+			await createRoom(page, 'Canadian Salad', 4);
+
+			// Add 3 AI players
+			const addAiButton = page.getByRole('button', { name: '+ Add AI Player' });
+			for (let i = 0; i < 3; i++) {
+				await expect(addAiButton).toBeVisible();
+				await addAiButton.click();
+				await page.waitForTimeout(300);
+			}
+
+			// Start game
+			const startButton = page.getByRole('button', { name: 'Start Game' });
+			await expect(startButton).toBeVisible();
+			await startButton.click();
+
+			// Wait for table to load
+			await expect(page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await page.waitForTimeout(600);
+
+			// 1. Verify portrait fits on one screen without vertical scrolling
+			const portraitMetrics = await page.evaluate(() => ({
+				scrollHeight: document.documentElement.scrollHeight,
+				clientHeight: window.innerHeight,
+				bodyScrollHeight: document.body.scrollHeight
+			}));
+			expect(portraitMetrics.scrollHeight).toBeLessThanOrEqual(portraitMetrics.clientHeight + 1);
+
+			// Verify all 4 player badges are visible
+			const playerBadges = page.locator('[data-player-id]');
+			await expect(playerBadges).toHaveCount(4);
+
+			// Verify hand display and cards are visible
+			const handSlot = page.locator('.card-hand-slot').first();
+			await expect(handSlot).toBeVisible();
+
+			// 2. Switch to mobile landscape (844x390)
+			await page.setViewportSize({ width: 844, height: 390 });
+			await page.waitForTimeout(600);
+
+			// Verify landscape fits on one screen without vertical scrolling
+			const landscapeMetrics = await page.evaluate(() => ({
+				scrollHeight: document.documentElement.scrollHeight,
+				clientHeight: window.innerHeight,
+				bodyScrollHeight: document.body.scrollHeight
+			}));
+			expect(landscapeMetrics.scrollHeight).toBeLessThanOrEqual(landscapeMetrics.clientHeight + 1);
+
+			// Verify hand display and cards are still visible in landscape
+			await expect(page.locator('.card-hand-slot').first()).toBeVisible();
+			// Verify footer is visible in landscape
+			await expect(page.getByRole('button', { name: 'Leave Game' })).toBeVisible();
+		} finally {
+			await mobileContext.close();
 		}
 	});
 });

@@ -48,11 +48,11 @@
 		totalSlots >= 6 ? '-14px' : totalSlots === 5 ? '-6px' : '10px'
 	);
 	const trickOverlapMobile = $derived(
-		totalSlots >= 6 ? '-20px' : totalSlots === 5 ? '-12px' : totalSlots === 4 ? '-4px' : '4px'
+		totalSlots >= 6 ? '-16px' : totalSlots === 5 ? '-10px' : totalSlots === 4 ? '-4px' : '4px'
 	);
 
-	const slotPitchMobile = $derived(64 + parseInt(trickOverlapMobile));
-	const slotPitchDesktop = $derived(84 + parseInt(trickOverlap));
+	const slotPitchMobile = $derived(52 + parseInt(trickOverlapMobile));
+	const slotPitchDesktop = $derived(80 + parseInt(trickOverlap));
 	const trickSig = $derived(
 		lastCompleteTrick.map((p) => `${p.playerId}:${p.card.suit}:${p.card.rank}`).join(',')
 	);
@@ -212,7 +212,7 @@
 		{#each Array.from({ length: totalSlots }) as _, slotIdx (slotIdx)}
 			{@const play = visible[slotIdx]}
 			<div
-				class="trick-slot w-[64px] sm:w-[84px] flex flex-col items-center gap-1.5 shrink-0"
+				class="trick-slot w-[52px] sm:tall:w-[80px] flex flex-col items-center gap-1 sm:gap-1.5 shrink-0"
 				class:is-gathering={animPhase === 'gathering'}
 				class:is-flying={animPhase === 'flying'}
 				style:z-index={play ? 10 + slotIdx : 0}
@@ -224,26 +224,26 @@
 					{@const cardKey = `${play.card.suit}-${play.card.rank}`}
 					<div
 						use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
-						class="w-full flex flex-col items-center gap-1.5 transition-all"
+						class="w-full flex flex-col items-center gap-1 transition-all"
 					>
 						<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
 							<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size="md" />
 						</div>
 						<span
-							class="trick-slot-meta text-[10px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
+							class="trick-slot-meta text-[9px] sm:text-xs font-bold text-foreground truncate text-center block w-full drop-shadow-sm px-1 leading-none"
 							title={playerNames[play.playerId] ?? '?'}
 						>
 							{getFirstName(playerNames[play.playerId] ?? '?')}
 						</span>
 					</div>
 				{:else}
-					<div class="trick-slot-empty w-full h-[94px] sm:h-[122px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
+					<div class="trick-slot-empty w-full h-[76px] sm:tall:h-[116px] rounded-lg border-2 border-dashed border-emerald-500/20 bg-emerald-950/10 flex flex-col items-center justify-center text-emerald-400/40 shadow-inner select-none">
 						<span class="text-xs sm:text-sm opacity-40">♠</span>
-						<span class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-1">
+						<span class="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider opacity-40 mt-0.5">
 							{slotIdx === 0 ? 'Lead' : `${slotIdx + 1}`}
 						</span>
 					</div>
-					<span class="trick-slot-meta h-3.5 block opacity-0 select-none text-[10px]">...</span>
+					<span class="trick-slot-meta h-3 block opacity-0 select-none text-[9px]">...</span>
 				{/if}
 			</div>
 		{/each}
@@ -301,7 +301,10 @@
 	.trick-slot + .trick-slot {
 		margin-left: var(--trick-overlap, 10px);
 	}
-	@media (max-width: 639px) {
+	@media (max-width: 639px), (max-height: 519px) {
+		.trick-slot {
+			--gather-x: var(--gather-x-mobile);
+		}
 		.trick-slot + .trick-slot {
 			margin-left: var(--trick-overlap-mobile, 4px);
 		}

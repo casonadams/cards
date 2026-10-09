@@ -278,10 +278,10 @@
 		{/if}
 	</div>
 
-	<!-- Bottom Player Hand Container with anchored absolute Your Turn banner -->
-	<div class="-mx-1.5 sm:tall:-mx-4 w-[calc(100%+0.75rem)] sm:tall:w-[calc(100%+2rem)] border-t border-border/70 bg-card/40 backdrop-blur-md shrink-0 overflow-visible relative h-[90px] sm:tall:h-[130px] flex flex-col justify-end">
+	<!-- Bottom Player Hand Container (Full-Width Card Dock) with anchored absolute Your Turn banner -->
+	<div class="-mx-1.5 sm:tall:-mx-4 w-[calc(100%+0.75rem)] sm:tall:w-[calc(100%+2rem)] border-t border-emerald-500/25 bg-card/50 backdrop-blur-md shadow-[0_-4px_16px_rgba(0,0,0,0.3)] shrink-0 overflow-visible relative h-[88px] sm:tall:h-[130px] flex flex-col justify-end">
 		{#if isMyTurn && !showBidding && !isRoundComplete}
-			<div class="absolute -top-7 sm:tall:-top-9 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
+			<div class="absolute -top-6 sm:tall:-top-8 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
 				<div class="inline-flex items-center gap-1.5 px-3 sm:tall:px-4 py-0.5 sm:tall:py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.5)] backdrop-blur-md animate-pulse whitespace-nowrap">
 					<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm"></span>
 					<span class="font-black text-[10px] sm:tall:text-xs tracking-wider uppercase">Your Turn — Play a Card</span>

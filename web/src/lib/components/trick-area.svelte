@@ -190,11 +190,11 @@
 
 <div
 	bind:this={containerEl}
-	class="relative w-full max-w-3xl mx-auto rounded-[2.5rem] border-2 border-emerald-500/25 bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center h-[200px] sm:h-[230px] shrink-0 p-3 sm:p-4 overflow-visible"
+	class="relative w-full max-w-3xl mx-auto flex flex-col items-center justify-center flex-1 min-h-0 sm:tall:h-[220px] p-1 sm:tall:p-4 rounded-2xl sm:tall:rounded-[2.5rem] border-0 sm:tall:border-2 sm:tall:border-emerald-500/25 sm:tall:bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] sm:tall:shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] overflow-visible"
 	style:--target-x={`${targetX}px`}
 	style:--target-y={`${targetY}px`}
 >
-	<div class="absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
+	<div class="hidden sm:tall:block absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
 	{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
 		{@const isUserWinner = Boolean(myId && winnerId === myId)}
 		<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">

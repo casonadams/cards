@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant tall (@media (min-height: 520px));
 
 @theme {
 	--color-border: hsl(220 20% 18%);

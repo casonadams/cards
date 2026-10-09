@@ -37,15 +37,15 @@ export const rookTextColors = {
 };
 
 export const sizes = {
-	sm: 'w-[54px] h-[78px] sm:w-[68px] sm:h-[98px]',
-	md: 'w-[64px] h-[94px] sm:w-[84px] sm:h-[122px]'
+	sm: 'w-[44px] h-[64px] sm:tall:w-[64px] sm:tall:h-[92px]',
+	md: 'w-[52px] h-[76px] sm:tall:w-[80px] sm:tall:h-[116px]'
 };
-export const cornerSizes = { sm: 'text-xs sm:text-sm', md: 'text-sm sm:text-base' };
-export const centerSuitSizes = { sm: 'text-2xl sm:text-3xl', md: 'text-3xl sm:text-4xl' };
-export const faceLetterSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
-export const numberSizes = { sm: 'text-2xl sm:text-3xl', md: 'text-3xl sm:text-4xl' };
-export const aceSuitSizes = { sm: 'text-4xl sm:text-5xl', md: 'text-5xl sm:text-6xl' };
-export const rookValueSizes = { sm: 'text-3xl sm:text-4xl', md: 'text-4xl sm:text-5xl' };
+export const cornerSizes = { sm: 'text-[10px] sm:tall:text-xs', md: 'text-xs sm:tall:text-base' };
+export const centerSuitSizes = { sm: 'text-xl sm:tall:text-2xl', md: 'text-2xl sm:tall:text-4xl' };
+export const faceLetterSizes = { sm: 'text-2xl sm:tall:text-3xl', md: 'text-3xl sm:tall:text-5xl' };
+export const numberSizes = { sm: 'text-xl sm:tall:text-2xl', md: 'text-2xl sm:tall:text-4xl' };
+export const aceSuitSizes = { sm: 'text-3xl sm:tall:text-4xl', md: 'text-4xl sm:tall:text-6xl' };
+export const rookValueSizes = { sm: 'text-2xl sm:tall:text-3xl', md: 'text-3xl sm:tall:text-5xl' };
 const ROOK_NUMBER_POINTS: Record<number, number> = { 1: 15, 14: 10, 10: 10, 5: 5 };
 
 export function getRookCardPoints(rook: RookCard): number {

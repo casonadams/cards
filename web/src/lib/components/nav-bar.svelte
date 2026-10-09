@@ -4,6 +4,7 @@
 	import type { Card } from '$lib/platform/types/index';
 	import { RANK_NAMES } from '$lib/platform/types/card';
 	import type { RookUiState } from '$lib/games/rook/ui-state';
+	import type { NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 
 	interface Props {
 		displayName: string;
@@ -19,6 +20,7 @@
 		trumpCard?: Card | null;
 		handType?: string;
 		rookUi?: RookUiState | null;
+		networkStatus?: NetworkStatusInfo | null;
 	}
 
 	let {
@@ -34,7 +36,8 @@
 		trumpSuit = null,
 		trumpCard = null,
 		handType = '',
-		rookUi = null
+		rookUi = null,
+		networkStatus = null
 	}: Props = $props();
 
 	const suitSymbols: Record<string, string> = {
@@ -93,7 +96,7 @@
 	}
 </script>
 
-<nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-3 sm:px-6 py-2 flex justify-between items-center sticky top-0 z-40 gap-2">
+<nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-2.5 sm:px-6 py-1 sm:py-2 flex justify-between items-center sticky top-0 z-40 gap-2 shrink-0">
 	<div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
 		<span class="text-sm sm:text-base font-black tracking-tight inline-flex items-center gap-1 leading-none">
 			<span class="text-emerald-400 text-base sm:text-lg leading-none">♠</span>
@@ -148,7 +151,7 @@
 			</div>
 		{/if}
 	</div>
-	<div class="flex items-center gap-3">
+	<div class="flex items-center gap-2 sm:gap-3">
 		{#if editing}
 			<div class="flex items-center gap-1.5 bg-background border border-emerald-500/70 rounded-full px-2.5 py-1 shadow-sm">
 				<input

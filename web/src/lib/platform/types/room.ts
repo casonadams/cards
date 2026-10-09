@@ -6,6 +6,8 @@ export interface GameRoom {
 	readonly id: string;
 	readonly code: string;
 	readonly hostId: string;
+	readonly tempHostId?: string;
+	readonly hostDisconnectedAt?: number;
 	readonly gameDefinitionId: string;
 	readonly maxPlayers: number;
 	readonly players: readonly RoomPlayer[];

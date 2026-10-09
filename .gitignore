@@ -5,3 +5,6 @@ target/lcov.info
 .DS_Store
 *.wasm
 .cccc.cache
+.agents/
+playwright-report/
+test-results/

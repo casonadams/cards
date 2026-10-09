@@ -15,4 +15,6 @@ export interface RoomPlayer extends Player {
 	readonly isHost: boolean;
 	readonly isConnected: boolean;
 	readonly lastSeen: number;
+	readonly isAiControlled?: boolean;
 }
+

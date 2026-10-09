@@ -32,11 +32,14 @@
 			: sortHand(cards, trumpSuit as Suit | null | undefined)
 	);
 	let containerWidth = $state(0);
+	let windowHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 800);
 
-	const isMobile = $derived(containerWidth > 0 && containerWidth < 640);
-	const cardWidth = $derived(isMobile ? 64 : 84);
-	const horizontalPad = $derived(isMobile ? 16 : 32);
-	const normalGap = $derived(isMobile ? 6 : 10);
+	const isMobile = $derived(
+		(containerWidth > 0 && containerWidth < 640) || (windowHeight > 0 && windowHeight < 520)
+	);
+	const cardWidth = $derived(isMobile ? 52 : 80);
+	const horizontalPad = $derived(isMobile ? 12 : 32);
+	const normalGap = $derived(isMobile ? 4 : 10);
 
 	const overlapCalc = $derived.by(() => {
 		const count = sorted.length;
@@ -51,7 +54,7 @@
 		}
 
 		const step = (availWidth - cardWidth) / (count - 1);
-		const minStep = isMobile ? 18 : 26;
+		const minStep = isMobile ? 16 : 26;
 		const clampedStep = Math.max(minStep, step);
 		const computedOverlap = Math.round(clampedStep - cardWidth);
 
@@ -76,12 +79,14 @@
 	}
 </script>
 
+<svelte:window bind:innerHeight={windowHeight} />
+
 <div
 	bind:clientWidth={containerWidth}
-	class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll h-[130px] sm:h-[160px] flex items-end shrink-0"
+	class="w-full max-w-5xl mx-auto overflow-x-auto sm:overflow-visible card-fan-scroll h-[90px] sm:tall:h-[130px] flex items-end shrink-0"
 >
 	<div
-		class="inline-flex min-w-full items-end pt-7 pb-2 h-full"
+		class="inline-flex min-w-full items-end pt-2 sm:tall:pt-5 pb-1 h-full"
 		class:justify-center={overlapCalc.isCentered}
 		class:justify-start={!overlapCalc.isCentered}
 		style:padding-left={`${Math.round(horizontalPad / 2)}px`}
@@ -89,7 +94,7 @@
 		style:--card-overlap={`${overlapCalc.overlap}px`}
 	>
 		{#if sorted.length === 0}
-			<div class="flex items-center justify-center w-full h-[94px] sm:h-[122px] select-none">
+			<div class="flex items-center justify-center w-full h-[76px] sm:tall:h-[116px] select-none">
 				<span class="text-xs text-muted-foreground/40 font-medium">All cards played</span>
 			</div>
 		{:else}
@@ -118,10 +123,10 @@
 
 <style>
 	.card-hand-slot + .card-hand-slot {
-		margin-left: var(--card-overlap, -28px);
+		margin-left: var(--card-overlap, -24px);
 	}
 	.card-hand-slot.is-playable:hover,
 	.card-hand-slot.is-playable:focus-within {
-		transform: translateY(-18px);
+		transform: translateY(-10px);
 	}
 </style>

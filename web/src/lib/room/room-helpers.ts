@@ -1,15 +1,24 @@
 import { isAiPlayer, createAiPlayerId, getAiDisplayName } from '$lib/platform/engine/index';
-import type { GameRuntime, GameRoom } from '$lib/platform/types/index';
+import type { GameRuntime, GameRoom, Card } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
 import type { RoomPlayer } from '$lib/platform/types/index';
 import type { DerivedGameState } from '$lib/platform/stores/game-store';
 import type { RoundScore } from '$lib/platform/stores/room-store';
 import type { GameRoomRepository } from '$lib/platform/ports/game-room-repository';
 
-export function getAiCurrentId(playerIds: readonly string[], gs: DerivedGameState): string | null {
+export function getAiCurrentId(
+	playerIds: readonly string[],
+	gs: DerivedGameState,
+	room?: GameRoom | null
+): string | null {
 	const id = playerIds[gs.currentTurnIndex];
-	if (!id || !isAiPlayer(id)) return null;
-	return id;
+	if (!id) return null;
+	if (isAiPlayer(id)) return id;
+	const player = room?.players?.find((p) => p.id === id);
+	if (player && player.isAiControlled && !player.isConnected) {
+		return id;
+	}
+	return null;
 }
 
 export interface AiMoveInput {
@@ -30,6 +39,32 @@ export function buildAiMove(input: AiMoveInput) {
 		dealerIndex: input.doc.dealerIndex,
 		gameSpecific: input.doc.gameSpecific
 	});
+}
+
+export async function executeSingleSkipTurn(params: {
+	runtime: GameRuntime;
+	doc: GameDocument;
+	playerIds: readonly string[];
+	currentId: string;
+	actions: {
+		playCard: (args: { gameDoc: GameDocument; playerId: string; card: Card }) => Promise<unknown>;
+	};
+}): Promise<boolean> {
+	const m = buildAiMove({
+		runtime: params.runtime,
+		doc: params.doc,
+		playerIds: params.playerIds,
+		currentId: params.currentId
+	});
+	if (m && m.card) {
+		await params.actions.playCard({
+			gameDoc: params.doc,
+			playerId: m.playerId,
+			card: m.card
+		});
+		return true;
+	}
+	return false;
 }
 
 export interface RoundResultInput {
@@ -126,7 +161,10 @@ export function buildPlayerNames(players: readonly RoomPlayer[]): Record<string,
 }
 
 export function needsGameSync(room: GameRoom | null, isDominion: boolean): boolean {
-	return room?.phase === 'playing' && !isDominion;
+	return (
+		(room?.phase === 'playing' || room?.phase === 'roundScoring' || room?.phase === 'paused') &&
+		!isDominion
+	);
 }
 
 interface AddAiParams {
@@ -140,3 +178,42 @@ export async function addAiToRoom(p: AddAiParams): Promise<void> {
 	const np = [...p.room.players, makeAiPlayer(p.aiIndex)];
 	await p.roomRepo.update(p.roomId, { players: np, playerIds: np.map((pl) => pl.id) });
 }
+
+export function shouldDestroyRoomOnHostLeave(
+	room: { players: readonly RoomPlayer[]; hostId?: string; tempHostId?: string } | null,
+	leavingPlayerId: string,
+	isHostOrActing: boolean
+): boolean {
+	if (!room || !isHostOrActing) return false;
+	const isMeHost = room.hostId === leavingPlayerId || room.tempHostId === leavingPlayerId || isHostOrActing;
+	if (!isMeHost) return false;
+	const hasOtherConnectedHumans = room.players.some(
+		(p) => p.id !== leavingPlayerId && p.isConnected && !isAiPlayer(p.id)
+	);
+	return !hasOtherConnectedHumans;
+}
+
+export function shouldPruneActiveSession(
+	room: GameRoom | null,
+	myPlayerId: string,
+	sessionHostId?: string
+): boolean {
+	if (room && (room.phase === 'gameOver' || (room.players && room.players.length === 0))) {
+		return true;
+	}
+
+	const isMeHost = room
+		? room.hostId === myPlayerId || room.tempHostId === myPlayerId
+		: sessionHostId === myPlayerId;
+
+	if (isMeHost) {
+		if (!room) return true;
+		const hasOtherConnectedHumans = room.players.some(
+			(p) => p.id !== myPlayerId && p.isConnected && !isAiPlayer(p.id)
+		);
+		if (!hasOtherConnectedHumans) return true;
+	}
+
+	return false;
+}
+

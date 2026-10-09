@@ -12,8 +12,12 @@ export default defineConfig({
     }
   },
   server: {
+    allowedHosts: true,
     fs: {
       allow: ['..']
     }
+  },
+  preview: {
+    allowedHosts: true
   }
 });

@@ -1,5 +1,5 @@
 import type { GameDocument } from '$lib/platform/engine/index';
-import type { GameRuntime } from '$lib/platform/types/index';
+import type { GameRuntime, GameRoom } from '$lib/platform/types/index';
 import type { DerivedGameState } from '$lib/platform/stores/game-store';
 import type { RoomActions } from '$lib/platform/stores/room-store';
 import { getAiCurrentId, getAiDelay, buildAiMove, shouldRunAi } from './room-helpers';
@@ -18,6 +18,8 @@ export interface AiEffectDeps {
 	readonly playerIds: readonly string[];
 	readonly runtime: GameRuntime | null;
 	readonly actions: RoomActions;
+	readonly room?: GameRoom | null;
+	readonly getRoom?: () => GameRoom | null | undefined;
 }
 
 interface TrickTakingDeps extends AiEffectDeps {
@@ -32,11 +34,15 @@ function shouldSkipTrickTaking(deps: TrickTakingDeps): boolean {
 
 export function setupTrickTakingAi(deps: TrickTakingDeps): (() => void) | undefined {
 	if (shouldSkipTrickTaking(deps)) return undefined;
-	const id = getAiCurrentId(deps.playerIds, deps.gs!);
+	const id = getAiCurrentId(deps.playerIds, deps.gs!, deps.room);
 	if (!id) return undefined;
 	const doc = deps.gameDoc!;
 	const delay = getAiDelay(deps.gs!);
 	const t = setTimeout(async () => {
+		const currentRoom = deps.getRoom ? deps.getRoom() : deps.room;
+		const currentAiId = getAiCurrentId(deps.playerIds, deps.gs!, currentRoom);
+		if (currentAiId !== id) return;
+
 		const m = buildAiMove({
 			runtime: deps.runtime!,
 			doc,
@@ -51,10 +57,13 @@ export function setupTrickTakingAi(deps: TrickTakingDeps): (() => void) | undefi
 const OH_WELL_BID_DELAY = 800;
 
 export function setupOhWellAiBid(deps: AiEffectDeps): (() => void) | undefined {
-	if (!shouldRunOhWellAiBid({ isHost: deps.isHost, doc: deps.gameDoc, gs: deps.gs }))
+	if (!shouldRunOhWellAiBid({ isHost: deps.isHost, doc: deps.gameDoc, gs: deps.gs, room: deps.room }))
 		return undefined;
 	const doc = deps.gameDoc!;
 	const t = setTimeout(async () => {
+		const currentRoom = deps.getRoom ? deps.getRoom() : deps.room;
+		if (!shouldRunOhWellAiBid({ isHost: deps.isHost, doc, gs: deps.gs, room: currentRoom }))
+			return;
 		const bidderId = getCurrentOhWellBidderId(doc);
 		if (!bidderId) return;
 		const bid = computeOhWellAiBid(doc);

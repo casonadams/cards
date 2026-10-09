@@ -15,6 +15,7 @@
 		playerNames: Record<string, string>;
 		playerIds: readonly string[];
 		otherPlayers: readonly RoomPlayer[];
+		allPlayers?: readonly RoomPlayer[];
 		isHost: boolean;
 		myId: string;
 		allRounds: readonly RoundScore[];
@@ -36,6 +37,7 @@
 		playerNames,
 		playerIds,
 		otherPlayers,
+		allPlayers = otherPlayers,
 		isHost,
 		myId,
 		allRounds,
@@ -76,6 +78,7 @@
 	lastTrickWinnerId={gs.lastTrickWinnerId}
 	{playerNames}
 	{otherPlayers}
+	{allPlayers}
 	currentTurnIndex={gs.currentTurnIndex}
 	{playerIds}
 	allPlayerStats={gs.allPlayerStats}

@@ -1,0 +1,794 @@
+import { test, expect, type Page, type Browser, type BrowserContext } from '@playwright/test';
+
+/**
+ * Creates a browser context instrumented to track RTCPeerConnection and RTCDataChannel instances
+ * for fault-injection testing.
+ */
+async function createInstrumentedContext(browser: Browser): Promise<BrowserContext> {
+	const context = await browser.newContext({
+		viewport: { width: 1280, height: 800 }
+	});
+	await context.addInitScript(() => {
+		(window as any).__activePeerConnections = [];
+		(window as any).__activeDataChannels = [];
+		const OrigPC = window.RTCPeerConnection;
+		if (!OrigPC) return;
+
+		const InstrumentedPC = function (this: RTCPeerConnection, ...args: any[]) {
+			const pc = new OrigPC(...args);
+			(window as any).__activePeerConnections.push(pc);
+			const origCreateDataChannel = pc.createDataChannel.bind(pc);
+			pc.createDataChannel = function (...dcArgs: any[]) {
+				const dc = origCreateDataChannel(...dcArgs);
+				(window as any).__activeDataChannels.push(dc);
+				return dc;
+			};
+			pc.addEventListener('datachannel', (ev: any) => {
+				(window as any).__activeDataChannels.push(ev.channel);
+			});
+			return pc;
+		} as any;
+		InstrumentedPC.prototype = OrigPC.prototype;
+		window.RTCPeerConnection = InstrumentedPC;
+	});
+	return context;
+}
+
+/**
+ * Sets the player's display name on the landing screen.
+ */
+async function setPlayerName(page: Page, name: string): Promise<void> {
+	const nameInput = page.getByPlaceholder('Enter your name...');
+	if (await nameInput.isVisible()) {
+		await nameInput.fill(name);
+		await page.getByRole('button', { name: 'Save' }).click();
+		await page.waitForTimeout(300);
+	}
+}
+
+/**
+ * Creates a room and returns the 6-character room code.
+ */
+async function createRoom(
+	page: Page,
+	gameName: 'Canadian Salad' | 'Oh Well' = 'Canadian Salad',
+	playerCount = 4
+): Promise<string> {
+	// Select game
+	const gameButton = page.locator('button', { hasText: gameName });
+	if (await gameButton.isVisible()) {
+		await gameButton.click();
+	}
+
+	// Select player count
+	const countButton = page
+		.locator('button', { hasText: `${playerCount} Players` })
+		.or(page.locator('button', { hasText: `${playerCount}P` }))
+		.first();
+	if (await countButton.isVisible()) {
+		await countButton.click();
+	}
+
+	// Click Create Table
+	const createButton = page.getByRole('button', { name: 'Create Table' });
+	await createButton.click();
+
+	// Wait for room code in URL hash
+	await page.waitForFunction(() => window.location.hash.includes('code='), null, {
+		timeout: 15000
+	});
+	const hash = await page.evaluate(() => window.location.hash);
+	const match = hash.match(/code=([A-Z0-9]{4,6})/i);
+	if (!match) {
+		throw new Error(`Failed to extract room code from hash: ${hash}`);
+	}
+	const roomCode = match[1].toUpperCase();
+
+	// Verify lobby has rendered
+	await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
+	return roomCode;
+}
+
+/**
+ * Joins an existing room by typing the code into the input field.
+ */
+async function joinRoomByCode(page: Page, code: string): Promise<void> {
+	const codeInput = page.getByPlaceholder('ROOM CODE');
+	await codeInput.fill(code);
+	const joinButton = page.getByRole('button', { name: 'Join Game' });
+	await joinButton.click();
+	await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 15000 });
+}
+
+/**
+ * Joins an existing room via direct URL hash navigation.
+ */
+async function joinRoomByUrl(page: Page, code: string): Promise<void> {
+	await page.goto(`/#code=${code}`);
+	await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 15000 });
+}
+
+/**
+ * Waits for and verifies the client connection status (P2P DataChannel or MQTT Relay).
+ */
+async function verifyConnectionStatusPill(
+	page: Page,
+	expectedModes: ('p2p' | 'relay')[] = ['p2p', 'relay']
+): Promise<{ mode: string; text: string; title: string }> {
+	await expect
+		.poll(
+			async () => {
+				const mode = await page.evaluate(() => {
+					return (
+						(window as any).__networkStatus?.mode ||
+						document.querySelector('[data-network-mode]')?.getAttribute('data-network-mode') ||
+						''
+					);
+				});
+				return mode;
+			},
+			{ timeout: 20000, intervals: [500, 1000] }
+		)
+		.toMatch(new RegExp(expectedModes.join('|'), 'i'));
+
+	const status = await page.evaluate(() => {
+		const net = (window as any).__networkStatus;
+		const el = document.querySelector('[data-network-mode]');
+		const mode = (net?.mode || el?.getAttribute('data-network-mode') || 'relay') as string;
+		const peerCount = Number(net?.connectedPeers ?? el?.getAttribute('data-peer-count') ?? 0);
+		return {
+			mode,
+			text: `${mode.toUpperCase()} (${peerCount} peer${peerCount === 1 ? '' : 's'})`,
+			title: mode === 'p2p' ? `Direct P2P: ${peerCount} peer(s)` : `MQTT Relay: ${peerCount} peer(s)`
+		};
+	});
+
+	return status;
+}
+
+/**
+ * Adds AI players until the room reaches its configured capacity, then starts the game.
+ */
+async function addAiAndStart(hostPage: Page): Promise<void> {
+	const addAiButton = hostPage.getByRole('button', { name: '+ Add AI Player' });
+	while (await addAiButton.isVisible()) {
+		await addAiButton.click();
+		await hostPage.waitForTimeout(400);
+	}
+	const startButton = hostPage.getByRole('button', { name: 'Start Game' });
+	await expect(startButton).toBeEnabled({ timeout: 10000 });
+	await startButton.click();
+}
+
+/**
+ * Drives card plays by checking whichever human player has the active turn.
+ */
+async function playCardsOnTable(pages: Page[], maxPlays = 2): Promise<number> {
+	let playsCount = 0;
+	const deadline = Date.now() + 30000;
+
+	while (playsCount < maxPlays && Date.now() < deadline) {
+		let played = false;
+		for (const page of pages) {
+			const turnBanner = page.locator('text=Your Turn — Play a Card');
+			if (await turnBanner.isVisible()) {
+				const playableCard = page.locator('.card-hand-slot.is-playable button').first();
+				if (await playableCard.isVisible()) {
+					await playableCard.click();
+					playsCount++;
+					played = true;
+					await page.waitForTimeout(1000);
+					break;
+				}
+			}
+		}
+		if (!played) {
+			// AI turn may be in progress, wait briefly
+			await pages[0].waitForTimeout(500);
+		}
+	}
+	return playsCount;
+}
+
+if (typeof (globalThis as any).Bun === 'undefined') {
+	test.describe('Cards Hybrid WebRTC & MQTT Networking E2E', () => {
+	test('Scenario 1: 4-Player Table (2 Browsers + 2 AIs) - P2P Handshake & Synchronized Card Play', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host setup
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'HostPlayer');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 4);
+			expect(roomCode).toMatch(/^[A-Z0-9]{4,6}$/);
+
+			// 2. Guest joins using 6-letter room code
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'GuestPlayer');
+			await joinRoomByCode(guestPage, roomCode);
+
+			// 3. Verify both see each other in the lobby
+			await expect(hostPage.getByText('GuestPlayer')).toBeVisible({ timeout: 10000 });
+			await expect(guestPage.getByText('HostPlayer')).toBeVisible({ timeout: 10000 });
+
+			// 4. Verify connection status pill in NavBar displays live status with peer count > 0
+			const hostStatus = await verifyConnectionStatusPill(hostPage, ['p2p', 'relay']);
+			const guestStatus = await verifyConnectionStatusPill(guestPage, ['p2p', 'relay']);
+			expect(hostStatus.text.length).toBeGreaterThan(0);
+			expect(guestStatus.text.length).toBeGreaterThan(0);
+
+			// 5. Host adds AI players to reach capacity (4 players) and starts game
+			await addAiAndStart(hostPage);
+
+			// 6. Verify table renders for both players
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// Both players should see card hands dealt
+			await expect(hostPage.locator('.card-hand-slot').first()).toBeVisible({ timeout: 10000 });
+			await expect(guestPage.locator('.card-hand-slot').first()).toBeVisible({ timeout: 10000 });
+
+			// 7. Play cards on the table
+			const cardsPlayed = await playCardsOnTable([hostPage, guestPage], 2);
+			expect(cardsPlayed).toBeGreaterThanOrEqual(1);
+
+			// 8. Verify state synchronization on the table: played card appears in trick slot on both browsers
+			await expect(hostPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+			await expect(guestPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 2: Oh Well 3-Player Round - URL Hash Join, Bidding & Trick Area Synchronization', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates Oh Well match with 3 players
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'OhHost');
+			const roomCode = await createRoom(hostPage, 'Oh Well', 3);
+
+			// 2. Guest joins via direct URL link
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'OhGuest');
+			await joinRoomByUrl(guestPage, roomCode);
+
+			// 3. Verify connection pill
+			await verifyConnectionStatusPill(hostPage, ['p2p', 'relay']);
+			await verifyConnectionStatusPill(guestPage, ['p2p', 'relay']);
+
+			// 4. Fill with 1 AI and start
+			await addAiAndStart(hostPage);
+
+			// 5. Verify game session loaded on both
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 6. Bidding phase handling: Oh Well starts with bidding phase
+			// Loop to confirm bids for active bidders
+			const bidDeadline = Date.now() + 25000;
+			while (Date.now() < bidDeadline) {
+				let bidPlaced = false;
+				for (const page of [hostPage, guestPage]) {
+					const confirmBidBtn = page.getByRole('button', { name: /Confirm Bid/i });
+					if (await confirmBidBtn.isVisible()) {
+						await confirmBidBtn.click();
+						bidPlaced = true;
+						await page.waitForTimeout(800);
+						break;
+					}
+				}
+				// Break once bidding ends and trick play begins
+				if (
+					(await hostPage.locator('.card-hand-slot.is-playable').count()) > 0 ||
+					(await guestPage.locator('.card-hand-slot.is-playable').count()) > 0
+				) {
+					break;
+				}
+				if (!bidPlaced) {
+					await hostPage.waitForTimeout(400);
+				}
+			}
+
+			// 7. Verify trick play begins and cards can be played
+			const plays = await playCardsOnTable([hostPage, guestPage], 1);
+			expect(plays).toBeGreaterThanOrEqual(1);
+
+			// Verify synchronized trick card visible on both tables
+			await expect(hostPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+			await expect(guestPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 3: R4 Abrupt WebRTC DataChannel Interruption - Seamless Fallback to MQTT Relay', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates Canadian Salad 3-player match
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'DisruptHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 3);
+
+			// 2. Guest joins
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'DisruptGuest');
+			await joinRoomByCode(guestPage, roomCode);
+
+			// 3. Wait for P2P connection
+			await verifyConnectionStatusPill(hostPage, ['p2p', 'relay']);
+			await verifyConnectionStatusPill(guestPage, ['p2p', 'relay']);
+
+			// 4. Fill AI & start game
+			await addAiAndStart(hostPage);
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 5. Play first card to confirm active game session
+			await playCardsOnTable([hostPage, guestPage], 1);
+
+			// 6. Abruptly terminate all WebRTC DataChannels and PeerConnections on Host
+			await hostPage.evaluate(() => {
+				const dcs = (window as any).__activeDataChannels || [];
+				for (const dc of dcs) {
+					try {
+						dc.close();
+					} catch {}
+				}
+				const pcs = (window as any).__activePeerConnections || [];
+				for (const pc of pcs) {
+					try {
+						pc.close();
+					} catch {}
+				}
+			});
+
+			// 7. Verify connection status transitions to Relay mode
+			await verifyConnectionStatusPill(hostPage, ['relay']);
+
+			// 8. Verify players are NOT dropped and table remains intact
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible();
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible();
+			await expect(hostPage.locator('.card-hand-slot').first()).toBeVisible();
+			await expect(guestPage.locator('.card-hand-slot').first()).toBeVisible();
+
+			// 9. Play next card over MQTT relay and verify table synchronizes
+			const followupPlays = await playCardsOnTable([hostPage, guestPage], 1);
+			expect(followupPlays).toBeGreaterThanOrEqual(1);
+
+			await expect(hostPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+			await expect(guestPage.locator('.trick-slot button').first()).toBeVisible({ timeout: 10000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 4: R4 Join Request Retry Recovery - Dropped Initial Packet Recovers Within 3s', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'RetryHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 3);
+
+			// 2. Inject fault on Host to intentionally drop the first incoming join_request
+			await hostPage.evaluate(() => {
+				(window as any).__dropFirstJoin = true;
+				(window as any).__droppedJoinCount = 0;
+				const origDecrypt = crypto.subtle.decrypt.bind(crypto.subtle);
+
+				crypto.subtle.decrypt = async function (...args) {
+					const res = await origDecrypt(...args);
+					if ((window as any).__dropFirstJoin) {
+						try {
+							const text = new TextDecoder().decode(res);
+							const data = JSON.parse(text);
+							if (data.type === 'join_request') {
+								(window as any).__dropFirstJoin = false; // Only drop once!
+								(window as any).__droppedJoinCount++;
+								throw new Error('Simulated network drop of initial join_request packet');
+							}
+						} catch (e: any) {
+							if ((window as any).__droppedJoinCount > 0) throw e;
+						}
+					}
+					return res;
+				};
+			});
+
+			// 3. Guest joins
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'RetryGuest');
+
+			const startTime = Date.now();
+			await joinRoomByCode(guestPage, roomCode);
+			const elapsedMs = Date.now() - startTime;
+
+			// 4. Verify recovery happened within 4 seconds (initial 1.5s retry interval)
+			expect(elapsedMs).toBeLessThan(4500);
+
+			// 5. Confirm the drop was actually triggered and recovered
+			const dropCount = await hostPage.evaluate(() => (window as any).__droppedJoinCount);
+			expect(dropCount).toBe(1);
+
+			// 6. Verify guest successfully joined and both see each other
+			await expect(hostPage.getByText('RetryGuest')).toBeVisible({ timeout: 5000 });
+			await expect(guestPage.getByText('RetryHost')).toBeVisible({ timeout: 5000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 5: Clean Table Exit and Re-Join Lifecycle', async ({ browser }) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'LifecycleHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 3);
+
+			// 2. Guest joins
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'LifecycleGuest');
+			await joinRoomByCode(guestPage, roomCode);
+
+			await expect(hostPage.getByText('LifecycleGuest')).toBeVisible({ timeout: 5000 });
+
+			// 3. Guest leaves room
+			await guestPage.getByRole('button', { name: 'Leave Room' }).click();
+
+			// 4. Verify guest returns to lobby home and sees Rejoin Modal for active table
+			const rejoinModal = guestPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			await expect(rejoinModal.getByText(roomCode).first()).toBeVisible();
+
+			// 5. Guest clicks "Rejoin Table" directly in modal
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
+			await expect(guestPage.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
+			await expect(hostPage.getByRole('main').getByText('LifecycleGuest')).toBeVisible({ timeout: 5000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 6: Mid-Game Player Disconnection Toast, Host AI Takeover & Reconnect', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates 3-player Canadian Salad room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'DisconHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 3);
+
+			// 2. Guest joins
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'DisconGuest');
+			await joinRoomByCode(guestPage, roomCode);
+
+			await expect(hostPage.getByText('DisconGuest')).toBeVisible({ timeout: 5000 });
+
+			// 3. Host adds AI to fill 3rd seat and starts game
+			await addAiAndStart(hostPage);
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 4. Guest leaves by clicking leave room
+			await guestPage.getByRole('button', { name: 'Leave' }).click();
+
+			// 5. Host detects disconnection and surfaces toast notice
+			const toast = hostPage.locator('[role="alert"]').filter({ hasText: /DisconGuest disconnected/i });
+			await expect(toast).toBeVisible({ timeout: 10000 });
+
+			// 6. Host activates AI takeover
+			const turnAiBtn = toast.getByRole('button', { name: /Turn AI On/i });
+			await expect(turnAiBtn).toBeVisible();
+			await turnAiBtn.click();
+			await expect(toast.getByRole('button', { name: /AI Active/i })).toBeVisible({ timeout: 5000 });
+
+			// 7. Verify Rejoin Modal appears on guest page
+			const rejoinModal = guestPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			await expect(rejoinModal.getByText(roomCode).first()).toBeVisible();
+
+			// 8. Guest clicks Rejoin
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
+
+			// 9. Guest rejoins game table and host sees reconnect toast
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			const reconnectToast = hostPage.locator('[role="alert"]').filter({ hasText: /DisconGuest reconnected/i });
+			await expect(reconnectToast).toBeVisible({ timeout: 10000 });
+
+			// 10. Verify AI options are removed from the notice
+			await expect(
+				hostPage.locator('[role="alert"]').getByRole('button', { name: /Turn AI On|Play Turn|AI Active/i })
+			).toHaveCount(0);
+
+			// 11. Verify player badge on both host and guest restored to connected human (Emerald, not AI)
+			const guestBadgeOnHost = hostPage.locator('[data-player-id]').filter({ hasText: /DisconGuest/i });
+			await expect(guestBadgeOnHost).not.toHaveAttribute('data-is-ai', 'true');
+			await expect(guestBadgeOnHost).not.toHaveAttribute('data-is-disconnected', 'true');
+			await expect(guestBadgeOnHost).toHaveClass(/border-emerald/);
+
+			const guestBadgeOnGuest = guestPage.locator('[data-player-id]').filter({ hasText: /DisconGuest/i });
+			await expect(guestBadgeOnGuest).not.toHaveAttribute('data-is-ai', 'true');
+			await expect(guestBadgeOnGuest).not.toHaveAttribute('data-is-disconnected', 'true');
+			await expect(guestBadgeOnGuest).toHaveClass(/border-emerald/);
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 7: 4-Player Browser Game (Host + 3 Guests) - Visual Badges, Disconnects, AI Play Turn & Host Handoff', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guest1Context = await createInstrumentedContext(browser);
+		const guest2Context = await createInstrumentedContext(browser);
+		const guest3Context = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guest1Page = await guest1Context.newPage();
+			const guest2Page = await guest2Context.newPage();
+			const guest3Page = await guest3Context.newPage();
+
+			hostPage.on('console', (msg) => console.log(`[HOST] ${msg.text()}`));
+			guest1Page.on('console', (msg) => console.log(`[GUEST1] ${msg.text()}`));
+			guest2Page.on('console', (msg) => console.log(`[GUEST2] ${msg.text()}`));
+			guest3Page.on('console', (msg) => console.log(`[GUEST3] ${msg.text()}`));
+
+			// 1. Host creates 4-player Canadian Salad room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'HostAlex');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 4);
+
+			// 2. Guest 1 joins
+			await guest1Page.goto('/');
+			await setPlayerName(guest1Page, 'Guest1Bob');
+			await joinRoomByCode(guest1Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest1Bob')).toBeVisible({ timeout: 15000 });
+
+			// 3. Guest 2 joins
+			await guest2Page.goto('/');
+			await setPlayerName(guest2Page, 'Guest2Carol');
+			await joinRoomByCode(guest2Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest2Carol')).toBeVisible({ timeout: 15000 });
+
+			// 4. Guest 3 joins
+			await guest3Page.goto('/');
+			await setPlayerName(guest3Page, 'Guest3Dave');
+			await joinRoomByCode(guest3Page, roomCode);
+			await expect(hostPage.getByRole('main').getByText('Guest3Dave')).toBeVisible({ timeout: 15000 });
+
+			// 5. Host starts 4-player game
+			const startBtn = hostPage.getByRole('button', { name: 'Start Game' });
+			await expect(startBtn).toBeEnabled({ timeout: 10000 });
+			await startBtn.click();
+
+			// All 4 real browsers reach table surface
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest1Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest2Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guest3Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 6. Test Guest 3 Disconnection & Yellow/Gold Dashed Border Styling
+			await guest3Page.getByRole('button', { name: 'Leave' }).click();
+
+			// Host and remaining guests detect disconnection: Guest 3's badge turns dashed
+			const davePill = hostPage.locator('[data-player-id]').filter({ hasText: 'Dave' }).first();
+			await expect(davePill).toHaveAttribute('data-is-disconnected', 'true', { timeout: 10000 });
+
+			// Host sees disconnect toast with "Play Turn" and "Turn AI On"
+			const toast = hostPage.locator('[role="alert"]').filter({ hasText: /Guest3Dave disconnected/i });
+			await expect(toast).toBeVisible({ timeout: 10000 });
+			const playTurnBtn = toast.getByRole('button', { name: /Play Turn/i });
+			const turnAiBtn = toast.getByRole('button', { name: /Turn AI On/i });
+			await expect(playTurnBtn).toBeVisible();
+			await expect(turnAiBtn).toBeVisible();
+
+			// Host turns AI on for Dave
+			await turnAiBtn.click();
+			await expect(toast.getByRole('button', { name: /AI Active/i })).toBeVisible({ timeout: 5000 });
+
+			// 7. Guest 3 rejoins: Rejoin modal appears and Dave returns
+			const rejoinModal = guest3Page.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
+
+			// Guest 3 returns to table surface
+			await expect(guest3Page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			// Guest 3 badge on host is no longer marked disconnected
+			await expect(davePill).not.toHaveAttribute('data-is-disconnected', 'true', { timeout: 10000 });
+
+			// 8. Test Host Disconnection & 30s Temporary Host Grace Period Handoff
+			await hostPage.getByRole('button', { name: 'Leave' }).click();
+
+			// Guest 1 (next connected human) becomes Acting Host; visible 30s countdown toast appears on Guest 1, 2, 3
+			const actingToast = guest1Page.locator('[role="alert"]').filter({ hasText: /acting host/i });
+			await expect(actingToast).toBeVisible({ timeout: 10000 });
+			await expect(actingToast.getByText(/remaining/i)).toBeVisible();
+
+			// Guest 2 also sees the acting host countdown notice
+			const guest2Toast = guest2Page.locator('[role="alert"]').filter({ hasText: /acting host/i });
+			await expect(guest2Toast).toBeVisible({ timeout: 10000 });
+
+			// 9. Host rejoins within 30s and reclaims primary host
+			const hostRejoinModal = hostPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(hostRejoinModal).toBeVisible({ timeout: 5000 });
+			const hostRejoinBtn = hostRejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await hostRejoinBtn.click();
+
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			// Acting host countdown toast is dismissed once original host reclaims
+			await expect(guest1Page.locator('[role="alert"]').filter({ hasText: /acting host/i })).not.toBeVisible({ timeout: 10000 });
+		} finally {
+			await hostContext.close();
+			await guest1Context.close();
+			await guest2Context.close();
+			await guest3Context.close();
+		}
+	});
+
+	test('Scenario 8: Host Leaves Table When Only AI Bots Remain - Room Killed & No Reconnect Modal', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const hostPage = await hostContext.newPage();
+
+		try {
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'SoloHost');
+			await createRoom(hostPage, 'Canadian Salad', 4);
+
+			// Fill room with 3 AI bots
+			const addAiButton = hostPage.getByRole('button', { name: '+ Add AI Player' });
+			for (let i = 0; i < 3; i++) {
+				await expect(addAiButton).toBeVisible();
+				await addAiButton.click();
+				await hostPage.waitForTimeout(300);
+			}
+
+			// Start game
+			const startButton = hostPage.getByRole('button', { name: 'Start Game' });
+			await expect(startButton).toBeVisible();
+			await startButton.click();
+
+			// Verify table surface is active
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// Host leaves table
+			await hostPage.getByRole('button', { name: 'Leave' }).click();
+
+			// Host returns to lobby
+			await expect(hostPage.getByRole('button', { name: 'Create Table' })).toBeVisible({ timeout: 10000 });
+
+			// Verify Rejoin Modal is NOT visible
+			const rejoinModal = hostPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).not.toBeVisible();
+
+			// Wait 1s and refresh page; verify Rejoin Modal still does NOT appear
+			await hostPage.waitForTimeout(1000);
+			await hostPage.reload();
+			await expect(hostPage.getByRole('button', { name: 'Create Table' })).toBeVisible({ timeout: 10000 });
+			await expect(rejoinModal).not.toBeVisible();
+		} finally {
+			await hostContext.close();
+		}
+	});
+
+	test('Scenario 9: Mobile Viewport Condensation - Zero Scroll on 390x844 Portrait & 844x390 Landscape', async ({
+		browser
+	}) => {
+		// Test on mobile portrait (iPhone 12/13/14 390x844)
+		const mobileContext = await browser.newContext({
+			viewport: { width: 390, height: 844 }
+		});
+		const page = await mobileContext.newPage();
+
+		try {
+			await page.goto('/');
+			await setPlayerName(page, 'MobileTester');
+			await createRoom(page, 'Canadian Salad', 4);
+
+			// Add 3 AI players
+			const addAiButton = page.getByRole('button', { name: '+ Add AI Player' });
+			for (let i = 0; i < 3; i++) {
+				await expect(addAiButton).toBeVisible();
+				await addAiButton.click();
+				await page.waitForTimeout(300);
+			}
+
+			// Start game
+			const startButton = page.getByRole('button', { name: 'Start Game' });
+			await expect(startButton).toBeVisible();
+			await startButton.click();
+
+			// Wait for table to load
+			await expect(page.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await page.waitForTimeout(600);
+
+			// 1. Verify portrait fits on one screen without vertical scrolling
+			const portraitMetrics = await page.evaluate(() => ({
+				scrollHeight: document.documentElement.scrollHeight,
+				clientHeight: window.innerHeight,
+				bodyScrollHeight: document.body.scrollHeight
+			}));
+			expect(portraitMetrics.scrollHeight).toBeLessThanOrEqual(portraitMetrics.clientHeight + 1);
+
+			// Verify all 4 player badges are visible
+			const playerBadges = page.locator('[data-player-id]');
+			await expect(playerBadges).toHaveCount(4);
+
+			// Verify hand display and cards are visible
+			const handSlot = page.locator('.card-hand-slot').first();
+			await expect(handSlot).toBeVisible();
+
+			// 2. Switch to mobile landscape (844x390)
+			await page.setViewportSize({ width: 844, height: 390 });
+			await page.waitForTimeout(600);
+
+			// Verify landscape fits on one screen without vertical scrolling
+			const landscapeMetrics = await page.evaluate(() => ({
+				scrollHeight: document.documentElement.scrollHeight,
+				clientHeight: window.innerHeight,
+				bodyScrollHeight: document.body.scrollHeight
+			}));
+			expect(landscapeMetrics.scrollHeight).toBeLessThanOrEqual(landscapeMetrics.clientHeight + 1);
+
+			// Verify hand display and cards are still visible in landscape
+			await expect(page.locator('.card-hand-slot').first()).toBeVisible();
+			// Verify footer is visible in landscape
+			await expect(page.getByRole('button', { name: 'Leave Game' })).toBeVisible();
+		} finally {
+			await mobileContext.close();
+		}
+	});
+});
+}

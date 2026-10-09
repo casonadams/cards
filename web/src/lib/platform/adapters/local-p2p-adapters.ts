@@ -1,11 +1,31 @@
 import type { GameRoom } from '$lib/platform/types/index';
 import type { GameDocument, Move } from '$lib/platform/engine/index';
+import { shouldAcceptDocUpdate } from '$lib/platform/engine/game-sync';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
 export interface P2pBroadcaster {
 	broadcast(msg: unknown): void;
 }
+
+export function generateUUID(): string {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+		return crypto.randomUUID();
+	}
+	if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+		const bytes = crypto.getRandomValues(new Uint8Array(16));
+		bytes[6] = (bytes[6] & 0x0f) | 0x40;
+		bytes[8] = (bytes[8] & 0x3f) | 0x80;
+		return Array.from(bytes, (b) => b.toString(16).padStart(2, '0'))
+			.join('')
+			.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+	}
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+		const r = (Math.random() * 16) | 0;
+		return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+	});
+}
+
 
 function saveStorage(prefix: string, key: string, data: unknown): void {
 	if (typeof window === 'undefined') return;
@@ -63,9 +83,12 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
 	function persistRoom(room: GameRoom): void {
+		if (!room || !room.id) return;
 		rooms.set(room.id, room);
 		saveStorage('cards_room_id', room.id, room);
-		saveStorage('cards_room', room.code.trim().toUpperCase(), room);
+		if (room.code) {
+			saveStorage('cards_room', room.code.trim().toUpperCase(), room);
+		}
 	}
 
 	function notify(id: string, broadcast = true): void {
@@ -88,8 +111,13 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		const data = event.data as { type?: string; room?: GameRoom; code?: string } | undefined;
 		if (!data) return;
 		if (data.type === 'sync_room' && data.room) {
-			persistRoom(data.room);
-			notify(data.room.id, false);
+			if (data.room.phase === 'gameOver' && (!data.room.players || data.room.players.length === 0)) {
+				rooms.delete(data.room.id);
+				notify(data.room.id, false);
+			} else {
+				persistRoom(data.room);
+				notify(data.room.id, false);
+			}
 		} else if (data.type === 'query_room' && data.code) {
 			const clean = data.code.trim().toUpperCase();
 			const match = Array.from(rooms.values()).find((r) => r.code.trim().toUpperCase() === clean);
@@ -103,7 +131,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 
 	return {
 		async create(room: Omit<GameRoom, 'id'>): Promise<GameRoom> {
-			const id = crypto.randomUUID();
+			const id = generateUUID();
 			const full: GameRoom = { ...room, id, code: room.code || generateRoomCode() };
 			persistRoom(full);
 			notify(id);
@@ -147,14 +175,42 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 
 		async update(id: string, data: Partial<GameRoom>, broadcast = true): Promise<void> {
 			const existing = rooms.get(id) ?? loadStorage<GameRoom>('cards_room_id', id);
+			if (!existing) return;
 			const updated = { ...existing, ...data } as GameRoom;
 			persistRoom(updated);
 			notify(id, broadcast);
 		},
 
 		async delete(id: string): Promise<void> {
+			const existing = rooms.get(id);
+			if (existing) {
+				const closedRoom: GameRoom = {
+					...existing,
+					phase: 'gameOver',
+					players: []
+				};
+				try {
+					const serialized = JSON.parse(JSON.stringify(closedRoom)) as GameRoom;
+					channel?.postMessage({ type: 'sync_room', room: serialized });
+					broadcaster?.()?.broadcast({ type: 'sync_room', room: serialized });
+				} catch {
+					// Ignore serialization errors
+				}
+				if (typeof window !== 'undefined') {
+					try {
+						sessionStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
+						sessionStorage.removeItem('cards_room_id_' + existing.id);
+						sessionStorage.removeItem('cards_active_room_code');
+						localStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
+						localStorage.removeItem('cards_room_id_' + existing.id);
+						localStorage.removeItem('cards_last_active_session');
+					} catch {
+						// Ignore
+					}
+				}
+			}
 			rooms.delete(id);
-			notify(id);
+			notify(id, false);
 		},
 
 		onRoomChanged(id: string, callback: (room: GameRoom | null) => void): () => void {
@@ -180,13 +236,19 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-	function persistDoc(roomId: string, doc: GameDocument): void {
+	function persistDoc(roomId: string, doc: GameDocument): boolean {
+		const current = docs.get(roomId) ?? loadStorage<GameDocument>('cards_doc', roomId);
+		if (current && !shouldAcceptDocUpdate(doc, current)) {
+			return false;
+		}
 		docs.set(roomId, doc);
 		saveStorage('cards_doc', roomId, doc);
+		return true;
 	}
 
 	function notify(roomId: string, doc: GameDocument, broadcast = true): void {
-		persistDoc(roomId, doc);
+		const accepted = persistDoc(roomId, doc);
+		if (!accepted) return;
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (broadcast) {
 			try {
@@ -202,10 +264,9 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	channel?.addEventListener('message', (event) => {
 		const data = event.data as { type?: string; roomId?: string; doc?: GameDocument } | undefined;
 		if (data?.type === 'sync_doc' && data.roomId && data.doc) {
-			persistDoc(data.roomId, data.doc);
 			notify(data.roomId, data.doc, false);
 		} else if (data?.type === 'query_doc' && data.roomId) {
-			const current = docs.get(data.roomId);
+			const current = docs.get(data.roomId) ?? loadStorage<GameDocument>('cards_doc', data.roomId);
 			if (current) {
 				try {
 					channel?.postMessage({ type: 'sync_doc', roomId: data.roomId, doc: current });
@@ -225,6 +286,9 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 				callback(existing);
 			}
 			channel?.postMessage({ type: 'query_doc', roomId });
+			try {
+				broadcaster?.()?.broadcast({ type: 'query_doc', roomId });
+			} catch {}
 			return () => {
 				listeners.get(roomId)?.delete(callback);
 			};
@@ -237,10 +301,20 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 		async appendMove(roomId: string, move: unknown): Promise<void> {
 			const current = docs.get(roomId);
 			if (!current) return;
+			const m = move as Move;
+			const isDuplicate = current.moves.some(
+				(existing) =>
+					existing.playerId === m.playerId &&
+					existing.card?.suit === m.card?.suit &&
+					existing.card?.rank === m.card?.rank &&
+					existing.timestamp === m.timestamp
+			);
+			if (isDuplicate) return;
+
 			const next: GameDocument = {
 				...current,
-				moves: [...current.moves, move as unknown as Move],
-				lastUpdate: Date.now()
+				moves: [...current.moves, m],
+				lastUpdate: Math.max((current.lastUpdate ?? 0) + 1, Date.now())
 			};
 			notify(roomId, next);
 		},

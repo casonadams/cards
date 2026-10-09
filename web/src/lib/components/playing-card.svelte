@@ -81,12 +81,16 @@
 	);
 
 	const rookBg = $derived(
-		rookCard ? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '') : ''
+		rookCard
+			? playable || inspection
+				? resolveRookBg(rookCard.type, 'color' in rookCard ? rookCard.color : '')
+				: 'bg-slate-400 border-slate-500 text-zinc-800 shadow-xs'
+			: ''
 	);
 	const suitBg = $derived(
 		playable || inspection
 			? 'bg-white border-zinc-200 text-zinc-900 shadow-md'
-			: 'bg-slate-200 border-slate-300 text-zinc-700 shadow-xs'
+			: 'bg-slate-400 border-slate-500 text-zinc-800 shadow-xs'
 	);
 	const bgClass = $derived(faceDown ? FACE_DOWN_BG : isRook ? rookBg : suitBg);
 </script>
@@ -99,7 +103,7 @@
 		isTrump && !faceDown && 'ring-2 ring-amber-400/90 border-amber-400 shadow-amber-950/20',
 		playable &&
 			'cursor-pointer hover:shadow-2xl hover:border-emerald-500/80 hover:-translate-y-1',
-		!playable && !inspection && !faceDown && 'saturate-60 brightness-95 cursor-not-allowed shadow-xs',
+		!playable && !inspection && !faceDown && 'saturate-60 brightness-90 cursor-not-allowed shadow-xs',
 		inspection && 'cursor-default pointer-events-none shadow-xs',
 		selected && '-translate-y-3.5 border-2 border-emerald-500 shadow-2xl'
 	)}

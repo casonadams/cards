@@ -275,7 +275,7 @@
 								class="w-full flex flex-col items-center gap-0.5 sm:gap-1 transition-all"
 							>
 								<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
-									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} />
+									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} inspection={true} />
 								</div>
 								<span
 									class={cn(

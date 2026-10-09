@@ -64,9 +64,12 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
 	function persistRoom(room: GameRoom): void {
+		if (!room || !room.id) return;
 		rooms.set(room.id, room);
 		saveStorage('cards_room_id', room.id, room);
-		saveStorage('cards_room', room.code.trim().toUpperCase(), room);
+		if (room.code) {
+			saveStorage('cards_room', room.code.trim().toUpperCase(), room);
+		}
 	}
 
 	function notify(id: string, broadcast = true): void {
@@ -153,6 +156,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 
 		async update(id: string, data: Partial<GameRoom>, broadcast = true): Promise<void> {
 			const existing = rooms.get(id) ?? loadStorage<GameRoom>('cards_room_id', id);
+			if (!existing) return;
 			const updated = { ...existing, ...data } as GameRoom;
 			persistRoom(updated);
 			notify(id, broadcast);

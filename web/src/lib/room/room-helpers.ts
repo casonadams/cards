@@ -1,15 +1,23 @@
 import { isAiPlayer, createAiPlayerId, getAiDisplayName } from '$lib/platform/engine/index';
-import type { GameRuntime, GameRoom } from '$lib/platform/types/index';
+import type { GameRuntime, GameRoom, Card } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
 import type { RoomPlayer } from '$lib/platform/types/index';
 import type { DerivedGameState } from '$lib/platform/stores/game-store';
 import type { RoundScore } from '$lib/platform/stores/room-store';
 import type { GameRoomRepository } from '$lib/platform/ports/game-room-repository';
 
-export function getAiCurrentId(playerIds: readonly string[], gs: DerivedGameState): string | null {
+export function getAiCurrentId(
+	playerIds: readonly string[],
+	gs: DerivedGameState,
+	room?: GameRoom | null
+): string | null {
 	const id = playerIds[gs.currentTurnIndex];
-	if (!id || !isAiPlayer(id)) return null;
-	return id;
+	if (!id) return null;
+	if (isAiPlayer(id)) return id;
+	if (room?.players?.some((p) => p.id === id && p.isAiControlled)) {
+		return id;
+	}
+	return null;
 }
 
 export interface AiMoveInput {
@@ -30,6 +38,32 @@ export function buildAiMove(input: AiMoveInput) {
 		dealerIndex: input.doc.dealerIndex,
 		gameSpecific: input.doc.gameSpecific
 	});
+}
+
+export async function executeSingleSkipTurn(params: {
+	runtime: GameRuntime;
+	doc: GameDocument;
+	playerIds: readonly string[];
+	currentId: string;
+	actions: {
+		playCard: (args: { gameDoc: GameDocument; playerId: string; card: Card }) => Promise<unknown>;
+	};
+}): Promise<boolean> {
+	const m = buildAiMove({
+		runtime: params.runtime,
+		doc: params.doc,
+		playerIds: params.playerIds,
+		currentId: params.currentId
+	});
+	if (m && m.card) {
+		await params.actions.playCard({
+			gameDoc: params.doc,
+			playerId: m.playerId,
+			card: m.card
+		});
+		return true;
+	}
+	return false;
 }
 
 export interface RoundResultInput {

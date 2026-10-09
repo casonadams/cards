@@ -17,7 +17,8 @@
 	import {
 		deriveRoomGs,
 		buildPlayerNames,
-		needsGameSync
+		needsGameSync,
+		executeSingleSkipTurn
 	} from '$lib/room/room-helpers';
 	import {
 		handleStart,
@@ -31,7 +32,10 @@
 	} from '$lib/room/game-action-handlers';
 	import {
 		getOhWellUiState,
-		isOhWellBiddingPhase
+		isOhWellBiddingPhase,
+		getCurrentOhWellBidderId,
+		computeOhWellAiBid,
+		handleOhWellBid
 	} from '$lib/room/oh-well-helpers';
 	import {
 		setupTrickTakingAi,
@@ -42,6 +46,8 @@
 	import NavBar from '$lib/components/nav-bar.svelte';
 	import RoomLobby from '$lib/components/room-lobby.svelte';
 	import GameSession from '$lib/components/game-session.svelte';
+	import RejoinModal, { type ActiveGameSession } from '$lib/components/rejoin-modal.svelte';
+	import DisconnectionToast, { type DisconnectNotice } from '$lib/components/disconnection-toast.svelte';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Input } from '$lib/components/ui/input/index';
@@ -105,6 +111,28 @@
 	// Platform state
 	const docDedup = new DocDedupCache();
 	let networkStatus = $state<NetworkStatusInfo | null>(null);
+	let notices = $state<DisconnectNotice[]>([]);
+
+	function addNotice(item: Omit<DisconnectNotice, 'id' | 'timestamp'>) {
+		const id = 'notice-' + Math.random().toString(36).slice(2, 9);
+		const newNotice: DisconnectNotice = {
+			...item,
+			id,
+			timestamp: Date.now()
+		};
+		notices = [...notices.filter((n) => n.playerId !== item.playerId), newNotice];
+
+		if (item.type === 'reconnected') {
+			setTimeout(() => {
+				dismissNotice(id);
+			}, 5000);
+		}
+	}
+
+	function dismissNotice(id: string) {
+		notices = notices.filter((n) => n.id !== id);
+	}
+
 	let p2p: P2pNetworkManager | null = null;
 	if (typeof window !== 'undefined') {
 		p2p = new P2pNetworkManager({
@@ -118,13 +146,15 @@
 
 				const existingIndex = room.players.findIndex((p) => p.id === joiningPlayer.id);
 				let updatedPlayers: RoomPlayer[];
+				const wasDisconnected = existingIndex >= 0 && !room.players[existingIndex].isConnected;
 				if (existingIndex >= 0) {
 					updatedPlayers = [...room.players];
 					updatedPlayers[existingIndex] = {
 						...room.players[existingIndex],
 						displayName: joiningPlayer.displayName,
 						isConnected: true,
-						lastSeen: Date.now()
+						lastSeen: Date.now(),
+						isAiControlled: false
 					};
 				} else {
 					updatedPlayers = [
@@ -134,7 +164,8 @@
 							displayName: joiningPlayer.displayName,
 							isHost: false,
 							isConnected: true,
-							lastSeen: Date.now()
+							lastSeen: Date.now(),
+							isAiControlled: false
 						}
 					];
 				}
@@ -146,6 +177,64 @@
 				room = updatedRoom;
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
 				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+
+				if (wasDisconnected) {
+					addNotice({
+						playerId: joiningPlayer.id,
+						playerName: joiningPlayer.displayName,
+						type: 'reconnected'
+					});
+				}
+			},
+			onPeerConnectionChange(peerId, isConnected) {
+				if (!isHost || !room) return;
+				const player = room.players.find((p) => p.id === peerId);
+				if (!player || player.isConnected === isConnected) return;
+
+				const updatedPlayers = room.players.map((p) =>
+					p.id === peerId ? { ...p, isConnected, lastSeen: Date.now() } : p
+				);
+				const updatedRoom = { ...room, players: updatedPlayers };
+				room = updatedRoom;
+				roomRepo.update(updatedRoom.id, updatedRoom, true);
+				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+
+				if (!isConnected) {
+					addNotice({
+						playerId: player.id,
+						playerName: player.displayName,
+						type: 'disconnected',
+						isAiControlled: player.isAiControlled
+					});
+				} else {
+					addNotice({
+						playerId: player.id,
+						playerName: player.displayName,
+						type: 'reconnected'
+					});
+				}
+			},
+			onPlayerLeave(roomId, playerId) {
+				if (!room || room.id !== roomId) return;
+				const player = room.players.find((p) => p.id === playerId);
+				if (!player) return;
+
+				if (isHost) {
+					const updatedPlayers = room.players.map((p) =>
+						p.id === playerId ? { ...p, isConnected: false, lastSeen: Date.now() } : p
+					);
+					const updatedRoom = { ...room, players: updatedPlayers };
+					room = updatedRoom;
+					roomRepo.update(updatedRoom.id, updatedRoom, true);
+					p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+				}
+
+				addNotice({
+					playerId: player.id,
+					playerName: player.displayName,
+					type: 'disconnected',
+					isAiControlled: player.isAiControlled
+				});
 			},
 			onRoomMessage(updatedRoom) {
 				if (!updatedRoom || !updatedRoom.id) return;
@@ -162,6 +251,19 @@
 					}
 					void roomRepo.delete(updatedRoom.id);
 					return;
+				}
+				if (room && updatedRoom.players) {
+					for (const p of updatedRoom.players) {
+						const prev = room.players.find((oldP) => oldP.id === p.id);
+						if (prev && prev.isConnected !== p.isConnected && p.id !== myPlayer.id) {
+							addNotice({
+								playerId: p.id,
+								playerName: p.displayName,
+								type: p.isConnected ? 'reconnected' : 'disconnected',
+								isAiControlled: p.isAiControlled
+							});
+						}
+					}
 				}
 				if (room && room.id === updatedRoom.id && JSON.stringify(room) === JSON.stringify(updatedRoom)) {
 					return;
@@ -245,7 +347,7 @@
 	const showOhWellBidding = $derived(Boolean(isOhWell && gs && isOhWellBiddingPhase(gs)));
 	const otherPlayers = $derived((room?.players ?? []).filter((p) => p.id !== myPlayer.id));
 
-	const aiDeps = $derived({ isHost, gameDoc, gs, playerIds, runtime, actions });
+	const aiDeps = $derived({ isHost, gameDoc, gs, playerIds, runtime, actions, room });
 	const cardParams = $derived({ gameDoc, playerId: myPlayer.id, actions });
 	const nrDeps = $derived({
 		runtime: runtime!,
@@ -397,7 +499,7 @@
 		function syncHash() {
 			if (typeof window === 'undefined') return;
 			const match = window.location.hash.match(/code=([A-Z0-9]{4,6})/i);
-			const activeCode = match?.[1]?.toUpperCase() || sessionStorage.getItem('cards_active_room_code');
+			const activeCode = match?.[1]?.toUpperCase();
 			if (activeCode && !roomId && !room && !loading) {
 				joinCode = activeCode;
 				if (hasValidName) {
@@ -413,11 +515,126 @@
 		return () => window.removeEventListener('hashchange', syncHash);
 	});
 
+	// Active game session persistence for rejoin modal
+	const ACTIVE_SESSION_KEY = 'cards_last_active_session';
+	let activeSession = $state<ActiveGameSession | null>(null);
+	let showRejoinModal = $state(false);
+
 	$effect(() => {
-		if (typeof window !== 'undefined' && room) {
-			sessionStorage.setItem('cards_active_room_code', room.code);
+		if (typeof window === 'undefined') return;
+		if (!room && !roomId) {
+			const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+			if (raw) {
+				try {
+					const parsed = JSON.parse(raw);
+					if (parsed?.code && parsed?.gameName) {
+						if (Date.now() - (parsed.timestamp || 0) < 6 * 3600 * 1000) {
+							activeSession = parsed;
+							showRejoinModal = true;
+						} else {
+							localStorage.removeItem(ACTIVE_SESSION_KEY);
+						}
+					}
+				} catch {
+					localStorage.removeItem(ACTIVE_SESSION_KEY);
+				}
+			}
+		} else {
+			showRejoinModal = false;
 		}
 	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (room && room.code && room.phase !== 'gameOver') {
+			sessionStorage.setItem('cards_active_room_code', room.code);
+			const sessionData: ActiveGameSession = {
+				code: room.code,
+				gameDefinitionId: room.gameDefinitionId,
+				gameName: getGame(room.gameDefinitionId)?.name || 'Cards',
+				hostId: room.hostId,
+				timestamp: Date.now()
+			};
+			localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionData));
+		}
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		function handleBeforeUnload() {
+			if (room) {
+				p2p?.broadcast({
+					type: 'player_leave',
+					roomId: room.id,
+					playerId: myPlayer.id
+				});
+			}
+		}
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+	});
+
+	function handleRejoinActiveSession(code: string) {
+		showRejoinModal = false;
+		joinCode = code;
+		handleJoinRoom();
+	}
+
+	function handleDismissActiveSession() {
+		showRejoinModal = false;
+		activeSession = null;
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem(ACTIVE_SESSION_KEY);
+			sessionStorage.removeItem('cards_active_room_code');
+			if (window.location.hash) {
+				window.location.hash = '';
+			}
+		}
+	}
+
+	async function handleHostSkipTurn(targetPlayerId: string) {
+		if (!isHost || !room || !gameDoc || !gs || !runtime) return;
+		const currentTurnPlayerId = playerIds[gs.currentTurnIndex];
+		if (currentTurnPlayerId !== targetPlayerId) {
+			return;
+		}
+
+		if (isOhWell && showOhWellBidding) {
+			const bidderId = getCurrentOhWellBidderId(gameDoc);
+			if (bidderId === targetPlayerId) {
+				const bid = computeOhWellAiBid(gameDoc);
+				const updated = handleOhWellBid({ doc: gameDoc, playerId: bidderId, bid });
+				await actions.updateGameState(updated);
+			}
+		} else {
+			await executeSingleSkipTurn({
+				runtime,
+				doc: gameDoc,
+				playerIds,
+				currentId: targetPlayerId,
+				actions
+			});
+		}
+	}
+
+	async function handleHostToggleAi(targetPlayerId: string) {
+		if (!isHost || !room) return;
+		const target = room.players.find((p) => p.id === targetPlayerId);
+		if (!target) return;
+
+		const nextAiState = !target.isAiControlled;
+		const updatedPlayers = room.players.map((p) =>
+			p.id === targetPlayerId ? { ...p, isAiControlled: nextAiState } : p
+		);
+		const updatedRoom = { ...room, players: updatedPlayers };
+		room = updatedRoom;
+		await roomRepo.update(room.id, updatedRoom, true);
+		p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+
+		notices = notices.map((n) =>
+			n.playerId === targetPlayerId ? { ...n, isAiControlled: nextAiState } : n
+		);
+	}
 
 	const handleAddAiPlayer = async () => {
 		if (room && !isFull) {
@@ -437,8 +654,18 @@
 		await actions.returnToLobby();
 	};
 	const onLeave = async () => {
+		if (room) {
+			p2p?.broadcast({
+				type: 'player_leave',
+				roomId: room.id,
+				playerId: myPlayer.id
+			});
+		}
 		if (isHost) {
 			await actions.destroyRoom();
+			if (typeof window !== 'undefined') {
+				localStorage.removeItem(ACTIVE_SESSION_KEY);
+			}
 		}
 		docDedup.clear();
 		p2p?.destroy();
@@ -641,4 +868,19 @@
 			<p class="text-muted-foreground text-sm animate-pulse">Initializing game session...</p>
 		</div>
 	{/if}
+
+	<DisconnectionToast
+		{notices}
+		{isHost}
+		onSkipTurn={handleHostSkipTurn}
+		onToggleAi={handleHostToggleAi}
+		onDismissNotice={dismissNotice}
+	/>
+
+	<RejoinModal
+		open={showRejoinModal}
+		session={activeSession}
+		onRejoin={handleRejoinActiveSession}
+		onDismiss={handleDismissActiveSession}
+	/>
 </div>

@@ -44,10 +44,13 @@ export function isOhWellBiddingPhase(gs: DerivedState): boolean {
 	return getOhWellUiState(gs)?.phase === 'bidding';
 }
 
+import type { GameRoom } from '$lib/platform/types/index';
+
 interface AiBidCheckParams {
 	readonly isHost: boolean;
 	readonly doc: GameDocument | null;
 	readonly gs: DerivedState | null;
+	readonly room?: GameRoom | null;
 }
 
 function hasRequiredContext(params: AiBidCheckParams): boolean {
@@ -65,14 +68,17 @@ export function getCurrentOhWellBidderId(doc: GameDocument): string | undefined 
 	return doc.playerIds[rs.currentBidder];
 }
 
-function isCurrentBidderAi(doc: GameDocument): boolean {
+function isCurrentBidderAi(doc: GameDocument, room?: GameRoom | null): boolean {
 	const currentId = getCurrentOhWellBidderId(doc);
-	return currentId !== undefined && isAiPlayer(currentId);
+	if (!currentId) return false;
+	if (isAiPlayer(currentId)) return true;
+	if (room?.players?.some((p) => p.id === currentId && p.isAiControlled)) return true;
+	return false;
 }
 
 export function shouldRunOhWellAiBid(params: AiBidCheckParams): boolean {
 	if (!isBiddingWithAi(params)) return false;
-	return isCurrentBidderAi(params.doc!);
+	return isCurrentBidderAi(params.doc!, params.room);
 }
 
 export { computeOhWellAiBid } from './oh-well-ai-bid.ts';

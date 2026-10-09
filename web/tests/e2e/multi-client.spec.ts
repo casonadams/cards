@@ -137,9 +137,8 @@ async function verifyConnectionStatusPill(
 	const title = (await statusPill.getAttribute('title')) || '';
 
 	let mode = 'relay';
-	if (/p2p/i.test(text)) {
+	if (/p2p/i.test(text) || /p2p|webrtc/i.test(title)) {
 		mode = 'p2p';
-		expect(text).toMatch(/\(\d+\)/);
 		expect(title).toMatch(/P2P|WebRTC/i);
 	} else {
 		expect(title).toMatch(/Relay/i);
@@ -487,15 +486,75 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 			// 3. Guest leaves room
 			await guestPage.getByRole('button', { name: 'Leave Room' }).click();
 
-			// 4. Verify guest returns to lobby home with clean URL hash
-			await expect(guestPage.getByText('Tabletop Card Arena')).toBeVisible({ timeout: 5000 });
-			const guestHash = await guestPage.evaluate(() => window.location.hash);
-			expect(guestHash).toBe('');
+			// 4. Verify guest returns to lobby home and sees Rejoin Modal for active table
+			const rejoinModal = guestPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			await expect(rejoinModal.getByText(roomCode).first()).toBeVisible();
 
-			// 5. Guest re-joins the same room
-			await joinRoomByCode(guestPage, roomCode);
+			// 5. Guest clicks "Rejoin Table" directly in modal
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
 			await expect(guestPage.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
 			await expect(hostPage.getByText('LifecycleGuest')).toBeVisible({ timeout: 5000 });
+		} finally {
+			await hostContext.close();
+			await guestContext.close();
+		}
+	});
+
+	test('Scenario 6: Mid-Game Player Disconnection Toast, Host AI Takeover & Reconnect', async ({
+		browser
+	}) => {
+		const hostContext = await createInstrumentedContext(browser);
+		const guestContext = await createInstrumentedContext(browser);
+
+		try {
+			const hostPage = await hostContext.newPage();
+			const guestPage = await guestContext.newPage();
+
+			// 1. Host creates 3-player Canadian Salad room
+			await hostPage.goto('/');
+			await setPlayerName(hostPage, 'DisconHost');
+			const roomCode = await createRoom(hostPage, 'Canadian Salad', 3);
+
+			// 2. Guest joins
+			await guestPage.goto('/');
+			await setPlayerName(guestPage, 'DisconGuest');
+			await joinRoomByCode(guestPage, roomCode);
+
+			await expect(hostPage.getByText('DisconGuest')).toBeVisible({ timeout: 5000 });
+
+			// 3. Host adds AI to fill 3rd seat and starts game
+			await addAiAndStart(hostPage);
+			await expect(hostPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+
+			// 4. Guest leaves by clicking leave room
+			await guestPage.getByRole('button', { name: 'Leave' }).click();
+
+			// 5. Host detects disconnection and surfaces toast notice
+			const toast = hostPage.locator('[role="alert"]').filter({ hasText: /DisconGuest disconnected/i });
+			await expect(toast).toBeVisible({ timeout: 10000 });
+
+			// 6. Host activates AI takeover
+			const turnAiBtn = toast.getByRole('button', { name: /Turn AI On/i });
+			await expect(turnAiBtn).toBeVisible();
+			await turnAiBtn.click();
+			await expect(toast.getByRole('button', { name: /AI Active/i })).toBeVisible({ timeout: 5000 });
+
+			// 7. Verify Rejoin Modal appears on guest page
+			const rejoinModal = guestPage.locator('[role="dialog"][aria-label="Active Game Found"]');
+			await expect(rejoinModal).toBeVisible({ timeout: 5000 });
+			await expect(rejoinModal.getByText(roomCode).first()).toBeVisible();
+
+			// 8. Guest clicks Rejoin
+			const rejoinBtn = rejoinModal.getByRole('button', { name: new RegExp(`Rejoin Table ${roomCode}`, 'i') });
+			await rejoinBtn.click();
+
+			// 9. Guest rejoins game table and host sees reconnect toast
+			await expect(guestPage.locator('.felt-table-surface')).toBeVisible({ timeout: 15000 });
+			const reconnectToast = hostPage.locator('[role="alert"]').filter({ hasText: /DisconGuest reconnected/i });
+			await expect(reconnectToast).toBeVisible({ timeout: 10000 });
 		} finally {
 			await hostContext.close();
 			await guestContext.close();

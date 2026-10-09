@@ -24,7 +24,8 @@ export type P2pMessage =
 	| { type: 'signal_answer'; targetId: string; answer: RTCSessionDescriptionInit; senderId: string }
 	| { type: 'signal_ice'; targetId: string; candidate: RTCIceCandidateInit; senderId: string }
 	| { type: 'ping'; senderId: string; timestamp: number }
-	| { type: 'pong'; senderId: string; timestamp: number };
+	| { type: 'pong'; senderId: string; timestamp: number }
+	| { type: 'player_leave'; roomId: string; playerId: string; senderId: string };
 
 export type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 export type P2pBroadcastPayload = DistributiveOmit<P2pMessage, 'senderId'>;
@@ -47,7 +48,8 @@ const VALID_MESSAGE_TYPES: Record<string, true> = {
 	signal_answer: true,
 	signal_ice: true,
 	ping: true,
-	pong: true
+	pong: true,
+	player_leave: true
 };
 
 export function isValidMessage(data: unknown): data is P2pMessage {
@@ -234,8 +236,11 @@ export class WebRtcPeer {
 		};
 
 		this.pc.onconnectionstatechange = () => {
-			if (this.pc?.connectionState === 'failed' || this.pc?.connectionState === 'closed') {
+			const state = this.pc?.connectionState;
+			if (state === 'failed' || state === 'closed' || state === 'disconnected') {
 				this.onStateChange(this.remotePeerId, false);
+			} else if (state === 'connected') {
+				this.onStateChange(this.remotePeerId, true);
 			}
 		};
 	}
@@ -340,6 +345,8 @@ export interface P2pManagerCallbacks {
 	readonly onQueryRoom?: () => void;
 	readonly onQueryDoc?: (roomId: string) => void;
 	readonly onStatusChange?: (status: NetworkStatusInfo) => void;
+	readonly onPeerConnectionChange?: (peerId: string, isConnected: boolean) => void;
+	readonly onPlayerLeave?: (roomId: string, playerId: string) => void;
 }
 
 export class P2pNetworkManager {
@@ -569,6 +576,8 @@ export class P2pNetworkManager {
 			this.callbacks.onQueryRoom?.();
 		} else if (msg.type === 'query_doc') {
 			this.callbacks.onQueryDoc?.(msg.roomId);
+		} else if (msg.type === 'player_leave') {
+			this.callbacks.onPlayerLeave?.(msg.roomId, msg.playerId);
 		}
 	}
 
@@ -609,7 +618,10 @@ export class P2pNetworkManager {
 					void this.relayToOtherPeers(remotePeerId, msg);
 				}
 			},
-			() => this.emitStatus()
+			(peerId, open) => {
+				this.emitStatus();
+				this.callbacks.onPeerConnectionChange?.(peerId, open);
+			}
 		);
 		this.peers.set(remotePeerId, peer);
 		this.drainEarlyCandidates(remotePeerId, peer);

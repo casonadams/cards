@@ -1054,17 +1054,19 @@
 					</div>
 
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
-						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Table Size</span>
-						<div class="grid grid-cols-4 gap-1.5 sm:flex">
+						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Players</span>
+						<div class="grid grid-cols-4 gap-1.5 sm:flex sm:items-center">
 							{#each playerOptions as n (n)}
 								<button
-									class="rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer text-center {playerCount === n
+									type="button"
+									data-player-count={n}
+									aria-label={`${n} Players`}
+									class="rounded-lg px-3.5 py-1.5 min-w-[36px] h-9 text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center {playerCount === n
 										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
 										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}
 								>
-									<span class="sm:hidden">{n}P</span>
-									<span class="hidden sm:inline">{n} Players</span>
+									{n}
 								</button>
 							{/each}
 						</div>

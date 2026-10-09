@@ -268,8 +268,11 @@ export class P2pNetworkManager {
 	private topic = '';
 	private brokerIndex = 0;
 	private peers = new Map<string, WebRtcPeer>();
+	private earlyIceCandidates = new Map<string, RTCIceCandidateInit[]>();
 	private pingTimer: ReturnType<typeof setInterval> | null = null;
 	private currentLatency?: number;
+	private isDestroyed = false;
+	private isFailingOver = false;
 
 	private readonly callbacks: P2pManagerCallbacks;
 
@@ -277,8 +280,17 @@ export class P2pNetworkManager {
 		this.callbacks = callbacks;
 	}
 
+	public get currentBrokerIndex(): number {
+		return this.brokerIndex;
+	}
+
+	public getEarlyCandidates(senderId: string): readonly RTCIceCandidateInit[] {
+		return this.earlyIceCandidates.get(senderId) ?? [];
+	}
+
 	public async connect(code: string, myId: string, isHost = false): Promise<void> {
 		this.destroy();
+		this.isDestroyed = false;
 		this.roomCode = code.trim().toUpperCase();
 		this.myId = myId;
 		this.isHost = isHost;
@@ -304,18 +316,29 @@ export class P2pNetworkManager {
 		});
 	}
 
-	private async connectWithFailover(startIndex: number): Promise<void> {
+	public async connectWithFailover(startIndex = 0): Promise<boolean> {
 		for (let offset = 0; offset < BROKER_URLS.length; offset++) {
+			if (this.isDestroyed || !this.roomCode) return false;
 			const idx = (startIndex + offset) % BROKER_URLS.length;
 			const success = await this.tryBroker(idx);
+			if (this.isDestroyed || !this.roomCode) {
+				if (this.client) {
+					try {
+						this.client.end(true);
+					} catch {}
+					this.client = null;
+				}
+				return false;
+			}
 			if (success) {
 				this.brokerIndex = idx;
 				this.emitStatus();
-				return;
+				return true;
 			}
 		}
 		// If all brokers fail, set disconnected state but allow offline/local operations
 		this.emitStatus('disconnected');
+		return false;
 	}
 
 	private tryBroker(index: number): Promise<boolean> {
@@ -384,9 +407,36 @@ export class P2pNetworkManager {
 			} catch {}
 		});
 
-		client.on('close', () => {
-			this.emitStatus();
+		client.on('error', (err) => {
+			console.warn('MQTT client error on broker', BROKER_URLS[this.brokerIndex], err);
+			void this.handleMqttDisconnect(client);
 		});
+
+		client.on('close', () => {
+			void this.handleMqttDisconnect(client);
+		});
+	}
+
+	private async handleMqttDisconnect(client: MqttClient): Promise<void> {
+		if (this.isDestroyed || !this.roomCode) return;
+		if (this.client !== client) return;
+		if (client.connected) return;
+		if (this.isFailingOver) return;
+
+		this.isFailingOver = true;
+		this.emitStatus();
+
+		try {
+			client.end(true);
+		} catch {}
+
+		if (this.client === client) {
+			this.client = null;
+		}
+
+		const nextIndex = (this.brokerIndex + 1) % BROKER_URLS.length;
+		await this.connectWithFailover(nextIndex);
+		this.isFailingOver = false;
 	}
 
 	private async handleIncomingMessage(msg: P2pMessage): Promise<void> {
@@ -448,6 +498,16 @@ export class P2pNetworkManager {
 		}
 	}
 
+	private drainEarlyCandidates(senderId: string, peer: WebRtcPeer): void {
+		const candidates = this.earlyIceCandidates.get(senderId);
+		if (candidates && candidates.length > 0) {
+			this.earlyIceCandidates.delete(senderId);
+			for (const cand of candidates) {
+				void peer.addIceCandidate(cand);
+			}
+		}
+	}
+
 	private getOrCreatePeer(remotePeerId: string): WebRtcPeer {
 		const existing = this.peers.get(remotePeerId);
 		if (existing) return existing;
@@ -459,20 +519,33 @@ export class P2pNetworkManager {
 				this.dispatchApplicationMessage(msg);
 				// If host receives action from a peer over DataChannel, relay to other peers
 				if (this.isHost) {
-					this.relayToOtherPeers(remotePeerId, msg);
+					void this.relayToOtherPeers(remotePeerId, msg);
 				}
 			},
 			() => this.emitStatus()
 		);
 		this.peers.set(remotePeerId, peer);
+		this.drainEarlyCandidates(remotePeerId, peer);
 		return peer;
 	}
 
-	private relayToOtherPeers(excludeSenderId: string, msg: P2pMessage): void {
+	public async relayToOtherPeers(excludeSenderId: string, msg: P2pMessage): Promise<void> {
+		let sentCount = 0;
+		let targetPeersCount = 0;
 		for (const [peerId, peer] of this.peers.entries()) {
-			if (peerId !== excludeSenderId && peer.isOpen) {
-				peer.send(msg);
+			if (peerId !== excludeSenderId) {
+				targetPeersCount++;
+				if (peer.isOpen && peer.send(msg)) {
+					sentCount++;
+				}
 			}
+		}
+
+		const anyPeerInRelay = targetPeersCount === 0 || sentCount < targetPeersCount;
+		if (anyPeerInRelay) {
+			const { senderId: _discarded, ...payload } = msg;
+			void _discarded;
+			await this.broadcastMqtt(payload as P2pBroadcastPayload);
 		}
 	}
 
@@ -484,6 +557,7 @@ export class P2pNetworkManager {
 		if (targetId !== this.myId) return;
 		const peer = this.getOrCreatePeer(senderId);
 		const answer = await peer.handleOffer(offer);
+		this.drainEarlyCandidates(senderId, peer);
 		if (answer) {
 			await this.broadcastMqtt({
 				type: 'signal_answer',
@@ -502,6 +576,7 @@ export class P2pNetworkManager {
 		const peer = this.peers.get(senderId);
 		if (peer) {
 			await peer.handleAnswer(answer);
+			this.drainEarlyCandidates(senderId, peer);
 		}
 	}
 
@@ -514,6 +589,10 @@ export class P2pNetworkManager {
 		const peer = this.peers.get(senderId);
 		if (peer) {
 			await peer.addIceCandidate(candidate);
+		} else {
+			const list = this.earlyIceCandidates.get(senderId) ?? [];
+			list.push(candidate);
+			this.earlyIceCandidates.set(senderId, list);
 		}
 	}
 
@@ -538,9 +617,10 @@ export class P2pNetworkManager {
 		}
 
 		// 2. Broadcast via MQTT relay if DataChannels are not fully established
-		// or for critical sync/discovery packets (room queries, join requests)
+		// or for critical sync/discovery packets (room queries, join requests, sync room)
 		const needsMqttBroadcast =
 			sentCount === 0 ||
+			sentCount < this.peers.size ||
 			payload.type === 'query_room' ||
 			payload.type === 'join_request' ||
 			payload.type === 'sync_room';
@@ -575,6 +655,8 @@ export class P2pNetworkManager {
 	}
 
 	public destroy(): void {
+		this.isDestroyed = true;
+		this.isFailingOver = false;
 		if (this.pingTimer) {
 			clearInterval(this.pingTimer);
 			this.pingTimer = null;
@@ -583,6 +665,7 @@ export class P2pNetworkManager {
 			peer.close();
 		}
 		this.peers.clear();
+		this.earlyIceCandidates.clear();
 
 		if (this.client) {
 			try {

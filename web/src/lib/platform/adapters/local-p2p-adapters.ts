@@ -1,5 +1,6 @@
 import type { GameRoom } from '$lib/platform/types/index';
 import type { GameDocument, Move } from '$lib/platform/engine/index';
+import { shouldAcceptDocUpdate } from '$lib/platform/engine/game-sync';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
@@ -88,8 +89,13 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		const data = event.data as { type?: string; room?: GameRoom; code?: string } | undefined;
 		if (!data) return;
 		if (data.type === 'sync_room' && data.room) {
-			persistRoom(data.room);
-			notify(data.room.id, false);
+			if (data.room.phase === 'gameOver' && (!data.room.players || data.room.players.length === 0)) {
+				rooms.delete(data.room.id);
+				notify(data.room.id, false);
+			} else {
+				persistRoom(data.room);
+				notify(data.room.id, false);
+			}
 		} else if (data.type === 'query_room' && data.code) {
 			const clean = data.code.trim().toUpperCase();
 			const match = Array.from(rooms.values()).find((r) => r.code.trim().toUpperCase() === clean);
@@ -153,8 +159,33 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		},
 
 		async delete(id: string): Promise<void> {
+			const existing = rooms.get(id);
+			if (existing) {
+				const closedRoom: GameRoom = {
+					...existing,
+					phase: 'gameOver',
+					players: []
+				};
+				try {
+					const serialized = JSON.parse(JSON.stringify(closedRoom)) as GameRoom;
+					channel?.postMessage({ type: 'sync_room', room: serialized });
+					broadcaster?.()?.broadcast({ type: 'sync_room', room: serialized });
+				} catch {
+					// Ignore serialization errors
+				}
+				if (typeof window !== 'undefined') {
+					try {
+						sessionStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
+						sessionStorage.removeItem('cards_room_id_' + existing.id);
+						localStorage.removeItem('cards_room_' + existing.code.trim().toUpperCase());
+						localStorage.removeItem('cards_room_id_' + existing.id);
+					} catch {
+						// Ignore
+					}
+				}
+			}
 			rooms.delete(id);
-			notify(id);
+			notify(id, false);
 		},
 
 		onRoomChanged(id: string, callback: (room: GameRoom | null) => void): () => void {
@@ -180,13 +211,19 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-	function persistDoc(roomId: string, doc: GameDocument): void {
+	function persistDoc(roomId: string, doc: GameDocument): boolean {
+		const current = docs.get(roomId);
+		if (current && !shouldAcceptDocUpdate(doc, current)) {
+			return false;
+		}
 		docs.set(roomId, doc);
 		saveStorage('cards_doc', roomId, doc);
+		return true;
 	}
 
 	function notify(roomId: string, doc: GameDocument, broadcast = true): void {
-		persistDoc(roomId, doc);
+		const accepted = persistDoc(roomId, doc);
+		if (!accepted) return;
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (broadcast) {
 			try {
@@ -202,7 +239,6 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	channel?.addEventListener('message', (event) => {
 		const data = event.data as { type?: string; roomId?: string; doc?: GameDocument } | undefined;
 		if (data?.type === 'sync_doc' && data.roomId && data.doc) {
-			persistDoc(data.roomId, data.doc);
 			notify(data.roomId, data.doc, false);
 		} else if (data?.type === 'query_doc' && data.roomId) {
 			const current = docs.get(data.roomId);
@@ -237,10 +273,20 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 		async appendMove(roomId: string, move: unknown): Promise<void> {
 			const current = docs.get(roomId);
 			if (!current) return;
+			const m = move as Move;
+			const isDuplicate = current.moves.some(
+				(existing) =>
+					existing.playerId === m.playerId &&
+					existing.card?.suit === m.card?.suit &&
+					existing.card?.rank === m.card?.rank &&
+					existing.timestamp === m.timestamp
+			);
+			if (isDuplicate) return;
+
 			const next: GameDocument = {
 				...current,
-				moves: [...current.moves, move as unknown as Move],
-				lastUpdate: Date.now()
+				moves: [...current.moves, m],
+				lastUpdate: Math.max((current.lastUpdate ?? 0) + 1, Date.now())
 			};
 			notify(roomId, next);
 		},

@@ -9,6 +9,10 @@
 		createLocalP2pRoomRepo,
 		createLocalP2pSync
 	} from '$lib/platform/adapters/local-p2p-adapters';
+	import {
+		shouldAcceptDocUpdate,
+		DocDedupCache
+	} from '$lib/platform/engine/game-sync';
 	import { P2pNetworkManager, type NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 	import {
 		deriveRoomGs,
@@ -99,6 +103,7 @@
 	}
 
 	// Platform state
+	const docDedup = new DocDedupCache();
 	let networkStatus = $state<NetworkStatusInfo | null>(null);
 	let p2p: P2pNetworkManager | null = null;
 	if (typeof window !== 'undefined') {
@@ -143,6 +148,20 @@
 			},
 			onRoomMessage(updatedRoom) {
 				if (!updatedRoom || !updatedRoom.id) return;
+				if (updatedRoom.phase === 'gameOver' && (!updatedRoom.players || updatedRoom.players.length === 0)) {
+					// Host deleted the room - cleanly return guest to lobby
+					docDedup.clear();
+					room = null;
+					roomId = '';
+					gameDoc = null;
+					networkStatus = null;
+					if (typeof window !== 'undefined') {
+						sessionStorage.removeItem('cards_active_room_code');
+						window.location.hash = '';
+					}
+					void roomRepo.delete(updatedRoom.id);
+					return;
+				}
 				if (room && room.id === updatedRoom.id && JSON.stringify(room) === JSON.stringify(updatedRoom)) {
 					return;
 				}
@@ -156,6 +175,14 @@
 					roomId = docRoomId;
 				}
 				if (docRoomId !== roomId && room?.id !== docRoomId) return;
+				// Monotonic Move Reconciliation & Dedup
+				if (!shouldAcceptDocUpdate(doc, gameDoc)) {
+					return;
+				}
+				if (docDedup.has(doc)) {
+					return;
+				}
+				docDedup.add(doc);
 				if (gameDoc && JSON.stringify(gameDoc) === JSON.stringify(doc)) {
 					return;
 				}
@@ -412,6 +439,7 @@
 		if (isHost) {
 			await actions.destroyRoom();
 		}
+		docDedup.clear();
 		p2p?.destroy();
 		networkStatus = null;
 		roomId = '';

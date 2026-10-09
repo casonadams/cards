@@ -1,4 +1,4 @@
-.PHONY: all lint check test complexity ripwire build clean help
+.PHONY: all lint check test e2e complexity ripwire build clean help
 
 # Default target runs all code quality and build gates
 all: lint check test complexity build
@@ -19,6 +19,12 @@ check:
 test:
 	@echo "==> Running bun test..."
 	@cd web && bun test
+
+# Run Playwright headless multi-client E2E tests
+e2e:
+	@echo "==> Running Playwright E2E tests..."
+	@cd web && pnpm exec playwright test
+
 # Enforce Cognitive and Cyclomatic complexity thresholds via cccc
 complexity:
 	@echo "==> Running cccc complexity checks..."

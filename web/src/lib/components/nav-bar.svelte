@@ -185,7 +185,7 @@
 	<div class="flex items-center gap-3">
 		{#if statusBadge}
 			<div
-				class="hidden xs:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-[11px] font-medium leading-none shrink-0 cursor-default select-none shadow-xs"
+				class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/60 border border-border/80 text-[11px] font-medium leading-none shrink-0 cursor-default select-none shadow-xs"
 				title={statusBadge.tooltip}
 			>
 				<span class="w-2 h-2 rounded-full {statusBadge.colorClass} shrink-0"></span>

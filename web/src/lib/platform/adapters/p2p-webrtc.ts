@@ -3,8 +3,8 @@ import type { GameRoom, RoomPlayer } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
 
 export const BROKER_URLS: readonly string[] = [
-	'wss://broker.hivemq.com:8884/mqtt',
 	'wss://broker.emqx.io:8084/mqtt',
+	'wss://broker.hivemq.com:8884/mqtt',
 	'wss://test.mosquitto.org:8081'
 ];
 

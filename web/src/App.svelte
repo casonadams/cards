@@ -375,15 +375,10 @@
 				room = updatedRoom;
 				roomId = target.id;
 			} else {
-				// Retry handshake over network up to 6 times (1.2s intervals)
-				// If not connected after 2 attempts, fail over across brokers to locate Host if on a different broker!
-				for (let attempt = 1; attempt <= 6; attempt++) {
-					await new Promise((resolve) => setTimeout(resolve, 1200));
+				// Retry handshake over network up to 4 times (1s intervals)
+				for (let attempt = 1; attempt <= 4; attempt++) {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
 					if (room) break;
-					if (attempt === 3 || attempt === 5) {
-						const nextIdx = ((p2p?.currentBrokerIndex ?? 0) + 1) % 3;
-						await p2p?.connectWithFailover(nextIdx);
-					}
 					p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
 					p2p?.broadcast({ type: 'query_room', code });
 				}

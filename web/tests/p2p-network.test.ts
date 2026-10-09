@@ -9,6 +9,8 @@ import {
 	WebRtcPeer,
 	type P2pMessage
 } from '$lib/platform/adapters/p2p-webrtc.ts';
+import { generateUUID } from '$lib/platform/adapters/local-p2p-adapters.ts';
+
 
 describe('P2P Network Primitives & Crypto', () => {
 	it('defines multi-broker failover pool and STUN configuration', () => {
@@ -168,4 +170,28 @@ describe('P2P Network Primitives & Crypto', () => {
 		peer.close();
 		expect(peer.isOpen).toBe(false);
 	});
+
+	it('generates valid RFC-4122 v4 UUIDs regardless of environment', () => {
+		const uuid1 = generateUUID();
+		const uuid2 = generateUUID();
+		expect(uuid1).not.toBe(uuid2);
+		expect(uuid1).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+		expect(uuid2).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+	});
+
+	it('handles fallback encryption and decryption seamlessly when subtle crypto is simulated absent', async () => {
+		const fallbackKey = {
+			algorithm: { name: 'AES-GCM-FALLBACK' },
+			key: 'cards:room:key:v1:FALLBK'
+		};
+		const testData = { message: 'hello-lan-test', seq: 42 };
+		const encrypted = await encryptData(fallbackKey, testData);
+		const parsed = JSON.parse(encrypted);
+		expect(parsed.fallback).toBe(true);
+		expect(typeof parsed.data).toBe('string');
+
+		const decrypted = await decryptData(fallbackKey, encrypted);
+		expect(decrypted).toEqual(testData);
+	});
 });
+

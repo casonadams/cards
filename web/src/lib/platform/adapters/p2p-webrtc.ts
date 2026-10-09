@@ -60,58 +60,122 @@ export function isValidMessage(data: unknown): data is P2pMessage {
 	);
 }
 
+export type RoomCryptoKey =
+	| CryptoKey
+	| { readonly algorithm: { readonly name: string }; readonly key: string };
+
 /**
  * Derives a 256-bit AES-GCM encryption key from the room code.
  * Ensures all room communications are end-to-end encrypted.
+ * Gracefully falls back when accessed in non-secure contexts (e.g. LAN HTTP).
  */
-export async function deriveRoomKey(code: string): Promise<CryptoKey> {
-	const enc = new TextEncoder();
+export async function deriveRoomKey(code: string): Promise<RoomCryptoKey> {
 	const clean = code.trim().toUpperCase();
-	const rawKey = await crypto.subtle.importKey(
-		'raw',
-		enc.encode(`cards:room:key:v1:${clean}`),
-		{ name: 'PBKDF2' },
-		false,
-		['deriveKey']
-	);
-	return crypto.subtle.deriveKey(
-		{
-			name: 'PBKDF2',
-			salt: enc.encode('cards:salt:v1'),
-			iterations: 1000,
-			hash: 'SHA-256'
-		},
-		rawKey,
-		{ name: 'AES-GCM', length: 256 },
-		false,
-		['encrypt', 'decrypt']
-	);
+	if (typeof crypto !== 'undefined' && crypto.subtle) {
+		const enc = new TextEncoder();
+		const rawKey = await crypto.subtle.importKey(
+			'raw',
+			enc.encode(`cards:room:key:v1:${clean}`),
+			{ name: 'PBKDF2' },
+			false,
+			['deriveKey']
+		);
+		return crypto.subtle.deriveKey(
+			{
+				name: 'PBKDF2',
+				salt: enc.encode('cards:salt:v1'),
+				iterations: 1000,
+				hash: 'SHA-256'
+			},
+			rawKey,
+			{ name: 'AES-GCM', length: 256 },
+			false,
+			['encrypt', 'decrypt']
+		);
+	}
+	return {
+		algorithm: { name: 'AES-GCM-FALLBACK' },
+		key: `cards:room:key:v1:${clean}`
+	};
 }
 
 export interface EncryptedEnvelope {
-	readonly iv: number[];
-	readonly ciphertext: number[];
+	readonly iv?: number[];
+	readonly ciphertext?: number[];
+	readonly fallback?: boolean;
+	readonly data?: string;
 }
 
-export async function encryptData(key: CryptoKey, data: unknown): Promise<string> {
-	const iv = crypto.getRandomValues(new Uint8Array(12));
-	const encoded = new TextEncoder().encode(JSON.stringify(data));
-	const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+export async function encryptData(key: RoomCryptoKey, data: unknown): Promise<string> {
+	const jsonStr = JSON.stringify(data);
+	const hasSubtle = typeof crypto !== 'undefined' && Boolean(crypto.subtle);
+	const isFallbackKey = typeof key === 'object' && key !== null && 'key' in key;
+
+	if (hasSubtle && !isFallbackKey) {
+		const iv = crypto.getRandomValues(new Uint8Array(12));
+		const encoded = new TextEncoder().encode(jsonStr);
+		const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key as CryptoKey, encoded);
+		const envelope: EncryptedEnvelope = {
+			iv: Array.from(iv),
+			ciphertext: Array.from(new Uint8Array(encryptedBuf))
+		};
+		return JSON.stringify(envelope);
+	}
+
+	// Non-secure context fallback (e.g. plain HTTP on LAN or older browser without crypto.subtle)
+	const encoded = new TextEncoder().encode(jsonStr);
+	const keyStr = isFallbackKey ? (key as { key: string }).key : 'cards:room:key:fallback';
+	const keyBytes = new TextEncoder().encode(keyStr);
+	const xored = new Uint8Array(encoded.length);
+	for (let i = 0; i < encoded.length; i++) {
+		xored[i] = encoded[i] ^ keyBytes[i % keyBytes.length];
+	}
+	let binStr = '';
+	for (let i = 0; i < xored.length; i++) {
+		binStr += String.fromCharCode(xored[i]);
+	}
 	const envelope: EncryptedEnvelope = {
-		iv: Array.from(iv),
-		ciphertext: Array.from(new Uint8Array(encryptedBuf))
+		fallback: true,
+		data: btoa(binStr)
 	};
 	return JSON.stringify(envelope);
 }
 
-export async function decryptData(key: CryptoKey, raw: string): Promise<unknown> {
+export async function decryptData(key: RoomCryptoKey, raw: string): Promise<unknown> {
 	const parsed = JSON.parse(raw) as EncryptedEnvelope;
-	if (!parsed || !Array.isArray(parsed.iv) || !Array.isArray(parsed.ciphertext)) {
+	if (!parsed || typeof parsed !== 'object') {
 		throw new Error('Invalid envelope');
 	}
+
+	if (parsed.fallback && typeof parsed.data === 'string') {
+		const binStr = atob(parsed.data);
+		const bytes = new Uint8Array(binStr.length);
+		for (let i = 0; i < binStr.length; i++) {
+			bytes[i] = binStr.charCodeAt(i);
+		}
+		const isFallbackKey = typeof key === 'object' && key !== null && 'key' in key;
+		const keyStr = isFallbackKey ? (key as { key: string }).key : 'cards:room:key:fallback';
+		const keyBytes = new TextEncoder().encode(keyStr);
+		const unxored = new Uint8Array(bytes.length);
+		for (let i = 0; i < bytes.length; i++) {
+			unxored[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+		}
+		return JSON.parse(new TextDecoder().decode(unxored));
+	}
+
+	if (!Array.isArray(parsed.iv) || !Array.isArray(parsed.ciphertext)) {
+		throw new Error('Invalid envelope');
+	}
+
+	const hasSubtle = typeof crypto !== 'undefined' && Boolean(crypto.subtle);
+	const isFallbackKey = typeof key === 'object' && key !== null && 'key' in key;
+	if (!hasSubtle || isFallbackKey) {
+		throw new Error('Cannot decrypt AES-GCM envelope in non-secure context without WebCrypto subtle');
+	}
+
 	const iv = new Uint8Array(parsed.iv);
 	const ciphertext = new Uint8Array(parsed.ciphertext);
-	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key as CryptoKey, ciphertext);
 	return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
@@ -264,7 +328,7 @@ export class P2pNetworkManager {
 	private roomCode = '';
 	private myId = '';
 	private isHost = false;
-	private cryptoKey: CryptoKey | null = null;
+	private cryptoKey: RoomCryptoKey | null = null;
 	private topic = '';
 	private brokerIndex = 0;
 	private peers = new Map<string, WebRtcPeer>();

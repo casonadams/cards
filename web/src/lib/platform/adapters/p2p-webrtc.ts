@@ -156,6 +156,39 @@ export async function encryptData(key: RoomCryptoKey, data: unknown): Promise<st
 	return JSON.stringify(envelope);
 }
 
+function getRoomKeyString(key: RoomCryptoKey): string {
+	const keyAny = key as unknown as { roomCode?: string; keyString?: string; key?: string };
+	return keyAny.keyString || keyAny.key || `cards:room:key:v1:${keyAny.roomCode || 'DEFAULT'}`;
+}
+
+function isNativeAesGcmKey(key: RoomCryptoKey): key is CryptoKey {
+	return (
+		'algorithm' in key &&
+		key.algorithm?.name === 'AES-GCM' &&
+		!('key' in (key as unknown as Record<string, unknown>))
+	);
+}
+
+async function decryptNativeAesGcm(key: CryptoKey, iv: number[], ciphertext: number[]): Promise<unknown> {
+	if (iv.length !== 12) {
+		throw new Error('Invalid IV length');
+	}
+	const ivBytes = new Uint8Array(iv);
+	const cipherBytes = new Uint8Array(ciphertext);
+	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes }, key, cipherBytes);
+	return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+function decryptFallbackData(key: RoomCryptoKey, base64Data: string): unknown {
+	const binStr = atob(base64Data);
+	const keyBytes = new TextEncoder().encode(getRoomKeyString(key));
+	const unxored = new Uint8Array(binStr.length);
+	for (let i = 0; i < binStr.length; i++) {
+		unxored[i] = binStr.charCodeAt(i) ^ keyBytes[i % keyBytes.length];
+	}
+	return JSON.parse(new TextDecoder().decode(unxored));
+}
+
 export async function decryptData(key: RoomCryptoKey, raw: string): Promise<unknown> {
 	const parsed = JSON.parse(raw) as EncryptedEnvelope;
 	if (!parsed || typeof parsed !== 'object') {
@@ -163,42 +196,23 @@ export async function decryptData(key: RoomCryptoKey, raw: string): Promise<unkn
 	}
 
 	const hasSubtle = typeof crypto !== 'undefined' && Boolean(crypto.subtle);
-	const isNativeKey = 'algorithm' in key && key.algorithm?.name === 'AES-GCM' && !('key' in (key as unknown as Record<string, unknown>));
+	const hasNativePayload = Array.isArray(parsed.iv) && Array.isArray(parsed.ciphertext);
 
-	// 1. If native AES-GCM is available and envelope has native ciphertext, verify & decrypt native AES-GCM
-	if (hasSubtle && isNativeKey && Array.isArray(parsed.iv) && Array.isArray(parsed.ciphertext)) {
-		if (parsed.iv.length !== 12) {
-			throw new Error('Invalid IV length');
-		}
-		const iv = new Uint8Array(parsed.iv);
-		const ciphertext = new Uint8Array(parsed.ciphertext);
-		const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key as CryptoKey, ciphertext);
-		return JSON.parse(new TextDecoder().decode(decrypted));
+	if (hasSubtle && isNativeAesGcmKey(key) && hasNativePayload) {
+		return decryptNativeAesGcm(key as CryptoKey, parsed.iv!, parsed.ciphertext!);
 	}
 
-	// 2. If client does not have WebCrypto subtle (or if envelope is fallback-only):
 	if (parsed.fallback && typeof parsed.data === 'string') {
-		const binStr = atob(parsed.data);
-		const bytes = new Uint8Array(binStr.length);
-		for (let i = 0; i < binStr.length; i++) {
-			bytes[i] = binStr.charCodeAt(i);
-		}
-		const keyAny = key as unknown as { roomCode?: string; keyString?: string; key?: string };
-		const keyString = keyAny.keyString || keyAny.key || `cards:room:key:v1:${keyAny.roomCode || 'DEFAULT'}`;
-		const keyBytes = new TextEncoder().encode(keyString);
-		const unxored = new Uint8Array(bytes.length);
-		for (let i = 0; i < bytes.length; i++) {
-			unxored[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
-		}
-		return JSON.parse(new TextDecoder().decode(unxored));
+		return decryptFallbackData(key, parsed.data);
 	}
 
-	if (!Array.isArray(parsed.iv) || !Array.isArray(parsed.ciphertext)) {
+	if (!hasNativePayload) {
 		throw new Error('Invalid envelope');
 	}
 
 	throw new Error('Cannot decrypt envelope: WebCrypto subtle unavailable');
 }
+
 
 /**
  * WebRTC Peer Connection manager managing a single peer DataChannel

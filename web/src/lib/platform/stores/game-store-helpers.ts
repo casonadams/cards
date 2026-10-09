@@ -1,4 +1,4 @@
-import { resolveTrick } from '../engine/index.ts';
+import { resolveTrick, computeTrickLeader } from '../engine/index.ts';
 import type { Move, TrickPlay } from '../engine/index.ts';
 
 export interface LeaderParams {
@@ -10,12 +10,7 @@ export interface LeaderParams {
 
 export function computeLeader(params: LeaderParams): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const plays: TrickPlay[] = lastTrick.map((m) => ({ playerId: m.playerId, card: m.card }));
-	return playerIds.indexOf(resolveTrick(plays).winnerId);
+	return computeTrickLeader({ moves, playerCount, playerIds, dealerIndex, resolveWinner: resolveTrick });
 }
 
 export interface TrickResultsParams {

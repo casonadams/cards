@@ -5,7 +5,7 @@ import { trackPlayerVoids } from '$lib/platform/engine/index';
 import { simulateBestOhWellCard } from './ai-simulation.ts';
 import type { AiMoveParams, AiMoveResult } from '$lib/platform/types/game-runtime';
 import type { Card, Suit } from '$lib/platform/types/index';
-import type { TrickPlay } from '$lib/platform/engine/index';
+import { type TrickPlay, computeTrickLeader, computeCurrentTurnIndex } from '$lib/platform/engine/index';
 import type { OhWellRoundState } from './types.ts';
 
 function getState(gameSpecific: unknown): OhWellRoundState | null {
@@ -15,18 +15,18 @@ function getState(gameSpecific: unknown): OhWellRoundState | null {
 
 function computeLeader(params: AiMoveParams, trumpSuit: Suit | null): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const plays: TrickPlay[] = lastTrick.map((m) => ({ playerId: m.playerId, card: m.card }));
-	return playerIds.indexOf(resolveOhWellTrick(plays, trumpSuit).winnerId);
+	return computeTrickLeader({
+		moves,
+		playerCount,
+		playerIds,
+		dealerIndex,
+		resolveWinner: (plays) => resolveOhWellTrick(plays, trumpSuit)
+	});
 }
 
 function getCurrentTurnId(params: AiMoveParams, trumpSuit: Suit | null): string {
 	const leaderIdx = computeLeader(params, trumpSuit);
-	const playsInTrick = params.moves.length % params.playerCount;
-	const turnIdx = (leaderIdx + playsInTrick) % params.playerCount;
+	const turnIdx = computeCurrentTurnIndex(params.moves.length, params.playerCount, leaderIdx);
 	return params.playerIds[turnIdx];
 }
 

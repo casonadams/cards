@@ -1,6 +1,12 @@
 import { setupHand } from './definition.ts';
 import { HAND_SEQUENCE } from './types.ts';
-import { resolveTrick, trackPlayerVoids, validatePlay } from '$lib/platform/engine/index';
+import {
+	resolveTrick,
+	trackPlayerVoids,
+	validatePlay,
+	computeTrickLeader,
+	computeCurrentTurnIndex
+} from '$lib/platform/engine/index';
 import { simulateBestCanadianSaladCard } from './ai-simulation.ts';
 import type { Hand } from '$lib/platform/types/index';
 import type { Move, TrickPlay } from '$lib/platform/engine/index';
@@ -8,18 +14,12 @@ import type { AiMoveParams, AiMoveResult } from '$lib/platform/types/game-runtim
 
 function computeLeader(params: AiMoveParams): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const plays: TrickPlay[] = lastTrick.map((m) => ({ playerId: m.playerId, card: m.card }));
-	return playerIds.indexOf(resolveTrick(plays).winnerId);
+	return computeTrickLeader({ moves, playerCount, playerIds, dealerIndex, resolveWinner: resolveTrick });
 }
 
 function getCurrentTurnId(params: AiMoveParams): string {
 	const leaderIdx = computeLeader(params);
-	const playsInTrick = params.moves.length % params.playerCount;
-	const turnIdx = (leaderIdx + playsInTrick) % params.playerCount;
+	const turnIdx = computeCurrentTurnIndex(params.moves.length, params.playerCount, leaderIdx);
 	return params.playerIds[turnIdx];
 }
 

@@ -1,9 +1,5 @@
-import type { Card, Hand } from '../types/index.ts';
-
-export interface TrickPlay {
-	readonly playerId: string;
-	readonly card: Card;
-}
+import type { Card, Hand, TrickPlay } from '../types/index.ts';
+export type { TrickPlay };
 
 export interface TrickResult {
 	readonly plays: readonly TrickPlay[];

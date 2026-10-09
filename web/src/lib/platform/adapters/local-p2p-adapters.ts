@@ -3,28 +3,77 @@ import type { GameDocument, Move } from '$lib/platform/engine/index';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
+export interface P2pBroadcaster {
+	broadcast(msg: unknown): void;
+}
+
+function saveStorage(prefix: string, key: string, data: unknown): void {
+	if (typeof window === 'undefined') return;
+	try {
+		const s = JSON.stringify(data);
+		sessionStorage.setItem(`${prefix}_${key}`, s);
+		localStorage.setItem(`${prefix}_${key}`, s);
+	} catch {
+		// Ignore storage quota errors
+	}
+}
+
+function loadStorage<T>(prefix: string, key: string): T | null {
+	if (typeof window === 'undefined') return null;
+	const s = sessionStorage.getItem(`${prefix}_${key}`) || localStorage.getItem(`${prefix}_${key}`);
+	if (!s) return null;
+	try {
+		return JSON.parse(s) as T;
+	} catch {
+		return null;
+	}
+}
+
+function queryChannel<T>(
+	channel: BroadcastChannel | null,
+	query: unknown,
+	match: (data: unknown) => T | null,
+	fallback: () => T | null,
+	timeoutMs = 400
+): Promise<T | null> {
+	if (!channel) return Promise.resolve(fallback());
+	const { promise, resolve } = Promise.withResolvers<T | null>();
+	const timeout = setTimeout(() => {
+		channel.removeEventListener('message', handler);
+		resolve(fallback());
+	}, timeoutMs);
+
+	const handler = (event: MessageEvent) => {
+		const result = match(event.data);
+		if (result) {
+			clearTimeout(timeout);
+			channel.removeEventListener('message', handler);
+			resolve(result);
+		}
+	};
+	channel.addEventListener('message', handler);
+	channel.postMessage(query);
+	return promise;
+}
+
 export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null): GameRoomRepository {
 	const rooms = new Map<string, GameRoom>();
 	const listeners = new Map<string, Set<(r: GameRoom | null) => void>>();
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-room-channel') : null;
 
+	function persistRoom(room: GameRoom): void {
+		rooms.set(room.id, room);
+		saveStorage('cards_room_id', room.id, room);
+		saveStorage('cards_room', room.code.trim().toUpperCase(), room);
+	}
 
-	function notify(id: string, broadcast = true) {
+	function notify(id: string, broadcast = true): void {
 		const room = rooms.get(id) ?? null;
 		listeners.get(id)?.forEach((cb) => cb(room));
-		if (typeof window !== 'undefined' && room) {
-			try {
-				const serialized = JSON.stringify(room);
-				sessionStorage.setItem('cards_room_' + room.code.trim().toUpperCase(), serialized);
-				sessionStorage.setItem('cards_room_id_' + room.id, serialized);
-				localStorage.setItem('cards_room_' + room.code.trim().toUpperCase(), serialized);
-				localStorage.setItem('cards_room_id_' + room.id, serialized);
-			} catch {
-				// Ignore
-			}
-		}
-		if (broadcast && room) {
+		if (!room) return;
+		persistRoom(room);
+		if (broadcast) {
 			try {
 				const serialized = JSON.parse(JSON.stringify(room)) as GameRoom;
 				channel?.postMessage({ type: 'sync_room', room: serialized });
@@ -36,22 +85,18 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 	}
 
 	channel?.addEventListener('message', (event) => {
-		const data = event.data;
+		const data = event.data as { type?: string; room?: GameRoom; code?: string } | undefined;
 		if (!data) return;
 		if (data.type === 'sync_room' && data.room) {
-			rooms.set(data.room.id, data.room);
+			persistRoom(data.room);
 			notify(data.room.id, false);
 		} else if (data.type === 'query_room' && data.code) {
 			const clean = data.code.trim().toUpperCase();
-			for (const r of rooms.values()) {
-				if (r.code.trim().toUpperCase() === clean) {
-					try {
-						channel.postMessage(JSON.parse(JSON.stringify({ type: 'sync_room', room: r })));
-					} catch {
-						// Ignore
-					}
-					break;
-				}
+			const match = Array.from(rooms.values()).find((r) => r.code.trim().toUpperCase() === clean);
+			if (match) {
+				try {
+					channel.postMessage(JSON.parse(JSON.stringify({ type: 'sync_room', room: match })));
+				} catch {}
 			}
 		}
 	});
@@ -60,7 +105,7 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		async create(room: Omit<GameRoom, 'id'>): Promise<GameRoom> {
 			const id = crypto.randomUUID();
 			const full: GameRoom = { ...room, id, code: room.code || generateRoomCode() };
-			rooms.set(id, full);
+			persistRoom(full);
 			notify(id);
 			return full;
 		},
@@ -68,75 +113,42 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 		async getById(id: string): Promise<GameRoom | null> {
 			const mem = rooms.get(id);
 			if (mem) return mem;
-			if (typeof window !== 'undefined') {
-				const cached = sessionStorage.getItem('cards_room_id_' + id) || localStorage.getItem('cards_room_id_' + id);
-				if (cached) {
-					try {
-						const r = JSON.parse(cached) as GameRoom;
-						rooms.set(r.id, r);
-						return r;
-					} catch {
-						// Ignore
-					}
-				}
+			const cached = loadStorage<GameRoom>('cards_room_id', id);
+			if (cached) {
+				rooms.set(cached.id, cached);
+				return cached;
 			}
 			return null;
 		},
 
 		async getByCode(code: string): Promise<GameRoom | null> {
 			const clean = code.trim().toUpperCase();
-			for (const r of rooms.values()) {
-				if (r.code.trim().toUpperCase() === clean) return r;
+			const mem = Array.from(rooms.values()).find((r) => r.code.trim().toUpperCase() === clean);
+			if (mem) return mem;
+			const cached = loadStorage<GameRoom>('cards_room', clean);
+			if (cached) {
+				rooms.set(cached.id, cached);
+				return cached;
 			}
-			if (typeof window !== 'undefined') {
-				const cached = sessionStorage.getItem('cards_room_' + clean) || localStorage.getItem('cards_room_' + clean);
-				if (cached) {
-					try {
-						const r = JSON.parse(cached) as GameRoom;
-						rooms.set(r.id, r);
-						return r;
-					} catch {
-						// Ignore
+			return queryChannel<GameRoom>(
+				channel,
+				{ type: 'query_room', code: clean },
+				(data) => {
+					const msg = data as { type?: string; room?: GameRoom };
+					if (msg?.type === 'sync_room' && msg.room && msg.room.code.trim().toUpperCase() === clean) {
+						rooms.set(msg.room.id, msg.room);
+						return msg.room;
 					}
-				}
-			}
-			if (channel) {
-				const { promise, resolve } = Promise.withResolvers<GameRoom | null>();
-				const timeout = setTimeout(() => {
-					for (const r of rooms.values()) {
-						if (r.code.trim().toUpperCase() === clean) {
-							resolve(r);
-							return;
-						}
-					}
-					resolve(null);
-				}, 400);
-
-				const handler = (event: MessageEvent) => {
-					if (event.data?.type === 'sync_room' && event.data.room) {
-						const r = event.data.room as GameRoom;
-						if (r.code.trim().toUpperCase() === clean) {
-							clearTimeout(timeout);
-							channel.removeEventListener('message', handler);
-							rooms.set(r.id, r);
-							resolve(r);
-						}
-					}
-				};
-				channel.addEventListener('message', handler);
-				channel.postMessage({ type: 'query_room', code: clean });
-				return promise;
-			}
-			return null;
+					return null;
+				},
+				() => Array.from(rooms.values()).find((r) => r.code.trim().toUpperCase() === clean) ?? null
+			);
 		},
 
 		async update(id: string, data: Partial<GameRoom>, broadcast = true): Promise<void> {
-			const cached = typeof window !== 'undefined'
-				? sessionStorage.getItem('cards_room_id_' + id) || localStorage.getItem('cards_room_id_' + id)
-				: null;
-			const existing = rooms.get(id) ?? (cached ? JSON.parse(cached) : null);
+			const existing = rooms.get(id) ?? loadStorage<GameRoom>('cards_room_id', id);
 			const updated = { ...existing, ...data } as GameRoom;
-			rooms.set(id, updated);
+			persistRoom(updated);
 			notify(id, broadcast);
 		},
 
@@ -162,29 +174,20 @@ export function createLocalP2pRoomRepo(broadcaster?: () => P2pBroadcaster | null
 	};
 }
 
-export interface P2pBroadcaster {
-	broadcast(msg: unknown): void;
-}
-
 export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): RealtimeSync<GameDocument> {
 	const docs = new Map<string, GameDocument>();
 	const listeners = new Map<string, Set<(doc: GameDocument) => void>>();
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-
-	function notify(roomId: string, doc: GameDocument, broadcast = true) {
+	function persistDoc(roomId: string, doc: GameDocument): void {
 		docs.set(roomId, doc);
+		saveStorage('cards_doc', roomId, doc);
+	}
+
+	function notify(roomId: string, doc: GameDocument, broadcast = true): void {
+		persistDoc(roomId, doc);
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
-		if (typeof window !== 'undefined' && doc) {
-			try {
-				const serialized = JSON.stringify(doc);
-				sessionStorage.setItem('cards_doc_' + roomId, serialized);
-				localStorage.setItem('cards_doc_' + roomId, serialized);
-			} catch {
-				// Ignore
-			}
-		}
 		if (broadcast) {
 			try {
 				const serialized = JSON.parse(JSON.stringify({ roomId, doc }));
@@ -195,42 +198,33 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 			}
 		}
 	}
+
 	channel?.addEventListener('message', (event) => {
-		const data = event.data;
+		const data = event.data as { type?: string; roomId?: string; doc?: GameDocument } | undefined;
 		if (data?.type === 'sync_doc' && data.roomId && data.doc) {
+			persistDoc(data.roomId, data.doc);
 			notify(data.roomId, data.doc, false);
 		} else if (data?.type === 'query_doc' && data.roomId) {
 			const current = docs.get(data.roomId);
 			if (current) {
 				try {
-					channel?.postMessage(JSON.parse(JSON.stringify({ type: 'sync_doc', roomId: data.roomId, doc: current })));
-				} catch {
-					// Ignore
-				}
+					channel?.postMessage({ type: 'sync_doc', roomId: data.roomId, doc: current });
+				} catch {}
 			}
 		}
 	});
+
 	return {
 		subscribe(roomId: string, callback: (doc: GameDocument) => void): () => void {
 			if (!listeners.has(roomId)) {
 				listeners.set(roomId, new Set());
 			}
 			listeners.get(roomId)!.add(callback);
-			const existing = docs.get(roomId);
+			const existing = docs.get(roomId) ?? loadStorage<GameDocument>('cards_doc', roomId);
 			if (existing) {
 				callback(existing);
-			} else if (typeof window !== 'undefined') {
-				const cached = sessionStorage.getItem('cards_doc_' + roomId);
-				if (cached) {
-					try {
-						const d = JSON.parse(cached) as GameDocument;
-						notify(roomId, d, false);
-					} catch {
-						// Ignore
-					}
-				}
-				channel?.postMessage({ type: 'query_doc', roomId });
 			}
+			channel?.postMessage({ type: 'query_doc', roomId });
 			return () => {
 				listeners.get(roomId)?.delete(callback);
 			};

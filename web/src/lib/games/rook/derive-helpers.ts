@@ -2,6 +2,7 @@ import { dealRook, removeCards } from './deal.ts';
 import { cardToRook } from './card-adapter.ts';
 import { resolveRookTrick } from './trick.ts';
 import { sumPoints } from './scoring.ts';
+import { computeTrickLeader } from '$lib/platform/engine/index';
 import type { DeriveParams, PlayerStats } from '$lib/platform/types/game-runtime';
 import type { Card } from '$lib/platform/types/index';
 import type { RookCard, RookColor } from './types.ts';
@@ -17,12 +18,16 @@ export function getMyRookHand(params: DeriveParams, myIndex: number): readonly R
 
 export function computeLeader(params: DeriveParams, trump: RookColor): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const rookPlays = lastTrick.map((m) => ({ playerId: m.playerId, card: cardToRook(m.card) }));
-	return playerIds.indexOf(resolveRookTrick(rookPlays, trump).winnerId);
+	return computeTrickLeader({
+		moves,
+		playerCount,
+		playerIds,
+		dealerIndex,
+		resolveWinner: (plays) => {
+			const rookPlays = plays.map((m) => ({ playerId: m.playerId, card: cardToRook(m.card) }));
+			return resolveRookTrick(rookPlays, trump);
+		}
+	});
 }
 
 function initTrickMap(playerIds: readonly string[]): Map<string, RookCard[]> {

@@ -11,6 +11,17 @@ export type Deck = readonly Card[];
 
 export type Hand = readonly Card[];
 
+export interface TrickPlay {
+	readonly playerId: string;
+	readonly card: Card;
+}
+
+export interface Move {
+	readonly playerId: string;
+	readonly card: Card;
+	readonly timestamp?: number;
+}
+
 export interface DiceConfig {
 	readonly count: number;
 	readonly sides: number;

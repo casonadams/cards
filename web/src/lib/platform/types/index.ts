@@ -1,4 +1,4 @@
-export type { Suit, Rank, Card, Deck, Hand, DiceConfig, DiceResult } from './card.ts';
+export type { Suit, Rank, Card, Deck, Hand, DiceConfig, DiceResult, TrickPlay, Move } from './card.ts';
 export { RANK_NAMES, SUIT_SYMBOLS } from './card.ts';
 
 export type { Player, UserProfile, RoomPlayer } from './player.ts';

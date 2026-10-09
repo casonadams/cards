@@ -3,7 +3,12 @@ import { resolveOhWellTrick, isValidPlay } from './trick.ts';
 import { parseOhWellState } from './parse-state.ts';
 import type { DeriveParams } from '$lib/platform/types/game-runtime';
 import type { Card, Suit } from '$lib/platform/types/index';
-import type { TrickPlay } from '$lib/platform/engine/index';
+import {
+	type TrickPlay,
+	extractCurrentTrickPlays,
+	extractLastCompleteTrick,
+	computeTrickLeader
+} from '$lib/platform/engine/index';
 import type { OhWellRoundState } from './types.ts';
 
 export function getState(params: DeriveParams): OhWellRoundState {
@@ -33,26 +38,21 @@ export function getMyHand(hp: HandParams): readonly Card[] {
 
 export function computeLeader(params: DeriveParams, trumpSuit: Suit | null): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const plays: TrickPlay[] = lastTrick.map((m) => ({ playerId: m.playerId, card: m.card }));
-	return playerIds.indexOf(resolveOhWellTrick(plays, trumpSuit).winnerId);
+	return computeTrickLeader({
+		moves,
+		playerCount,
+		playerIds,
+		dealerIndex,
+		resolveWinner: (plays) => resolveOhWellTrick(plays, trumpSuit)
+	});
 }
 
 export function getTrickPlays(params: DeriveParams): TrickPlay[] {
-	const start = params.moves.length - (params.moves.length % params.playerCount);
-	return params.moves.slice(start).map((m) => ({ playerId: m.playerId, card: m.card }));
+	return extractCurrentTrickPlays(params.moves, params.playerCount);
 }
 
 export function getLastTrick(params: DeriveParams): TrickPlay[] {
-	const { moves, playerCount } = params;
-	const start = moves.length - (moves.length % playerCount);
-	if (start < playerCount) return [];
-	return moves
-		.slice(start - playerCount, start)
-		.map((m) => ({ playerId: m.playerId, card: m.card }));
+	return extractLastCompleteTrick(params.moves, params.playerCount);
 }
 
 export interface PlayableParams {

@@ -62,10 +62,6 @@ export function removeCardsFromHand(hand: readonly Card[], cards: readonly Card[
 	return remaining;
 }
 
-export { playCards } from './play-cards.ts';
-export { yieldTurn } from './play-cards.ts';
-export { defendWithCards } from './defend-cards.ts';
-
 export function isGameLost(state: GameState): boolean {
 	return state.phase === 'defeat';
 }

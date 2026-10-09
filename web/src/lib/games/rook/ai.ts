@@ -3,7 +3,7 @@ import { cardToRook, rookToCard } from './card-adapter.ts';
 import { resolveRookTrick, isValidPlay } from './trick.ts';
 import type { AiMoveParams, AiMoveResult } from '$lib/platform/types/game-runtime';
 import type { RookCard, RookColor, RookRoundState } from './types.ts';
-import type { TrickPlay } from '$lib/platform/engine/index';
+import { type TrickPlay, computeTrickLeader, computeCurrentTurnIndex } from '$lib/platform/engine/index';
 
 function getTrump(gameSpecific: unknown): RookColor {
 	if (!gameSpecific) return 'black';
@@ -12,18 +12,21 @@ function getTrump(gameSpecific: unknown): RookColor {
 
 function computeLeader(params: AiMoveParams, trump: RookColor): number {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	if (moves.length === 0) return (dealerIndex + 1) % playerCount;
-	const lastEnd = moves.length - (moves.length % playerCount);
-	if (lastEnd === 0) return (dealerIndex + 1) % playerCount;
-	const lastTrick = moves.slice(lastEnd - playerCount, lastEnd);
-	const plays = lastTrick.map((m) => ({ playerId: m.playerId, card: cardToRook(m.card) }));
-	return playerIds.indexOf(resolveRookTrick(plays, trump).winnerId);
+	return computeTrickLeader({
+		moves,
+		playerCount,
+		playerIds,
+		dealerIndex,
+		resolveWinner: (plays) => {
+			const rookPlays = plays.map((m) => ({ playerId: m.playerId, card: cardToRook(m.card) }));
+			return resolveRookTrick(rookPlays, trump);
+		}
+	});
 }
 
 function getCurrentTurnId(params: AiMoveParams, trump: RookColor): string {
 	const leaderIdx = computeLeader(params, trump);
-	const playsInTrick = params.moves.length % params.playerCount;
-	const turnIdx = (leaderIdx + playsInTrick) % params.playerCount;
+	const turnIdx = computeCurrentTurnIndex(params.moves.length, params.playerCount, leaderIdx);
 	return params.playerIds[turnIdx];
 }
 

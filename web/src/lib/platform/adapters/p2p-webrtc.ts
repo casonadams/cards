@@ -142,19 +142,8 @@ export class P2pNetworkManager {
 			if (topic !== this.topic || !this.cryptoKey) return;
 			try {
 				const decrypted = await decryptData(this.cryptoKey, payload.toString());
-				if (!isValidMessage(decrypted)) return;
-				if (decrypted.senderId === this.myId) return; // Drop own echoes
-
-				if (decrypted.type === 'sync_room') {
-					this.onRoomMessage?.(decrypted.room);
-				} else if (decrypted.type === 'join_request') {
-					this.onJoinRequest?.(decrypted.code, decrypted.player);
-				} else if (decrypted.type === 'sync_doc') {
-					this.onDocMessage?.(decrypted.roomId, decrypted.doc);
-				} else if (decrypted.type === 'query_room') {
-					this.onQueryRoom?.();
-				} else if (decrypted.type === 'query_doc') {
-					this.onQueryDoc?.(decrypted.roomId);
+				if (isValidMessage(decrypted) && decrypted.senderId !== this.myId) {
+					this.handleMessage(decrypted);
 				}
 			} catch {
 				// Decryption failed (malformed or unauthorized message); drop silently
@@ -200,5 +189,25 @@ export class P2pNetworkManager {
 		}
 		this.cryptoKey = null;
 		this.topic = '';
+	}
+
+	private handleMessage(msg: P2pMessage): void {
+		switch (msg.type) {
+			case 'sync_room':
+				this.onRoomMessage?.(msg.room);
+				break;
+			case 'join_request':
+				this.onJoinRequest?.(msg.code, msg.player);
+				break;
+			case 'sync_doc':
+				this.onDocMessage?.(msg.roomId, msg.doc);
+				break;
+			case 'query_room':
+				this.onQueryRoom?.();
+				break;
+			case 'query_doc':
+				this.onQueryDoc?.(msg.roomId);
+				break;
+		}
 	}
 }

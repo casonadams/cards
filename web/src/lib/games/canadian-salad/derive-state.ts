@@ -1,12 +1,16 @@
 import { setupHand } from './definition.ts';
 import { HAND_SEQUENCE } from './types.ts';
-import { computeLeader } from '$lib/platform/stores/game-store-helpers';
-import { resolveTrick } from '$lib/platform/engine/index';
+import {
+	resolveTrick,
+	extractCurrentTrickPlays,
+	extractLastCompleteTrick,
+	computeTrickLeader,
+	computeCurrentTurnIndex
+} from '$lib/platform/engine/index';
 import { getPlayableCards } from './derive-playable.ts';
 import { deriveScoring } from './derive-scoring.ts';
 import type { DeriveParams, DerivedState } from '$lib/platform/types/game-runtime';
 import type { Hand } from '$lib/platform/types/index';
-import type { TrickPlay } from '$lib/platform/engine/index';
 
 function getMyHand(params: DeriveParams, myIndex: number) {
 	const deal = setupHand(params.playerCount, params.seed + params.currentRound);
@@ -18,31 +22,17 @@ function getMyHand(params: DeriveParams, myIndex: number) {
 	return { myHand, remaining };
 }
 
-function getTrickPlays(params: DeriveParams): TrickPlay[] {
-	const trickStart = params.moves.length - (params.moves.length % params.playerCount);
-	return params.moves.slice(trickStart).map((m) => ({ playerId: m.playerId, card: m.card }));
-}
-
-function getLastTrick(params: DeriveParams): TrickPlay[] {
-	const { moves, playerCount } = params;
-	const trickStart = moves.length - (moves.length % playerCount);
-	if (trickStart < playerCount) return [];
-	return moves
-		.slice(trickStart - playerCount, trickStart)
-		.map((m) => ({ playerId: m.playerId, card: m.card }));
-}
-
 function deriveTurnInfo(params: DeriveParams) {
 	const { moves, playerCount, playerIds, dealerIndex } = params;
-	const leaderIdx = computeLeader({ moves, playerCount, playerIds, dealerIndex });
-	const currentTurnIndex = (leaderIdx + (moves.length % playerCount)) % playerCount;
+	const leaderIdx = computeTrickLeader({ moves, playerCount, playerIds, dealerIndex, resolveWinner: resolveTrick });
+	const currentTurnIndex = computeCurrentTurnIndex(moves.length, playerCount, leaderIdx);
 	return { currentTurnIndex };
 }
 
 function deriveTrickInfo(params: DeriveParams) {
-	const trickPlays = getTrickPlays(params);
+	const trickPlays = extractCurrentTrickPlays(params.moves, params.playerCount);
 	const ledSuit = trickPlays.length > 0 ? trickPlays[0].card.suit : null;
-	const lastCompleteTrick = getLastTrick(params);
+	const lastCompleteTrick = extractLastCompleteTrick(params.moves, params.playerCount);
 	const lastTrickWinnerId =
 		lastCompleteTrick.length > 0 ? resolveTrick(lastCompleteTrick).winnerId : null;
 	return { trickPlays, ledSuit, lastCompleteTrick, lastTrickWinnerId };

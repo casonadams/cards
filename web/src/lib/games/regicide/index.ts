@@ -1,6 +1,9 @@
 export { regicideRuntime } from './runtime.ts';
 export { setupRegicide } from './setup.ts';
-export { initGameState, playCards, yieldTurn, defendWithCards, createEnemy } from './engine.ts';
+export { initGameState, createEnemy } from './engine.ts';
+export { playCards } from './play-cards.ts';
+export { yieldTurn } from './yield-turn.ts';
+export { defendWithCards } from './defend-cards.ts';
 export { computeRegicideAiAction } from './ai.ts';
 export {
 	cardAttackValue,

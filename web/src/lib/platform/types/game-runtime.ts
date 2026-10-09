@@ -1,7 +1,5 @@
-import type { Card, Hand, ScoreEntry } from './index.ts';
-import type { Move } from '../engine/game-sync.ts';
-import type { TrickPlay } from '../engine/trick.ts';
-
+import type { Card, Hand, Move, TrickPlay } from './card.ts';
+import type { ScoreEntry } from './game.ts';
 export interface DeriveParams {
 	readonly moves: readonly Move[];
 	readonly seed: number;

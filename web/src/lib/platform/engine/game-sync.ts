@@ -1,11 +1,7 @@
-import type { Card, ScoreEntry } from '../types/index.ts';
+import type { ScoreEntry, Move } from '../types/index.ts';
 import type { RealtimeSync } from '../ports/index.ts';
 
-export interface Move {
-	readonly playerId: string;
-	readonly card: Card;
-	readonly timestamp: number;
-}
+export type { Move };
 
 export interface RoundScore {
 	readonly round: number;

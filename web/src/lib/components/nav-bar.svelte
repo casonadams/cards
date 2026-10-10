@@ -94,6 +94,10 @@
 		if (e.key === 'Enter') confirmEdit();
 		if (e.key === 'Escape') editing = false;
 	}
+
+	function focusInput(node: HTMLElement) {
+		node.focus();
+	}
 </script>
 
 <nav class="border-b border-border/80 bg-card/75 backdrop-blur-md px-2.5 sm:px-6 py-1 sm:py-2 flex justify-between items-center sticky top-0 z-40 gap-2 shrink-0">
@@ -151,18 +155,23 @@
 			</div>
 		{/if}
 	</div>
-	<div class="flex items-center gap-2 sm:gap-3">
+	<div class="flex items-center gap-2 sm:gap-3 shrink-0">
 		{#if editing}
-			<div class="flex items-center gap-1.5 bg-background border border-emerald-500/70 rounded-full px-2.5 py-1 shadow-sm">
+			<div class="flex items-center gap-1.5 px-2 h-8 rounded-full bg-background border border-emerald-500/70 w-36 sm:w-48 shadow-sm shrink-0">
+				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[9px] font-black leading-none shrink-0">
+					{getInitials(editValue || displayName)}
+				</div>
 				<input
-					class="bg-transparent border-none outline-none text-xs w-32 sm:w-44 px-2 text-foreground font-semibold"
+					class="bg-transparent border-none outline-none text-xs flex-1 min-w-0 text-foreground font-semibold px-1"
 					bind:value={editValue}
 					maxlength={MAX_NAME_LENGTH}
 					onkeydown={handleKeydown}
 					onblur={confirmEdit}
+					use:focusInput
 				/>
 				<button
-					class="text-emerald-400 hover:text-emerald-300 text-xs px-1 font-bold cursor-pointer"
+					type="button"
+					class="text-emerald-400 hover:text-emerald-300 text-xs px-1 font-bold cursor-pointer shrink-0"
 					onclick={confirmEdit}
 					title="Save name"
 				>
@@ -171,21 +180,23 @@
 			</div>
 		{:else if onNameChange}
 			<button
-				class="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-border hover:bg-card transition-all cursor-pointer group shadow-xs leading-none shrink-0"
+				type="button"
+				class="flex items-center gap-1.5 px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-emerald-500/40 hover:bg-card transition-all cursor-pointer group shadow-xs leading-none w-36 sm:w-48 shrink-0 text-left"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
-				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black leading-none shrink-0">
+				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[9px] font-black leading-none shrink-0">
 					{getInitials(displayName)}
 				</div>
-				<span class="hidden sm:inline font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
+				<span class="flex-1 truncate font-semibold text-xs leading-none text-foreground" title={displayName}>{displayName}</span>
+				<span class="text-[10px] text-muted-foreground/60 group-hover:text-emerald-400 font-bold shrink-0">✎</span>
 			</button>
 		{:else}
-			<div class="flex items-center gap-2 p-1 sm:px-3 sm:py-1.5 rounded-full bg-background/60 border border-border/80 text-xs text-foreground shadow-xs leading-none shrink-0">
-				<div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[10px] font-black leading-none shrink-0">
+			<div class="flex items-center gap-1.5 px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground shadow-xs leading-none w-36 sm:w-48 shrink-0">
+				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[9px] font-black leading-none shrink-0">
 					{getInitials(displayName)}
 				</div>
-				<span class="hidden sm:inline font-semibold truncate max-w-[110px] sm:max-w-[160px] leading-none" title={displayName}>{displayName}</span>
+				<span class="flex-1 truncate font-semibold text-xs leading-none text-foreground" title={displayName}>{displayName}</span>
 			</div>
 		{/if}
 		{#if showAdmin}

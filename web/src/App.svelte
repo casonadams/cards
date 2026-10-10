@@ -979,54 +979,77 @@
 			{/if}
 
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
-				<CardContent class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-					<div class="flex items-center gap-3.5 min-w-0">
-						<div class="w-11 h-11 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-sm font-black shrink-0">
-							{getInitials(playerName || 'Player')}
+				<CardContent class="p-3.5 sm:p-4">
+					<form
+						onsubmit={(e) => {
+							e.preventDefault();
+							if (isEditingName || !hasValidName) {
+								savePlayerName(nameInput);
+							}
+						}}
+						class="flex items-center justify-between gap-3 w-full"
+					>
+						<div class="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
+							<div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs sm:text-sm font-black shrink-0">
+								{getInitials(playerName || nameInput || 'Player')}
+							</div>
+							<div class="flex flex-col min-w-0">
+								<span class="text-[10px] sm:text-[11px] text-muted-foreground font-semibold uppercase tracking-wider leading-tight">Player Name</span>
+								<div class="h-8 flex items-center mt-0.5">
+									{#if isEditingName || !hasValidName}
+										<Input
+											class="text-sm h-8 font-bold w-36 sm:w-56 bg-background/80"
+											placeholder="Enter your name..."
+											bind:value={nameInput}
+											maxlength={20}
+											autofocus
+											onkeydown={(e) => {
+												if (e.key === 'Escape' && hasValidName) {
+													isEditingName = false;
+													nameInput = playerName;
+												}
+											}}
+										/>
+									{:else}
+										<span class="text-base sm:text-lg font-black truncate max-w-[160px] sm:max-w-[260px] text-foreground leading-none">
+											{playerName}
+										</span>
+									{/if}
+								</div>
+							</div>
 						</div>
-						<div class="flex flex-col min-w-0">
-							<span class="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Player Name</span>
+
+						<div class="flex items-center shrink-0">
 							{#if isEditingName || !hasValidName}
-								<form onsubmit={(e) => { e.preventDefault(); savePlayerName(nameInput); }} class="flex items-center gap-2 mt-1.5">
-									<Input
-										class="text-sm h-9 w-44 sm:w-56 font-bold"
-										placeholder="Enter your name..."
-										bind:value={nameInput}
-										maxlength={20}
-										autofocus
-									/>
-									<Button
-										type="submit"
-										size="sm"
-										class="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg cursor-pointer"
-										disabled={!nameInput.trim()}
-									>
-										Save
-									</Button>
-								</form>
+								<Button
+									type="submit"
+									size="sm"
+									class="h-8 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg cursor-pointer shrink-0"
+									disabled={!nameInput.trim()}
+								>
+									Save
+								</Button>
 							{:else}
-								<span class="text-base font-black truncate max-w-[200px] sm:max-w-[280px] text-foreground">{playerName}</span>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									class="text-xs h-8 px-3 sm:px-3.5 border-border/80 hover:bg-background/80 shrink-0 font-semibold cursor-pointer"
+									onclick={() => { nameInput = playerName; isEditingName = true; }}
+								>
+									Change Name
+								</Button>
 							{/if}
 						</div>
-					</div>
-					{#if hasValidName && !isEditingName}
-						<Button
-							variant="outline"
-							size="sm"
-							class="text-xs h-8 border-border/80 hover:bg-background/80 shrink-0 font-semibold self-start sm:self-center cursor-pointer"
-							onclick={() => { nameInput = playerName; isEditingName = true; }}
-						>
-							Change Name
-						</Button>
-					{/if}
+					</form>
 				</CardContent>
 			</Card>
 
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
 					<CardTitle class="text-lg font-black flex items-center justify-between">
-						<span>Create a Match</span>
-						<span class="text-xs text-muted-foreground font-semibold">Step 1: Choose game</span>
+						<span>Table Selector</span>
+						<span class="text-xs text-muted-foreground font-semibold">Choose Game and Players</span>
 					</CardTitle>
 				</CardHeader>
 				<CardContent class="gap-5">
@@ -1053,18 +1076,20 @@
 						{/each}
 					</div>
 
-					<div class="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
-						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Table Size</span>
-						<div class="grid grid-cols-4 gap-1.5 sm:flex">
+					<div class="flex flex-col p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
+						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Players</span>
+						<div class="flex items-center gap-1.5 w-full">
 							{#each playerOptions as n (n)}
 								<button
-									class="rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer text-center {playerCount === n
+									type="button"
+									data-player-count={n}
+									aria-label={`${n} Players`}
+									class="flex-1 h-9 rounded-lg text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center {playerCount === n
 										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
 										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
 									onclick={() => (playerCount = n)}
 								>
-									<span class="sm:hidden">{n}P</span>
-									<span class="hidden sm:inline">{n} Players</span>
+									{n}
 								</button>
 							{/each}
 						</div>

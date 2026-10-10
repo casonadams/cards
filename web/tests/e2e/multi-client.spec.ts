@@ -62,7 +62,9 @@ async function createRoom(
 
 	// Select player count
 	const countButton = page
-		.locator('button', { hasText: `${playerCount} Players` })
+		.locator(`button[data-player-count="${playerCount}"]`)
+		.or(page.locator('button', { hasText: new RegExp(`^\\s*${playerCount}\\s*$`) }))
+		.or(page.locator('button', { hasText: `${playerCount} Players` }))
 		.or(page.locator('button', { hasText: `${playerCount}P` }))
 		.first();
 	if (await countButton.isVisible()) {

@@ -15,6 +15,7 @@
 		winnerName?: string | null;
 		myId?: string;
 		onCollectComplete?: () => void;
+		isMyTurn?: boolean;
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		winnerId = null,
 		winnerName = null,
 		myId = '',
-		onCollectComplete
+		onCollectComplete,
+		isMyTurn = false
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
@@ -231,21 +233,38 @@
 
 <div
 	bind:this={containerEl}
-	class="relative w-full max-w-3xl mx-auto flex flex-col items-center justify-center flex-1 min-h-0 sm:tall:h-[220px] p-1 sm:tall:p-4 rounded-2xl sm:tall:rounded-[2.5rem] border-0 sm:tall:border-2 sm:tall:border-emerald-500/25 sm:tall:bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] sm:tall:shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] overflow-visible"
+	class="relative w-full max-w-3xl mx-auto flex flex-col items-center justify-between flex-1 min-h-0 sm:tall:min-h-[220px] p-1.5 sm:tall:p-4 rounded-2xl sm:tall:rounded-[2.5rem] border-0 sm:tall:border-2 sm:tall:border-emerald-500/25 sm:tall:bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] sm:tall:shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] overflow-visible"
 	style:--target-x={`${targetX}px`}
 	style:--target-y={`${targetY}px`}
 >
 	<div class="hidden sm:tall:block absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
-	{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
-		{@const isUserWinner = Boolean(myId && winnerId === myId)}
-		<div class="absolute top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
-			<div class="px-4 py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:text-sm shadow-xl shadow-emerald-950/60 backdrop-blur-md">
+
+	<!-- 1. Top Gap: Toast banner centered between top user badges and trick cards -->
+	<div class="flex-1 min-h-[30px] sm:tall:min-h-[48px] flex items-center justify-center w-full z-30 transition-all duration-200">
+		{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
+			{@const isUserWinner = Boolean(myId && winnerId === myId)}
+			<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:tall:text-base shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
 				<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
 			</div>
-		</div>
-	{/if}
+		{:else if isMyTurn && !isRoundComplete}
+			<div class="inline-flex items-center gap-2 sm:tall:gap-3 px-4 sm:tall:px-8 py-1 sm:tall:py-2.5 rounded-full bg-emerald-950/95 border-2 sm:tall:border-3 border-emerald-400 text-emerald-100 shadow-[0_0_35px_rgba(16,185,129,0.75)] backdrop-blur-md animate-pulse whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+				<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">
+					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+					<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5 bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+				</span>
+				<span class="font-black text-xs sm:tall:text-base md:tall:text-xl tracking-wider uppercase drop-shadow-md">
+					Your Turn — Play a Card
+				</span>
+				<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">
+					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+					<span class="relative inline-flex rounded-full h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5 bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+				</span>
+			</div>
+		{/if}
+	</div>
 
-	<div class="relative z-10 flex flex-col items-center justify-center w-full px-2 gap-1 sm:gap-2">
+	<!-- 2. Centered Trick Cards -->
+	<div class="relative z-10 shrink-0 flex flex-col items-center justify-center w-full px-2 gap-1 sm:gap-2">
 		{#each rows as row, rIdx (rIdx)}
 			<div class="flex items-center justify-center gap-1.5 sm:gap-2.5">
 				{#each row as item (item.slotIdx)}
@@ -275,7 +294,7 @@
 								class="w-full flex flex-col items-center gap-0.5 sm:gap-1 transition-all"
 							>
 								<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
-									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} />
+									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} inspection={true} />
 								</div>
 								<span
 									class={cn(
@@ -308,6 +327,9 @@
 			</div>
 		{/each}
 	</div>
+
+	<!-- 3. Bottom Balancing Gap -->
+	<div class="flex-1 min-h-[30px] sm:tall:min-h-[48px] w-full pointer-events-none"></div>
 </div>
 
 <style>

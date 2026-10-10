@@ -129,6 +129,14 @@
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
 	}
 </script>
+
+{#if isMyTurn && !isRoundComplete}
+	<div
+		class="fixed inset-0 pointer-events-none z-50 transition-opacity duration-300 turn-glow-border"
+		aria-hidden="true"
+	></div>
+{/if}
+
 <main class="flex-1 min-h-0 flex flex-col justify-between p-1.5 sm:tall:p-4 max-w-6xl self-center mx-auto w-full gap-1 sm:tall:gap-2.5 overflow-hidden">
 	<div class="flex flex-wrap justify-center items-center gap-1 sm:tall:gap-2 px-1 py-0.5 max-w-5xl mx-auto w-full shrink-0">
 		{#each playerIds as id (id)}
@@ -267,6 +275,7 @@
 				{myId}
 				isRoundComplete={isRoundComplete}
 				onCollectComplete={() => (roundScoreReady = true)}
+				{isMyTurn}
 			/>
 			<div class="h-6 min-h-[24px] sm:tall:h-7 sm:tall:min-h-[28px] flex items-center justify-center shrink-0 w-full">
 				<LastTrick
@@ -278,16 +287,8 @@
 		{/if}
 	</div>
 
-	<!-- Bottom Player Hand Container (Full-Width Card Dock) with anchored absolute Your Turn banner -->
+	<!-- Bottom Player Hand Container (Full-Width Card Dock) -->
 	<div class="-mx-1.5 sm:tall:-mx-4 w-[calc(100%+0.75rem)] sm:tall:w-[calc(100%+2rem)] border-t border-emerald-500/25 bg-card/50 backdrop-blur-md shadow-[0_-4px_16px_rgba(0,0,0,0.3)] shrink-0 overflow-visible relative h-[88px] sm:tall:h-[130px] flex flex-col justify-end">
-		{#if isMyTurn && !showBidding && !isRoundComplete}
-			<div class="absolute -top-6 sm:tall:-top-8 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95">
-				<div class="inline-flex items-center gap-1.5 px-3 sm:tall:px-4 py-0.5 sm:tall:py-1 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.5)] backdrop-blur-md animate-pulse whitespace-nowrap">
-					<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm"></span>
-					<span class="font-black text-[10px] sm:tall:text-xs tracking-wider uppercase">Your Turn — Play a Card</span>
-				</div>
-			</div>
-		{/if}
 		<HandDisplay
 			cards={myCards}
 			playableCards={showBidding ? [] : playableCards}

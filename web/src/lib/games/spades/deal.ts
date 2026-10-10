@@ -39,6 +39,28 @@ export function dealSpades(playerCount: number, seed: number): DealResult {
 		};
 	}
 
+	if (playerCount === 5) {
+		const deck50 = STATIC_STANDARD_DECK.filter(
+			(c) => !(c.rank === 2 && (c.suit === 'clubs' || c.suit === 'diamonds'))
+		);
+		const shuffled = shuffle(deck50, seed);
+		const cardsPerPlayer = 10;
+		const hands: Hand[] = [];
+
+		for (let p = 0; p < playerCount; p++) {
+			const start = p * cardsPerPlayer;
+			hands.push(shuffled.slice(start, start + cardsPerPlayer));
+		}
+
+		return {
+			hands,
+			removedCards: [
+				{ suit: 'clubs', rank: 2 },
+				{ suit: 'diamonds', rank: 2 }
+			]
+		};
+	}
+
 	// 4-player standard 52-card deck
 	const shuffled = shuffle(STATIC_STANDARD_DECK, seed);
 	const cardsPerPlayer = 13;

@@ -1,4 +1,4 @@
-export type SpadesGameMode = '4p_solo' | '4p_teams' | '6p_teams';
+export type SpadesGameMode = '4p_solo' | '4p_teams' | '5p_solo' | '6p_teams';
 export type SpadesPhase = 'bidding' | 'playing' | 'roundEnd';
 export type SpadesBidType = 'regular' | 'nil' | 'blind_nil';
 

@@ -66,7 +66,7 @@
 					Spades — Contract Bidding
 				</Badge>
 				<span class="text-[10px] sm:tall:text-xs font-bold text-muted-foreground uppercase">
-					{uiState.mode === '4p_solo' ? '4P Solo' : uiState.mode === '6p_teams' ? '6P Double Deck' : '4P Teams (2v2)'}
+					{uiState.mode === '4p_solo' ? '4P Solo' : uiState.mode === '5p_solo' ? '5P Solo' : uiState.mode === '6p_teams' ? '6P Double Deck' : '4P Teams (2v2)'}
 				</span>
 			</div>
 

@@ -6,11 +6,14 @@ export interface InitSpadesParams {
 	readonly dealerIndex?: number;
 	readonly cumulativeScores?: Record<string, number>;
 	readonly bags?: Record<string, number>;
+	readonly mode?: SpadesGameMode;
 }
 
 export function createInitialSpadesState(params: InitSpadesParams): SpadesRoundState {
 	const { playerIds, dealerIndex = 0, cumulativeScores = {}, bags = {} } = params;
-	const mode: SpadesGameMode = playerIds.length === 6 ? '6p_teams' : '4p_teams';
+	const mode: SpadesGameMode =
+		params.mode ??
+		(playerIds.length === 6 ? '6p_teams' : playerIds.length === 5 ? '5p_solo' : '4p_teams');
 	return {
 		mode,
 		phase: 'bidding',

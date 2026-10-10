@@ -50,6 +50,7 @@
 		isSpadesBiddingPhase,
 		handleSpadesBidAction
 	} from '$lib/room/spades-helpers';
+	import type { SpadesGameMode } from '$lib/games/spades/types';
 
 	// Components
 	import NavBar from '$lib/components/nav-bar.svelte';
@@ -926,14 +927,20 @@
 	let showSpadesTeamModal = $state(false);
 
 	const onStart = () => {
-		if (gameId === 'spades' && (playerIds.length === 4 || playerIds.length === 6)) {
-			showSpadesTeamModal = true;
-			return;
+		if (gameId === 'spades') {
+			if (playerIds.length === 4 || playerIds.length === 6) {
+				showSpadesTeamModal = true;
+				return;
+			}
+			if (playerIds.length === 5) {
+				handleStart({ gameId, playerIds, roomId, actions, roomRepo, spadesMode: '5p_solo' });
+				return;
+			}
 		}
 		handleStart({ gameId, playerIds, roomId, actions, roomRepo });
 	};
 
-	async function handleConfirmSpadesTeams(reorderedPlayerIds: string[]) {
+	async function handleConfirmSpadesTeams(reorderedPlayerIds: string[], mode: SpadesGameMode) {
 		showSpadesTeamModal = false;
 		if (!room) return;
 		const playerMap = new Map(room.players.map((p) => [p.id, p]));
@@ -952,7 +959,8 @@
 			playerIds: reorderedPlayerIds,
 			roomId,
 			actions,
-			roomRepo
+			roomRepo,
+			spadesMode: mode
 		});
 	}
 	const onNextRound = () => handleNextRound(gameId, nrDeps);

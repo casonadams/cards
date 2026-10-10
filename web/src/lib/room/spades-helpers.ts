@@ -3,7 +3,7 @@ import { dealSpades } from '$lib/games/spades/deal';
 import { computeSpadesAiBid } from '$lib/games/spades/ai';
 import { isAiPlayer } from '$lib/platform/engine/index';
 import type { GameDocument } from '$lib/platform/engine/index';
-import type { SpadesRoundState, SpadesPlayerBid, SpadesBidType } from '$lib/games/spades/types';
+import type { SpadesRoundState, SpadesPlayerBid, SpadesBidType, SpadesGameMode } from '$lib/games/spades/types';
 import type { DerivedState } from '$lib/platform/types/index';
 import type { GameRoom } from '$lib/platform/types/index';
 import type { RoomActions } from '$lib/platform/stores/room-store';
@@ -13,6 +13,7 @@ export interface InitSpadesParams {
 	readonly dealerIndex?: number;
 	readonly cumulativeScores?: Record<string, number>;
 	readonly bags?: Record<string, number>;
+	readonly mode?: SpadesGameMode;
 }
 
 export function initSpadesGameSpecific(params: InitSpadesParams): SpadesRoundState {

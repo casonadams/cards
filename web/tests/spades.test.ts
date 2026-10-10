@@ -48,6 +48,20 @@ describe('Spades Game Engine', () => {
 			expect(new Set(all.map((c) => `${c.suit}:${c.rank}`)).size).toBe(52);
 		});
 
+		it('deals 5 players 10 cards each from 50 cards (2♣ and 2♦ removed)', () => {
+			const deal = dealSpades(5, 3333);
+			expect(deal.hands.length).toBe(5);
+			expect(deal.removedCards.length).toBe(2);
+			for (const h of deal.hands) {
+				expect(h.length).toBe(10);
+			}
+			const all = deal.hands.flat();
+			expect(all.length).toBe(50);
+			expect(deal.removedCards).toContainEqual({ suit: 'clubs', rank: 2 });
+			expect(deal.removedCards).toContainEqual({ suit: 'diamonds', rank: 2 });
+			expect(all.some((c) => c.rank === 2 && (c.suit === 'clubs' || c.suit === 'diamonds'))).toBe(false);
+		});
+
 		it('deals 6 players 17 cards each from 104-card double deck (2 cards burned)', () => {
 			const deal = dealSpades(6, 2222);
 			expect(deal.hands.length).toBe(6);
@@ -256,6 +270,65 @@ describe('Spades Game Engine', () => {
 			expect(res.teamPoints['team1']).toBe(-38);
 			expect(res.newBags['team1']).toBe(1);
 		});
+
+		it('calculates solo round scores independently for each player in 5p_solo mode', () => {
+			const fivePlayers = ['p0', 'p1', 'p2', 'p3', 'p4'];
+			const bids: SpadesPlayerBid[] = [
+				{ playerId: 'p0', bidType: 'regular', amount: 3 },
+				{ playerId: 'p1', bidType: 'nil', amount: 0 },
+				{ playerId: 'p2', bidType: 'regular', amount: 2 },
+				{ playerId: 'p3', bidType: 'blind_nil', amount: 0 },
+				{ playerId: 'p4', bidType: 'regular', amount: 4 }
+			];
+			const res = calculateSpadesRoundScores({
+				playerIds: fivePlayers,
+				bids,
+				tricksTaken: { p0: 3, p1: 0, p2: 3, p3: 1, p4: 3 },
+				mode: '5p_solo'
+			});
+
+			// p0: bid 3, took 3 -> 30 pts, 0 bags
+			expect(res.teamPoints['p0']).toBe(30);
+			expect(res.newBags['p0']).toBe(0);
+
+			// p1: Nil, took 0 -> +100 pts
+			expect(res.teamPoints['p1']).toBe(100);
+
+			// p2: bid 2, took 3 -> 21 pts, 1 bag
+			expect(res.teamPoints['p2']).toBe(21);
+			expect(res.newBags['p2']).toBe(1);
+
+			// p3: Blind Nil, took 1 (failed) -> -200 pts, 1 bag
+			expect(res.teamPoints['p3']).toBe(-200);
+			expect(res.newBags['p3']).toBe(1);
+
+			// p4: bid 4, took 3 (set) -> -40 pts
+			expect(res.teamPoints['p4']).toBe(-40);
+		});
+
+		it('calculates solo round scores independently in 4p_solo mode', () => {
+			const bids: SpadesPlayerBid[] = [
+				{ playerId: 'p0', bidType: 'regular', amount: 4 },
+				{ playerId: 'p1', bidType: 'regular', amount: 3 },
+				{ playerId: 'p2', bidType: 'regular', amount: 3 },
+				{ playerId: 'p3', bidType: 'regular', amount: 3 }
+			];
+			const res = calculateSpadesRoundScores({
+				playerIds,
+				bids,
+				tricksTaken: { p0: 5, p1: 3, p2: 3, p3: 2 },
+				mode: '4p_solo'
+			});
+			// p0: 40 + 1 bag = 41
+			expect(res.teamPoints['p0']).toBe(41);
+			expect(res.newBags['p0']).toBe(1);
+			// p1: 30 + 0 bags = 30
+			expect(res.teamPoints['p1']).toBe(30);
+			// p2: 30 + 0 bags = 30
+			expect(res.teamPoints['p2']).toBe(30);
+			// p3: set -30
+			expect(res.teamPoints['p3']).toBe(-30);
+		});
 	});
 
 	describe('5. Partnership Coordination & Bot AI', () => {
@@ -421,6 +494,60 @@ describe('Spades Game Engine', () => {
 			});
 
 			expect(finalState.isRoundComplete).toBe(true);
+		});
+
+		it('runs a complete 5-player Spades match headlessly (10 tricks, 50 cards)', () => {
+			const playerIds = ['p0', 'p1', 'p2', 'p3', 'p4'];
+			const seed = 7777;
+			const moves: Move[] = [];
+
+			for (let trick = 0; trick < 10; trick++) {
+				for (let step = 0; step < 5; step++) {
+					const state = deriveSpadesState({
+						moves,
+						seed,
+						currentRound: 0,
+						playerCount: 5,
+						playerIds,
+						myId: 'p0',
+						dealerIndex: 0
+					});
+
+					const activeId = playerIds[state.currentTurnIndex];
+					const move = computeSpadesAiMove({
+						moves,
+						seed,
+						currentRound: 0,
+						playerCount: 5,
+						playerIds,
+						aiPlayerId: activeId,
+						dealerIndex: 0
+					});
+
+					expect(move).not.toBeNull();
+					expect(move?.playerId).toBe(activeId);
+
+					moves.push({
+						playerId: activeId,
+						card: move!.card,
+						timestamp: Date.now()
+					});
+				}
+			}
+
+			expect(moves.length).toBe(50);
+			const finalState = deriveSpadesState({
+				moves,
+				seed,
+				currentRound: 0,
+				playerCount: 5,
+				playerIds,
+				myId: 'p0',
+				dealerIndex: 0
+			});
+
+			expect(finalState.isRoundComplete).toBe(true);
+			expect(finalState.roundScores).not.toBeNull();
 		});
 	});
 

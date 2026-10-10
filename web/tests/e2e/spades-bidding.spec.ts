@@ -215,5 +215,134 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 		// Screenshot 6P bidding phase
 		await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_6p_facedown_bidding.png' });
 	});
+
+	test('4-Player Spades Solo (Cutthroat) mode selection via modal toggle', async ({ page }) => {
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
+
+		// Set player name if needed
+		const nameInput = page.getByPlaceholder('Enter your name...');
+		if (await nameInput.isVisible()) {
+			await nameInput.fill('HostSolo4');
+			const saveButton = page.getByRole('button', { name: 'Save' });
+			if (await saveButton.isVisible()) {
+				await saveButton.click();
+				await page.waitForTimeout(200);
+			}
+		}
+
+		// Select Spades
+		const spadesButton = page
+			.locator('.grid.grid-cols-2 button')
+			.filter({ has: page.locator('span.block.text-base', { hasText: /^Spades$/ }) })
+			.first();
+		await spadesButton.click();
+		await page.waitForTimeout(150);
+
+		// Select 4 players
+		const countButton = page.locator('button[data-player-count="4"]').first();
+		await countButton.click();
+		await page.waitForTimeout(150);
+
+		// Create Table
+		await page.getByRole('button', { name: 'Create Table' }).click();
+		await page.waitForFunction(() => window.location.hash.includes('code='), null, { timeout: 15000 });
+		await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
+
+		// Add 3 AI players
+		const addAiButton = page.getByRole('button', { name: '+ Add AI Player' });
+		for (let i = 0; i < 3; i++) {
+			await addAiButton.click();
+			await page.waitForTimeout(150);
+		}
+
+		// Start game — opens setup modal
+		await page.getByRole('button', { name: 'Start Game' }).click();
+
+		// Verify modal title and switch to Solo (Cutthroat)
+		await expect(page.getByText('Choose Your Partner')).toBeVisible({ timeout: 10000 });
+		const soloToggleBtn = page.getByRole('button', { name: /Solo \(Cutthroat\)/i });
+		await expect(soloToggleBtn).toBeVisible();
+		await soloToggleBtn.click();
+		await page.waitForTimeout(200);
+
+		// Title should update to Solo Spades (Cutthroat)
+		await expect(page.getByText('Solo Spades (Cutthroat)')).toBeVisible();
+		await expect(page.getByText('Cutthroat Solo Rules')).toBeVisible();
+
+		// Screenshot of 4P Solo modal
+		await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_4p_solo_modal.png' });
+
+		// Click Start Solo Game & Deal
+		const startSoloBtn = page.getByRole('button', { name: 'Start Solo Game & Deal' });
+		await expect(startSoloBtn).toBeEnabled();
+		await startSoloBtn.click();
+
+		// Verify Contract Bidding modal appears with 4P Solo label
+		const biddingBadge = page.getByText('Spades — Contract Bidding');
+		await expect(biddingBadge).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('4P Solo')).toBeVisible();
+
+		// Screenshot 4P Solo bidding phase
+		await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_4p_solo_bidding.png' });
+	});
+
+	test('5-Player Spades Solo (Cutthroat) with 10 cards and max 10 bids', async ({ page }) => {
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
+
+		// Set player name if needed
+		const nameInput = page.getByPlaceholder('Enter your name...');
+		if (await nameInput.isVisible()) {
+			await nameInput.fill('HostSolo5');
+			const saveButton = page.getByRole('button', { name: 'Save' });
+			if (await saveButton.isVisible()) {
+				await saveButton.click();
+				await page.waitForTimeout(200);
+			}
+		}
+
+		// Select Spades
+		const spadesButton = page
+			.locator('.grid.grid-cols-2 button')
+			.filter({ has: page.locator('span.block.text-base', { hasText: /^Spades$/ }) })
+			.first();
+		await spadesButton.click();
+		await page.waitForTimeout(150);
+
+		// Select 5 players
+		const countButton = page.locator('button[data-player-count="5"]').first();
+		await expect(countButton).toBeVisible();
+		await countButton.click();
+		await page.waitForTimeout(150);
+
+		// Create Table
+		await page.getByRole('button', { name: 'Create Table' }).click();
+		await page.waitForFunction(() => window.location.hash.includes('code='), null, { timeout: 15000 });
+		await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
+
+		// Add 4 AI players (total 5)
+		const addAiButton = page.getByRole('button', { name: '+ Add AI Player' });
+		for (let i = 0; i < 4; i++) {
+			await addAiButton.click();
+			await page.waitForTimeout(150);
+		}
+
+		// Start game — starts 5P Solo directly
+		await page.getByRole('button', { name: 'Start Game' }).click();
+
+		// Verify Contract Bidding modal appears with 5P Solo label
+		const biddingBadge = page.getByText('Spades — Contract Bidding');
+		await expect(biddingBadge).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('5P Solo')).toBeVisible();
+
+		// Hand has 10 face-down cards
+		const faceDownCards = page.locator('button[aria-label="Face-down card"]');
+		await expect(faceDownCards.first()).toBeVisible({ timeout: 5000 });
+		await expect(faceDownCards).toHaveCount(10);
+
+		// Screenshot 5P Solo bidding phase
+		await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_5p_solo_bidding.png' });
+	});
 }
 

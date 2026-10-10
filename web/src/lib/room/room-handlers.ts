@@ -11,7 +11,7 @@ import {
 } from './room-helpers';
 import { initOhWellGameSpecific } from './oh-well-helpers';
 import { initSpadesGameSpecific } from './spades-helpers';
-import type { SpadesRoundState } from '$lib/games/spades/types';
+import type { SpadesRoundState, SpadesGameMode } from '$lib/games/spades/types';
 
 const MAX_SEED = 2147483647;
 
@@ -21,6 +21,7 @@ export interface HandleStartParams {
 	readonly roomId: string;
 	readonly actions: RoomActions;
 	readonly roomRepo: GameRoomRepository;
+	readonly spadesMode?: SpadesGameMode;
 }
 
 function buildGameSpecific(params: HandleStartParams, seed: number): unknown {
@@ -35,7 +36,8 @@ function buildGameSpecific(params: HandleStartParams, seed: number): unknown {
 	if (params.gameId === 'spades') {
 		return initSpadesGameSpecific({
 			playerIds: params.playerIds,
-			dealerIndex: 0
+			dealerIndex: 0,
+			mode: params.spadesMode
 		});
 	}
 	return undefined;

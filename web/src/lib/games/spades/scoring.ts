@@ -10,7 +10,7 @@ export function getSpadesTeams(
 	playerIds: readonly string[],
 	mode: SpadesGameMode
 ): readonly SpadesTeamConfig[] {
-	if (mode === '4p_solo') {
+	if (mode === '4p_solo' || mode === '5p_solo') {
 		return playerIds.map((id) => ({
 			teamId: id,
 			playerIds: [id]

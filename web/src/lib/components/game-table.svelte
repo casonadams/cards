@@ -330,7 +330,7 @@
 				{playerNames}
 				{playerIds}
 				{myId}
-				maxBid={playerIds.length === 6 ? 17 : 13}
+				maxBid={playerIds.length === 6 ? 17 : playerIds.length === 5 ? 10 : 13}
 				isHandRevealed={isSpadesHandRevealed}
 				onRevealHand={() => (isSpadesHandRevealed = true)}
 				onBid={(b) => onBid?.(b)}

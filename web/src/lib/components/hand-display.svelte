@@ -98,8 +98,8 @@
 				<span class="text-xs text-muted-foreground/40 font-medium">All cards played</span>
 			</div>
 		{:else}
-			{#each sorted as card, index (`${card.suit}-${card.rank}`)}
-				{@const key = `${card.suit}-${card.rank}`}
+			{#each sorted as card, index (`${card.suit}-${card.rank}-${index}`)}
+				{@const key = `${card.suit}-${card.rank}-${index}`}
 				<div
 				data-card-key={key}
 				class="card-hand-slot relative transition-transform duration-150 ease-out"

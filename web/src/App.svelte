@@ -51,6 +51,7 @@
 	import GameSession from '$lib/components/game-session.svelte';
 	import RejoinModal, { type ActiveGameSession } from '$lib/components/rejoin-modal.svelte';
 	import DisconnectionToast, { type DisconnectNotice } from '$lib/components/disconnection-toast.svelte';
+	import TableSelector from '$lib/components/table-selector.svelte';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Input } from '$lib/components/ui/input/index';
@@ -546,7 +547,20 @@
 	const runtime = $derived(room ? getGame(gameId) : null);
 	const gs = $derived(deriveRoomGs({ gameDoc, player: myPlayer, room, playerIds, runtime }));
 	const ohWellUi = $derived(isOhWell && gs ? getOhWellUiState(gs) : null);
-	const trumpSuit = $derived(ohWellUi?.trumpSuit ?? null);
+	const trumpSuit = $derived.by(() => {
+		if (isOhWell) return ohWellUi?.trumpSuit ?? null;
+		if (gameId === 'spades') return 'spades';
+		if (gameId === 'euchre') return (gs?.gameSpecific as { trumpSuit?: string | null } | undefined)?.trumpSuit ?? null;
+		if (gameId === 'wizard') return (gs?.gameSpecific as { trumpSuit?: string | null } | undefined)?.trumpSuit ?? null;
+		return null;
+	});
+	const trumpCard = $derived.by(() => {
+		if (isOhWell) return ohWellUi?.trumpCard ?? null;
+		if (gameId === 'wizard') return (gs?.gameSpecific as { trumpCard?: CardType | null } | undefined)?.trumpCard ?? null;
+		if (gameId === 'euchre') return (gs?.gameSpecific as { upcard?: CardType | null } | undefined)?.upcard ?? null;
+		if (gameId === 'cribbage') return (gs?.gameSpecific as { starterCard?: CardType | null } | undefined)?.starterCard ?? null;
+		return null;
+	});
 	const showOhWellBidding = $derived(Boolean(isOhWell && gs && isOhWellBiddingPhase(gs)));
 	const otherPlayers = $derived((room?.players ?? []).filter((p) => p.id !== myPlayer.id));
 
@@ -960,7 +974,7 @@
 		currentRound={gameDoc?.currentRound ?? 0}
 		roundRules={gameDoc && runtime ? runtime.getRoundRules(gameDoc.currentRound) : ''}
 		trumpSuit={trumpSuit}
-		trumpCard={ohWellUi?.trumpCard ?? null}
+		trumpCard={trumpCard}
 		handType={gs?.handType ?? ''}
 		networkStatus={networkStatus}
 	/>
@@ -1045,65 +1059,16 @@
 				</CardContent>
 			</Card>
 
-			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
-				<CardHeader class="pb-3">
-					<CardTitle class="text-lg font-black flex items-center justify-between">
-						<span>Table Selector</span>
-						<span class="text-xs text-muted-foreground font-semibold">Choose Game and Players</span>
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="gap-5">
-					<div class="grid grid-cols-2 gap-3">
-						{#each games as game (game.id)}
-							<button
-								class="rounded-2xl border-2 p-4 sm:p-5 text-left transition-all cursor-pointer relative overflow-hidden group {selectedGameId === game.id
-									? 'border-emerald-500 bg-emerald-950/30'
-									: 'border-border/80 bg-background/50 hover:border-border hover:bg-card'}"
-								onclick={() => (selectedGameId = game.id)}
-							>
-								<div class="flex items-center justify-between">
-									<span class="block text-base font-extrabold text-foreground group-hover:text-emerald-400 transition-colors">{game.name}</span>
-									<span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all {selectedGameId === game.id ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/40 shadow-xs' : 'border border-border/80 text-transparent'}">
-										✓
-									</span>
-								</div>
-								<span class="block text-xs text-muted-foreground mt-1 font-medium">
-									{game.minPlayers === game.maxPlayers
-										? `${game.minPlayers} players`
-										: `${game.minPlayers}–${game.maxPlayers} players`}
-								</span>
-							</button>
-						{/each}
-					</div>
-
-					<div class="flex flex-col p-2.5 bg-background/60 rounded-xl border border-border/80 gap-2">
-						<span class="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Players</span>
-						<div class="flex items-center gap-1.5 w-full">
-							{#each playerOptions as n (n)}
-								<button
-									type="button"
-									data-player-count={n}
-									aria-label={`${n} Players`}
-									class="flex-1 h-9 rounded-lg text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center {playerCount === n
-										? 'bg-emerald-500 text-zinc-950 font-black shadow-sm'
-										: 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}"
-									onclick={() => (playerCount = n)}
-								>
-									{n}
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					<Button
-						class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 h-12 shadow-lg shadow-emerald-950/40 text-base rounded-xl"
-						onclick={handleCreateRoom}
-						disabled={loading || !hasValidName}
-					>
-						{loading ? 'Creating...' : !hasValidName ? 'Enter Name Above to Play' : 'Create Table'}
-					</Button>
-				</CardContent>
-			</Card>
+			<TableSelector
+				{games}
+				{selectedGameId}
+				{playerCount}
+				{loading}
+				{hasValidName}
+				onSelectGame={(id) => (selectedGameId = id)}
+				onSelectPlayerCount={(count) => (playerCount = count)}
+				onCreateTable={handleCreateRoom}
+			/>
 			<Card class="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
 				<CardHeader class="pb-3">
 					<CardTitle class="text-lg font-black">Join Existing Table</CardTitle>

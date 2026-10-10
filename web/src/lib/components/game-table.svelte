@@ -7,12 +7,23 @@
 	import GameTableFooter from './game-table-footer.svelte';
 	import OhWellBidding from './oh-well-bidding.svelte';
 	import RoundScoreOverlay from './round-score-overlay.svelte';
+	import TrumpIndicatorBadge from './overlays/trump-indicator-badge.svelte';
+	import SpadesBidding from './overlays/spades-bidding.svelte';
+	import EuchreNaming from './overlays/euchre-naming.svelte';
+	import WizardBidding from './overlays/wizard-bidding.svelte';
+	import CribbagePanel from './overlays/cribbage-panel.svelte';
+	import GinRummyPanel from './overlays/gin-rummy-panel.svelte';
 	import { playerStatLine, teamFor, type StatContext } from './game-table-stats';
 	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import type { Card, RoomPlayer, PlayerStats, ScoreEntry } from '$lib/platform/types/index';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 	import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
 	import type { RookUiState } from '$lib/games/rook/ui-state';
+	import type { EuchreRoundState } from '$lib/games/euchre/types';
+	import type { WizardRoundState } from '$lib/games/wizard/types';
+	import type { SpadesRoundState } from '$lib/games/spades/types';
+	import type { CribbageUiState } from '$lib/games/cribbage/types';
+	import type { GinUiState } from '$lib/games/gin-rummy/types';
 
 	interface Props {
 		gameId: string;
@@ -86,8 +97,52 @@
 	const isRook = $derived(gameId === 'rook');
 	const ohWellUi = $derived(isOhWell && gameSpecific ? (gameSpecific as OhWellUiState) : null);
 	const rookUi = $derived(isRook && gameSpecific ? (gameSpecific as RookUiState) : null);
+	const spadesUi = $derived(gameId === 'spades' && gameSpecific ? (gameSpecific as SpadesRoundState) : null);
+	const euchreUi = $derived(gameId === 'euchre' && gameSpecific ? (gameSpecific as EuchreRoundState) : null);
+	const wizardUi = $derived(gameId === 'wizard' && gameSpecific ? (gameSpecific as WizardRoundState) : null);
+	const cribbageUi = $derived(gameId === 'cribbage' && gameSpecific ? (gameSpecific as CribbageUiState) : null);
+	const ginUi = $derived(gameId === 'gin-rummy' && gameSpecific ? (gameSpecific as GinUiState) : null);
 	const ctx = $derived<StatContext>({ gameId, allPlayerStats, previousTotals, ohWellUi, rookUi });
 	const myTeam = $derived(teamFor(rookUi, myId));
+
+	function formatPlayerStat(id: string, compact = false): string {
+		if (gameId === 'spades' && spadesUi) {
+			const b = spadesUi.bids.find((x) => x.playerId === id);
+			const t = spadesUi.tricksTaken[id] ?? 0;
+			const bidStr = b
+				? b.bidType === 'nil'
+					? `${t}/Nil`
+					: b.bidType === 'blind_nil'
+						? `${t}/BNil`
+						: `${t}/${b.amount}`
+				: `${t}t`;
+			const score = spadesUi.cumulativeScores[id] ?? previousTotals[id] ?? 0;
+			return compact ? `${bidStr} | ${score}p` : `${bidStr} | ${score} pts`;
+		}
+		if (gameId === 'wizard' && wizardUi) {
+			const b = wizardUi.bids.find((x) => x.playerId === id);
+			const t = wizardUi.tricksTaken[id] ?? 0;
+			const bidStr = b ? `${t}/${b.bid}` : `${t}t`;
+			const score = wizardUi.cumulativeScores[id] ?? previousTotals[id] ?? 0;
+			return compact ? `${bidStr} | ${score}p` : `${bidStr} | ${score} pts`;
+		}
+		if (gameId === 'euchre' && euchreUi) {
+			const t = euchreUi.tricksTaken[id] ?? 0;
+			const pIdx = playerIds.indexOf(id);
+			const teamScore = pIdx % 2 === 0 ? euchreUi.cumulativeScores.team1 : euchreUi.cumulativeScores.team2;
+			return compact ? `${t}t | ${teamScore}p` : `${t} tricks | ${teamScore} pts`;
+		}
+		if (gameId === 'cribbage' && cribbageUi) {
+			const score = cribbageUi.playerPegScores[id] ?? 0;
+			return compact ? `${score}/121` : `${score} / 121 pts`;
+		}
+		if (gameId === 'gin-rummy') {
+			const st = allPlayerStats.find((s) => s.playerId === id);
+			const score = (st?.currentScore ?? 0) + (previousTotals[id] ?? 0);
+			return compact ? `${score}/100` : `${score} / 100 pts`;
+		}
+		return playerStatLine(ctx, id, compact);
+	}
 
 	const initialLeaderId = $derived.by(() => {
 		if (isOhWell && ohWellUi?.leaderId) {
@@ -239,18 +294,55 @@
 						</span>
 					</div>
 					<span class="text-[9px] sm:tall:text-[11px] font-mono text-muted-foreground/90 font-medium tabular-nums">
-						<span class="sm:tall:hidden">{playerStatLine(ctx, id, true)}</span>
-						<span class="hidden sm:tall:inline">{playerStatLine(ctx, id, playerIds.length >= 6)}</span>
+						<span class="sm:tall:hidden">{formatPlayerStat(id, true)}</span>
+						<span class="hidden sm:tall:inline">{formatPlayerStat(id, playerIds.length >= 6)}</span>
 					</span>
 				</div>
 			</div>
 		{/each}
 	</div>
 
+	<!-- Game-Specific Trump & Hierarchy Indicator Badge -->
+	<div class="flex items-center justify-center shrink-0 w-full px-1">
+		<TrumpIndicatorBadge {gameId} {trumpSuit} {gameSpecific} {handType} />
+	</div>
+
 	<!-- Centered Playing Arena -->
 	<div class="flex-1 min-h-0 flex flex-col items-center justify-center my-auto w-full max-w-4xl mx-auto px-1 sm:tall:px-2 py-0.5 sm:tall:py-1 gap-1 sm:tall:gap-2 overflow-hidden">
 		{#if showBidding && ohWellUi && onBid}
 			<OhWellBidding uiState={ohWellUi} {playerNames} {onBid} />
+		{:else if gameId === 'spades' && spadesUi?.phase === 'bidding' && onBid}
+			<SpadesBidding
+				uiState={spadesUi}
+				{playerNames}
+				{playerIds}
+				{myId}
+				maxBid={playerIds.length === 6 ? 17 : 13}
+				onBid={(b) => onBid?.(b.amount)}
+			/>
+		{:else if gameId === 'euchre' && euchreUi && (euchreUi.phase === 'naming_round1' || euchreUi.phase === 'naming_round2')}
+			<EuchreNaming
+				uiState={euchreUi}
+				{playerNames}
+				{playerIds}
+				{myId}
+				isDealer={currentRound % playerIds.length === playerIds.indexOf(myId)}
+				onAction={() => {}}
+			/>
+		{:else if gameId === 'wizard' && wizardUi?.phase === 'bidding' && onBid}
+			<WizardBidding
+				uiState={wizardUi}
+				{currentRound}
+				cardsPerPlayer={currentRound + 1}
+				{playerNames}
+				{playerIds}
+				{myId}
+				onBid={(b) => onBid?.(b)}
+			/>
+		{:else if gameId === 'cribbage' && cribbageUi && (cribbageUi.phase === 'cribDiscard' || cribbageUi.phase === 'show' || cribbageUi.phase === 'roundEnd')}
+			<CribbagePanel uiState={cribbageUi} {playerNames} {playerIds} {myId} />
+		{:else if gameId === 'gin-rummy' && ginUi && ginUi.phase === 'roundEnd'}
+			<GinRummyPanel uiState={ginUi} {playerNames} {playerIds} {myId} />
 		{:else if isRoundComplete && roundScores && roundScoreReady}
 			<RoundScoreOverlay
 				{gameId}

@@ -11,7 +11,9 @@ import {
 	deriveSpadesState,
 	createInitialSpadesState,
 	applySpadesBid,
-	computeSpadesAiBid
+	computeSpadesAiBid,
+	arrangeAlternatingTeams,
+	getSpadesTeams
 } from '../src/lib/games/spades/index.ts';
 import {
 	initSpadesGameSpecific,
@@ -566,6 +568,68 @@ describe('Spades Game Engine', () => {
 
 			const directAiBid = computeSpadesAiBid({ hand: [{ suit: 'spades', rank: 14 }] });
 			expect(directAiBid.bidType).toBe('regular');
+		});
+	});
+
+	describe('9. Team Assignment & Alternating Table Seating', () => {
+		it('arranges 4-player table into alternating T1P1, T2P1, T1P2, T2P2', () => {
+			const allPlayerIds = ['alice', 'bob', 'carol', 'dave'];
+			// Alice (host) picks Carol as teammate
+			const arranged = arrangeAlternatingTeams({
+				hostId: 'alice',
+				allPlayerIds,
+				selectedTeammateIds: ['carol']
+			});
+			expect(arranged).toEqual(['alice', 'bob', 'carol', 'dave']);
+
+			// Verify with getSpadesTeams that Alice and Carol are Team 1, Bob and Dave are Team 2
+			const teams = getSpadesTeams(arranged, '4p_teams');
+			expect(teams[0].playerIds).toEqual(['alice', 'carol']);
+			expect(teams[1].playerIds).toEqual(['bob', 'dave']);
+		});
+
+		it('arranges 4-player table correctly when host picks adjacent player as teammate', () => {
+			const allPlayerIds = ['alice', 'bob', 'carol', 'dave'];
+			// Alice (host) picks Bob as teammate
+			const arranged = arrangeAlternatingTeams({
+				hostId: 'alice',
+				allPlayerIds,
+				selectedTeammateIds: ['bob']
+			});
+			// Seats: Alice (T1P1), Carol (T2P1), Bob (T1P2), Dave (T2P2)
+			expect(arranged).toEqual(['alice', 'carol', 'bob', 'dave']);
+
+			const teams = getSpadesTeams(arranged, '4p_teams');
+			expect(teams[0].playerIds).toEqual(['alice', 'bob']);
+			expect(teams[1].playerIds).toEqual(['carol', 'dave']);
+		});
+
+		it('arranges 6-player table into alternating 3v3 seats', () => {
+			const allPlayerIds = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'];
+			// p0 picks p3 and p5
+			const arranged = arrangeAlternatingTeams({
+				hostId: 'p0',
+				allPlayerIds,
+				selectedTeammateIds: ['p3', 'p5']
+			});
+			// Team 1: [p0, p3, p5]
+			// Team 2: [p1, p2, p4]
+			// Alternating: [p0, p1, p3, p2, p5, p4]
+			expect(arranged).toEqual(['p0', 'p1', 'p3', 'p2', 'p5', 'p4']);
+
+			const teams = getSpadesTeams(arranged, '6p_teams');
+			expect(teams[0].playerIds).toEqual(['p0', 'p3', 'p5']);
+			expect(teams[1].playerIds).toEqual(['p1', 'p2', 'p4']);
+		});
+
+		it('falls back to original order if teammate selection count is invalid', () => {
+			const allPlayerIds = ['p0', 'p1', 'p2', 'p3'];
+			const arranged = arrangeAlternatingTeams({
+				hostId: 'p0',
+				allPlayerIds,
+				selectedTeammateIds: [] // 0 selected
+			});
+			expect(arranged).toEqual(allPlayerIds);
 		});
 	});
 });

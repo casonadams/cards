@@ -58,6 +58,7 @@
 	import RejoinModal, { type ActiveGameSession } from '$lib/components/rejoin-modal.svelte';
 	import DisconnectionToast, { type DisconnectNotice } from '$lib/components/disconnection-toast.svelte';
 	import TableSelector from '$lib/components/table-selector.svelte';
+	import SpadesTeamModal from '$lib/components/overlays/spades-team-modal.svelte';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card/index';
 	import { Input } from '$lib/components/ui/input/index';
@@ -922,7 +923,38 @@
 		}
 	};
 
-	const onStart = () => handleStart({ gameId, playerIds, roomId, actions, roomRepo });
+	let showSpadesTeamModal = $state(false);
+
+	const onStart = () => {
+		if (gameId === 'spades' && (playerIds.length === 4 || playerIds.length === 6)) {
+			showSpadesTeamModal = true;
+			return;
+		}
+		handleStart({ gameId, playerIds, roomId, actions, roomRepo });
+	};
+
+	async function handleConfirmSpadesTeams(reorderedPlayerIds: string[]) {
+		showSpadesTeamModal = false;
+		if (!room) return;
+		const playerMap = new Map(room.players.map((p) => [p.id, p]));
+		const reorderedPlayers = reorderedPlayerIds.map((id) => playerMap.get(id)!);
+		const updatedRoom: GameRoom = {
+			...room,
+			players: reorderedPlayers,
+			playerIds: reorderedPlayerIds
+		};
+		room = updatedRoom;
+		await roomRepo.update(updatedRoom.id, updatedRoom, true);
+		p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
+
+		await handleStart({
+			gameId,
+			playerIds: reorderedPlayerIds,
+			roomId,
+			actions,
+			roomRepo
+		});
+	}
 	const onNextRound = () => handleNextRound(gameId, nrDeps);
 	const onPlayCard = (card: CardType) => {
 		if (isBiddingPhase) return;
@@ -1163,4 +1195,15 @@
 		onRejoin={handleRejoinActiveSession}
 		onDismiss={handleDismissActiveSession}
 	/>
+
+	{#if showSpadesTeamModal && room}
+		<SpadesTeamModal
+			open={showSpadesTeamModal}
+			hostId={room.hostId}
+			players={room.players}
+			{playerNames}
+			onConfirm={handleConfirmSpadesTeams}
+			onCancel={() => (showSpadesTeamModal = false)}
+		/>
+	{/if}
 </div>

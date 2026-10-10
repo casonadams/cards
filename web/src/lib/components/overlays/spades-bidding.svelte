@@ -10,6 +10,8 @@
 		playerIds: readonly string[];
 		myId: string;
 		maxBid?: number;
+		isHandRevealed?: boolean;
+		onRevealHand?: () => void;
 		onBid: (bid: { bidType: SpadesBidType; amount: number }) => void;
 	}
 
@@ -19,11 +21,19 @@
 		playerIds,
 		myId,
 		maxBid = 13,
+		isHandRevealed = false,
+		onRevealHand,
 		onBid
 	}: Props = $props();
 
 	let selectedType = $state<SpadesBidType>('regular');
 	let selectedAmount = $state(2);
+
+	$effect(() => {
+		if (isHandRevealed && selectedType === 'blind_nil') {
+			selectedType = 'regular';
+		}
+	});
 
 	const bidOptions = $derived(Array.from({ length: maxBid }, (_, i) => i + 1));
 	const myIndex = $derived(playerIds.indexOf(myId));
@@ -75,6 +85,20 @@
 			{/if}
 		</CardHeader>
 		<CardContent class="p-2 sm:tall:p-4 pt-0 sm:tall:pt-0 flex flex-col gap-2">
+			{#if !isHandRevealed}
+				<button
+					type="button"
+					class="w-full py-1.5 px-3 rounded-lg text-[11px] sm:tall:text-xs font-bold border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+					onclick={() => onRevealHand?.()}
+				>
+					<span>👀</span> Look at Cards / Reveal Hand
+				</button>
+			{:else}
+				<div class="flex items-center justify-center gap-1.5 py-0.5 text-[10px] text-muted-foreground/80 font-medium">
+					<span>🃏 Hand revealed (Blind Nil disqualified)</span>
+				</div>
+			{/if}
+
 			{#if isMyTurnToBid}
 				<!-- Bid Type Switcher: Regular vs Nil vs Blind Nil -->
 				<div class="flex gap-1.5">
@@ -83,7 +107,10 @@
 						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'regular'
 							? 'bg-emerald-600 border-emerald-500 text-white shadow-xs'
 							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-						onclick={() => (selectedType = 'regular')}
+						onclick={() => {
+							selectedType = 'regular';
+							if (!isHandRevealed) onRevealHand?.();
+						}}
 					>
 						Regular Bid
 					</button>
@@ -92,16 +119,25 @@
 						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'nil'
 							? 'bg-amber-600 border-amber-500 text-white shadow-xs'
 							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-						onclick={() => (selectedType = 'nil')}
+						onclick={() => {
+							selectedType = 'nil';
+							if (!isHandRevealed) onRevealHand?.();
+						}}
 					>
 						Nil (+100 / -100)
 					</button>
 					<button
 						type="button"
-						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'blind_nil'
-							? 'bg-indigo-600 border-indigo-500 text-white shadow-xs'
-							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-						onclick={() => (selectedType = 'blind_nil')}
+						disabled={isHandRevealed}
+						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all border {isHandRevealed
+							? 'opacity-40 cursor-not-allowed bg-muted/20 border-border/40 text-muted-foreground line-through'
+							: selectedType === 'blind_nil'
+								? 'bg-indigo-600 border-indigo-500 text-white shadow-xs cursor-pointer'
+								: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground cursor-pointer'}"
+						onclick={() => {
+							if (!isHandRevealed) selectedType = 'blind_nil';
+						}}
+						title={isHandRevealed ? 'Blind Nil is disqualified once cards are viewed' : 'Contract to take 0 tricks declared without looking at hand'}
 					>
 						Blind Nil (+200)
 					</button>

@@ -10,6 +10,7 @@
 		gameId?: string;
 		trumpSuit?: string | null;
 		handType?: string;
+		faceDown?: boolean;
 		onCardPlayed?: (card: Card) => void;
 		interactive?: boolean;
 		inspection?: boolean;
@@ -21,6 +22,7 @@
 		gameId = '',
 		trumpSuit = null,
 		handType = '',
+		faceDown = false,
 		onCardPlayed,
 		interactive = true,
 		inspection = false
@@ -111,6 +113,7 @@
 					{gameId}
 					{handType}
 					{trumpSuit}
+					{faceDown}
 					playable={isPlayable(card)}
 					{inspection}
 					onclick={interactive && isPlayable(card) && onCardPlayed ? () => handleCardClick(card, key) : undefined}

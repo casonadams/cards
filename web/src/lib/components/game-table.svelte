@@ -164,6 +164,19 @@
 	});
 
 	let roundScoreReady = $state(false);
+	let isSpadesHandRevealed = $state(false);
+	let lastTrackedRound = $state(-1);
+
+	$effect(() => {
+		if (currentRound !== lastTrackedRound) {
+			lastTrackedRound = currentRound;
+			isSpadesHandRevealed = false;
+		}
+	});
+
+	const isHandFaceDown = $derived(
+		gameId === 'spades' && spadesUi?.phase === 'bidding' && !isSpadesHandRevealed
+	);
 
 	$effect(() => {
 		if (!isRoundComplete) {
@@ -318,6 +331,8 @@
 				{playerIds}
 				{myId}
 				maxBid={playerIds.length === 6 ? 17 : 13}
+				isHandRevealed={isSpadesHandRevealed}
+				onRevealHand={() => (isSpadesHandRevealed = true)}
 				onBid={(b) => onBid?.(b)}
 			/>
 		{:else if gameId === 'euchre' && euchreUi && (euchreUi.phase === 'naming_round1' || euchreUi.phase === 'naming_round2')}
@@ -387,6 +402,7 @@
 			onCardPlayed={showBidding ? undefined : onCardPlayed}
 			interactive={!showBidding}
 			inspection={showBidding}
+			faceDown={isHandFaceDown}
 			{gameId}
 			{trumpSuit}
 			{handType}

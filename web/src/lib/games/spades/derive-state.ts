@@ -74,7 +74,11 @@ export function deriveSpadesState(params: DeriveParams): DerivedState {
 	let playableCards: readonly Card[];
 
 	if (isBiddingPhase) {
-		currentTurnIndex = (dealerIndex + 1 + providedBids.length) % playerCount;
+		const bidderIdx =
+			rs?.currentBidder !== undefined && rs.currentBidder >= 0
+				? rs.currentBidder
+				: (dealerIndex + 1 + providedBids.length) % playerCount;
+		currentTurnIndex = bidderIdx;
 		isMyTurn = currentTurnIndex === myIndex;
 		playableCards = [];
 	} else {
@@ -139,7 +143,7 @@ export function deriveSpadesState(params: DeriveParams): DerivedState {
 		currentBidder: isBiddingPhase ? currentTurnIndex : -1,
 		spadesBroken: isSpadesBroken(moves, playerCount),
 		tricksTaken,
-		bags: scoringResult.newBags,
+		bags: isRoundComplete ? scoringResult.newBags : (rs?.bags ?? {}),
 		cumulativeScores
 	};
 

@@ -5,3 +5,4 @@ export * from './trick.ts';
 export * from './scoring.ts';
 export * from './derive-state.ts';
 export * from './ai.ts';
+export * from './actions.ts';

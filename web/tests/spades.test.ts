@@ -8,10 +8,20 @@ import {
 	calculateSpadesRoundScores,
 	evaluateSpadesHand,
 	computeSpadesAiMove,
-	deriveSpadesState
+	deriveSpadesState,
+	createInitialSpadesState,
+	applySpadesBid,
+	computeSpadesAiBid
 } from '../src/lib/games/spades/index.ts';
+import {
+	initSpadesGameSpecific,
+	computeSpadesAiBidForDoc,
+	getCurrentSpadesBidderId,
+	isSpadesBiddingPhase
+} from '../src/lib/room/spades-helpers.ts';
 import type { Card, Move, TrickPlay } from '$lib/platform/types/card';
-import type { SpadesPlayerBid } from '../src/lib/games/spades/types.ts';
+import type { SpadesPlayerBid, SpadesRoundState } from '../src/lib/games/spades/types.ts';
+import type { GameDocument } from '$lib/platform/engine/index';
 
 describe('Spades Game Engine', () => {
 	it('exposes valid GameRuntime contract metadata', () => {
@@ -411,4 +421,152 @@ describe('Spades Game Engine', () => {
 			expect(finalState.isRoundComplete).toBe(true);
 		});
 	});
+
+	describe('6. Bidding Lifecycle & State Transitions', () => {
+		const playerIds = ['p0', 'p1', 'p2', 'p3'];
+
+		it('initializes round in bidding phase starting left of dealer', () => {
+			const initial = createInitialSpadesState({
+				playerIds,
+				dealerIndex: 0
+			});
+
+			expect(initial.phase).toBe('bidding');
+			expect(initial.bids).toEqual([]);
+			expect(initial.currentBidder).toBe(1); // p1 bids first
+			expect(initial.spadesBroken).toBe(false);
+
+			const viaHelper = initSpadesGameSpecific({ playerIds, dealerIndex: 0 });
+			expect(viaHelper.phase).toBe('bidding');
+			expect(viaHelper.currentBidder).toBe(1);
+		});
+
+		it('progressively records bids and transitions to playing phase once all players bid', () => {
+			let doc: GameDocument = {
+				roomId: 'test-room',
+				phase: 'playing',
+				currentRound: 0,
+				seed: 42,
+				dealerIndex: 0,
+				moves: [],
+				playerIds,
+				roundScores: [],
+				gameSpecific: createInitialSpadesState({ playerIds, dealerIndex: 0 }),
+				lastUpdate: Date.now()
+			};
+
+			expect(getCurrentSpadesBidderId(doc)).toBe('p1');
+
+			// p1 bids 3
+			doc = applySpadesBid({
+				doc,
+				bid: { playerId: 'p1', bidType: 'regular', amount: 3 }
+			});
+			let rs = doc.gameSpecific as SpadesRoundState;
+			expect(rs.phase).toBe('bidding');
+			expect(rs.bids.length).toBe(1);
+			expect(rs.currentBidder).toBe(2);
+			expect(getCurrentSpadesBidderId(doc)).toBe('p2');
+
+			// p2 bids Nil
+			doc = applySpadesBid({
+				doc,
+				bid: { playerId: 'p2', bidType: 'nil', amount: 0 }
+			});
+			rs = doc.gameSpecific as SpadesRoundState;
+			expect(rs.phase).toBe('bidding');
+			expect(rs.bids.length).toBe(2);
+			expect(rs.currentBidder).toBe(3);
+			expect(getCurrentSpadesBidderId(doc)).toBe('p3');
+
+			// p3 bids 4
+			doc = applySpadesBid({
+				doc,
+				bid: { playerId: 'p3', bidType: 'regular', amount: 4 }
+			});
+			rs = doc.gameSpecific as SpadesRoundState;
+			expect(rs.phase).toBe('bidding');
+			expect(rs.bids.length).toBe(3);
+			expect(rs.currentBidder).toBe(0);
+			expect(getCurrentSpadesBidderId(doc)).toBe('p0');
+
+			// p0 (dealer) bids 2 -> all 4 bids are in!
+			doc = applySpadesBid({
+				doc,
+				bid: { playerId: 'p0', bidType: 'regular', amount: 2 }
+			});
+			rs = doc.gameSpecific as SpadesRoundState;
+			expect(rs.phase).toBe('playing');
+			expect(rs.bids.length).toBe(4);
+			expect(rs.currentBidder).toBe(-1);
+			expect(getCurrentSpadesBidderId(doc)).toBeUndefined();
+		});
+
+		it('enforces bidding turn in deriveSpadesState and blocks playable cards during bidding', () => {
+			const roundState = createInitialSpadesState({ playerIds, dealerIndex: 0 });
+
+			// For p0 (dealer): not their turn yet (p1 is first)
+			const stateP0 = deriveSpadesState({
+				moves: [],
+				seed: 42,
+				currentRound: 0,
+				playerCount: 4,
+				playerIds,
+				myId: 'p0',
+				dealerIndex: 0,
+				gameSpecific: roundState
+			});
+
+			expect(isSpadesBiddingPhase(stateP0)).toBe(true);
+			expect(stateP0.currentTurnIndex).toBe(1);
+			expect(stateP0.isMyTurn).toBe(false);
+			expect(stateP0.playableCards).toEqual([]);
+
+			// For p1 (first bidder): it is their turn to bid, but playable cards must be empty!
+			const stateP1 = deriveSpadesState({
+				moves: [],
+				seed: 42,
+				currentRound: 0,
+				playerCount: 4,
+				playerIds,
+				myId: 'p1',
+				dealerIndex: 0,
+				gameSpecific: roundState
+			});
+
+			expect(isSpadesBiddingPhase(stateP1)).toBe(true);
+			expect(stateP1.currentTurnIndex).toBe(1);
+			expect(stateP1.isMyTurn).toBe(true);
+			expect(stateP1.playableCards).toEqual([]); // cards cannot be played during bidding!
+		});
+
+		it('computes valid AI bid from deal hand for doc', () => {
+			const doc: GameDocument = {
+				roomId: 'test-room',
+				phase: 'playing',
+				currentRound: 0,
+				seed: 42,
+				dealerIndex: 0,
+				moves: [],
+				playerIds,
+				roundScores: [],
+				gameSpecific: createInitialSpadesState({ playerIds, dealerIndex: 0 }),
+				lastUpdate: Date.now()
+			};
+
+			const bid = computeSpadesAiBidForDoc(doc, 'p1');
+			expect(bid.playerId).toBe('p1');
+			expect(['regular', 'nil', 'blind_nil']).toContain(bid.bidType);
+			if (bid.bidType === 'regular') {
+				expect(bid.amount).toBeGreaterThanOrEqual(1);
+				expect(bid.amount).toBeLessThanOrEqual(13);
+			} else {
+				expect(bid.amount).toBe(0);
+			}
+
+			const directAiBid = computeSpadesAiBid({ hand: [{ suit: 'spades', rank: 14 }] });
+			expect(directAiBid.bidType).toBe('regular');
+		});
+	});
 });
+

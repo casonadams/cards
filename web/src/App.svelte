@@ -42,8 +42,14 @@
 	} from '$lib/room/oh-well-helpers';
 	import {
 		setupTrickTakingAi,
-		setupOhWellAiBid
+		setupOhWellAiBid,
+		setupSpadesAiBid
 	} from '$lib/room/ai-effects';
+	import {
+		getSpadesUiState,
+		isSpadesBiddingPhase,
+		handleSpadesBidAction
+	} from '$lib/room/spades-helpers';
 
 	// Components
 	import NavBar from '$lib/components/nav-bar.svelte';
@@ -544,9 +550,11 @@
 	const playerNames = $derived(buildPlayerNames(room?.players ?? []));
 	const gameId = $derived(room?.gameDefinitionId ?? '');
 	const isOhWell = $derived(gameId === 'oh-well');
+	const isSpades = $derived(gameId === 'spades');
 	const runtime = $derived(room ? getGame(gameId) : null);
 	const gs = $derived(deriveRoomGs({ gameDoc, player: myPlayer, room, playerIds, runtime }));
 	const ohWellUi = $derived(isOhWell && gs ? getOhWellUiState(gs) : null);
+	const spadesUi = $derived(isSpades && gs ? getSpadesUiState(gs) : null);
 	const trumpSuit = $derived.by(() => {
 		if (isOhWell) return ohWellUi?.trumpSuit ?? null;
 		if (gameId === 'spades') return 'spades';
@@ -562,6 +570,8 @@
 		return null;
 	});
 	const showOhWellBidding = $derived(Boolean(isOhWell && gs && isOhWellBiddingPhase(gs)));
+	const showSpadesBidding = $derived(Boolean(isSpades && gs && isSpadesBiddingPhase(gs)));
+	const isBiddingPhase = $derived(showOhWellBidding || showSpadesBidding);
 	const otherPlayers = $derived((room?.players ?? []).filter((p) => p.id !== myPlayer.id));
 
 	const aiDeps = $derived({ isHost: isActingHost, gameDoc, gs, playerIds, runtime, actions, room, getRoom: () => room });
@@ -589,7 +599,12 @@
 
 	// Automated AI Turn loops
 	$effect(() => setupTrickTakingAi({ ...aiDeps, isOhWell }));
-	$effect(() => setupOhWellAiBid(aiDeps));
+	$effect(() => {
+		if (isOhWell) return setupOhWellAiBid(aiDeps);
+	});
+	$effect(() => {
+		if (isSpades) return setupSpadesAiBid(aiDeps);
+	});
 
 	// P2P lifecycle managed by p2p instance
 
@@ -910,10 +925,16 @@
 	const onStart = () => handleStart({ gameId, playerIds, roomId, actions, roomRepo });
 	const onNextRound = () => handleNextRound(gameId, nrDeps);
 	const onPlayCard = (card: CardType) => {
-		if (showOhWellBidding) return;
+		if (isBiddingPhase) return;
 		handlePlayCard(cardParams, card);
 	};
-	const onOhWellBid = (bid: number) => handleOhWellBidAction(cardParams, bid);
+	const onBid = (bid: any) => {
+		if (isOhWell && typeof bid === 'number') {
+			handleOhWellBidAction(cardParams, bid);
+		} else if (isSpades && bid && typeof bid === 'object') {
+			handleSpadesBidAction(cardParams, bid);
+		}
+	};
 	const handleBackToLobby = async () => {
 		gameDoc = null;
 		await actions.returnToLobby();
@@ -1119,8 +1140,8 @@
 			{onNextRound}
 			onBackToLobby={handleBackToLobby}
 			{onLeave}
-			showBidding={showOhWellBidding}
-			onBid={onOhWellBid}
+			showBidding={isBiddingPhase}
+			{onBid}
 		/>
 	{:else}
 		<div class="flex items-center justify-center min-h-[50vh]">

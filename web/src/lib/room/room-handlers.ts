@@ -10,6 +10,8 @@ import {
 	canAdvanceRound
 } from './room-helpers';
 import { initOhWellGameSpecific } from './oh-well-helpers';
+import { initSpadesGameSpecific } from './spades-helpers';
+import type { SpadesRoundState } from '$lib/games/spades/types';
 
 const MAX_SEED = 2147483647;
 
@@ -30,11 +32,17 @@ function buildGameSpecific(params: HandleStartParams, seed: number): unknown {
 			currentRound: 0
 		});
 	}
+	if (params.gameId === 'spades') {
+		return initSpadesGameSpecific({
+			playerIds: params.playerIds,
+			dealerIndex: 0
+		});
+	}
 	return undefined;
 }
 
 export async function handleStart(params: HandleStartParams): Promise<void> {
-	if (params.gameId !== 'oh-well') {
+	if (params.gameId !== 'oh-well' && params.gameId !== 'spades') {
 		await params.actions.startGame(params.playerIds);
 		return;
 	}
@@ -74,6 +82,15 @@ function buildNextSpecific(gameId: string, d: GameDeps): unknown {
 			currentRound: d.gameDoc.currentRound + 1
 		});
 	}
+	if (gameId === 'spades') {
+		const prevRs = d.gameDoc.gameSpecific as SpadesRoundState | undefined;
+		return initSpadesGameSpecific({
+			playerIds: d.playerIds,
+			dealerIndex: nextDealer,
+			cumulativeScores: prevRs?.cumulativeScores,
+			bags: prevRs?.bags
+		});
+	}
 	return undefined;
 }
 
@@ -102,7 +119,7 @@ async function advanceGenericRound(d: GameDeps): Promise<void> {
 
 export async function handleNextRound(gameId: string, deps: GameDeps): Promise<void> {
 	if (!canAdvanceRound(deps.gameDoc, deps.gs)) return;
-	if (gameId === 'oh-well') {
+	if (gameId === 'oh-well' || gameId === 'spades') {
 		await advanceCustomRound(gameId, deps);
 		return;
 	}

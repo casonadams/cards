@@ -10,6 +10,12 @@ import {
 	computeOhWellAiBid,
 	handleOhWellBid
 } from './oh-well-helpers';
+import {
+	shouldRunSpadesAiBid,
+	getCurrentSpadesBidderId,
+	computeSpadesAiBidForDoc,
+	applySpadesBid
+} from './spades-helpers';
 
 export interface AiEffectDeps {
 	readonly isHost: boolean;
@@ -29,6 +35,10 @@ interface TrickTakingDeps extends AiEffectDeps {
 function shouldSkipTrickTaking(deps: TrickTakingDeps): boolean {
 	if (!shouldRunAi({ isHost: deps.isHost, gameDoc: deps.gameDoc, gs: deps.gs })) return true;
 	if (deps.isOhWell && deps.gs && isOhWellBiddingPhase(deps.gs)) return true;
+	const gsPhase = (deps.gs?.gameSpecific as { phase?: string } | undefined)?.phase;
+	if (gsPhase === 'bidding') return true;
+	const docPhase = (deps.gameDoc?.gameSpecific as { phase?: string } | undefined)?.phase;
+	if (docPhase === 'bidding') return true;
 	return false;
 }
 
@@ -57,6 +67,7 @@ export function setupTrickTakingAi(deps: TrickTakingDeps): (() => void) | undefi
 const OH_WELL_BID_DELAY = 800;
 
 export function setupOhWellAiBid(deps: AiEffectDeps): (() => void) | undefined {
+	if (deps.runtime && deps.runtime.id !== 'oh-well') return undefined;
 	if (!shouldRunOhWellAiBid({ isHost: deps.isHost, doc: deps.gameDoc, gs: deps.gs, room: deps.room }))
 		return undefined;
 	const doc = deps.gameDoc!;
@@ -72,3 +83,24 @@ export function setupOhWellAiBid(deps: AiEffectDeps): (() => void) | undefined {
 	}, OH_WELL_BID_DELAY);
 	return () => clearTimeout(t);
 }
+
+const SPADES_BID_DELAY = 800;
+
+export function setupSpadesAiBid(deps: AiEffectDeps): (() => void) | undefined {
+	if (deps.runtime && deps.runtime.id !== 'spades') return undefined;
+	if (!shouldRunSpadesAiBid({ isHost: deps.isHost, doc: deps.gameDoc, gs: deps.gs, room: deps.room }))
+		return undefined;
+	const doc = deps.gameDoc!;
+	const t = setTimeout(async () => {
+		const currentRoom = deps.getRoom ? deps.getRoom() : deps.room;
+		if (!shouldRunSpadesAiBid({ isHost: deps.isHost, doc, gs: deps.gs, room: currentRoom }))
+			return;
+		const bidderId = getCurrentSpadesBidderId(doc);
+		if (!bidderId) return;
+		const bid = computeSpadesAiBidForDoc(doc, bidderId);
+		const updated = applySpadesBid({ doc, bid });
+		await deps.actions.updateGameState(updated);
+	}, SPADES_BID_DELAY);
+	return () => clearTimeout(t);
+}
+

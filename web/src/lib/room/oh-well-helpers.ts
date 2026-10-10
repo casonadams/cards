@@ -78,6 +78,7 @@ function isCurrentBidderAi(doc: GameDocument, room?: GameRoom | null): boolean {
 }
 
 export function shouldRunOhWellAiBid(params: AiBidCheckParams): boolean {
+	if (params.room && params.room.gameDefinitionId !== 'oh-well') return false;
 	if (!isBiddingWithAi(params)) return false;
 	return isCurrentBidderAi(params.doc!, params.room);
 }

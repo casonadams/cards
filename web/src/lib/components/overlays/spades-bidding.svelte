@@ -26,8 +26,19 @@
 	let selectedAmount = $state(2);
 
 	const bidOptions = $derived(Array.from({ length: maxBid }, (_, i) => i + 1));
+	const myIndex = $derived(playerIds.indexOf(myId));
+	const isMyTurnToBid = $derived(uiState.currentBidder === myIndex);
+	const currentBidderId = $derived(
+		uiState.currentBidder >= 0 && uiState.currentBidder < playerIds.length
+			? playerIds[uiState.currentBidder]
+			: null
+	);
+	const currentBidderName = $derived(
+		currentBidderId ? (playerNames[currentBidderId] ?? currentBidderId) : 'player'
+	);
 
 	function handleConfirm() {
+		if (!isMyTurnToBid) return;
 		if (selectedType === 'nil' || selectedType === 'blind_nil') {
 			onBid({ bidType: selectedType, amount: 0 });
 		} else {
@@ -64,66 +75,78 @@
 			{/if}
 		</CardHeader>
 		<CardContent class="p-2 sm:tall:p-4 pt-0 sm:tall:pt-0 flex flex-col gap-2">
-			<!-- Bid Type Switcher: Regular vs Nil vs Blind Nil -->
-			<div class="flex gap-1.5">
-				<button
-					type="button"
-					class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'regular'
-						? 'bg-emerald-600 border-emerald-500 text-white shadow-xs'
-						: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-					onclick={() => (selectedType = 'regular')}
-				>
-					Regular Bid
-				</button>
-				<button
-					type="button"
-					class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'nil'
-						? 'bg-amber-600 border-amber-500 text-white shadow-xs'
-						: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-					onclick={() => (selectedType = 'nil')}
-				>
-					Nil (+100 / -100)
-				</button>
-				<button
-					type="button"
-					class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'blind_nil'
-						? 'bg-indigo-600 border-indigo-500 text-white shadow-xs'
-						: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
-					onclick={() => (selectedType = 'blind_nil')}
-				>
-					Blind Nil (+200)
-				</button>
-			</div>
-
-			<!-- Number of Tricks (if regular bid) -->
-			{#if selectedType === 'regular'}
-				<div class="flex flex-wrap gap-1 justify-center max-h-[72px] sm:tall:max-h-none overflow-y-auto py-0.5">
-					{#each bidOptions as n (n)}
-						<button
-							type="button"
-							class="w-7 h-7 sm:tall:w-8 sm:tall:h-8 rounded-md text-xs font-black transition-all cursor-pointer border flex items-center justify-center {selectedAmount === n
-								? 'bg-emerald-500 border-emerald-400 text-zinc-950 shadow-sm'
-								: 'bg-background/80 border-border/80 text-foreground hover:border-emerald-500/50'}"
-							onclick={() => (selectedAmount = n)}
-						>
-							{n}
-						</button>
-					{/each}
+			{#if isMyTurnToBid}
+				<!-- Bid Type Switcher: Regular vs Nil vs Blind Nil -->
+				<div class="flex gap-1.5">
+					<button
+						type="button"
+						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'regular'
+							? 'bg-emerald-600 border-emerald-500 text-white shadow-xs'
+							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
+						onclick={() => (selectedType = 'regular')}
+					>
+						Regular Bid
+					</button>
+					<button
+						type="button"
+						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'nil'
+							? 'bg-amber-600 border-amber-500 text-white shadow-xs'
+							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
+						onclick={() => (selectedType = 'nil')}
+					>
+						Nil (+100 / -100)
+					</button>
+					<button
+						type="button"
+						class="flex-1 py-1 px-1.5 rounded-lg text-[10px] sm:tall:text-xs font-bold transition-all cursor-pointer border {selectedType === 'blind_nil'
+							? 'bg-indigo-600 border-indigo-500 text-white shadow-xs'
+							: 'bg-muted/40 border-border/70 text-muted-foreground hover:text-foreground'}"
+						onclick={() => (selectedType = 'blind_nil')}
+					>
+						Blind Nil (+200)
+					</button>
 				</div>
-			{:else}
-				<p class="text-[10px] sm:tall:text-xs text-muted-foreground text-center py-1">
-					{selectedType === 'nil'
-						? 'Contract to take 0 tricks. Success earns +100 pts, failure loses -100 pts.'
-						: 'Contract to take 0 tricks declared blind. Success earns +200 pts, failure loses -200 pts.'}
-				</p>
-			{/if}
 
-			<Button
-				class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-1.5 sm:tall:py-2 text-xs sm:tall:text-sm h-8 sm:tall:h-9 shadow-md rounded-lg cursor-pointer"
-				onclick={handleConfirm}
-			>
-				Confirm {selectedType === 'nil' ? 'Nil' : selectedType === 'blind_nil' ? 'Blind Nil' : `${selectedAmount} Tricks`}
-			</Button>
+				<!-- Number of Tricks (if regular bid) -->
+				{#if selectedType === 'regular'}
+					<div class="flex flex-wrap gap-1 justify-center max-h-[72px] sm:tall:max-h-none overflow-y-auto py-0.5">
+						{#each bidOptions as n (n)}
+							<button
+								type="button"
+								class="w-7 h-7 sm:tall:w-8 sm:tall:h-8 rounded-md text-xs font-black transition-all cursor-pointer border flex items-center justify-center {selectedAmount === n
+									? 'bg-emerald-500 border-emerald-400 text-zinc-950 shadow-sm'
+									: 'bg-background/80 border-border/80 text-foreground hover:border-emerald-500/50'}"
+								onclick={() => (selectedAmount = n)}
+							>
+								{n}
+							</button>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-[10px] sm:tall:text-xs text-muted-foreground text-center py-1">
+						{selectedType === 'nil'
+							? 'Contract to take 0 tricks. Success earns +100 pts, failure loses -100 pts.'
+							: 'Contract to take 0 tricks declared blind. Success earns +200 pts, failure loses -200 pts.'}
+					</p>
+				{/if}
+
+				<Button
+					class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-1.5 sm:tall:py-2 text-xs sm:tall:text-sm h-8 sm:tall:h-9 shadow-md rounded-lg cursor-pointer"
+					onclick={handleConfirm}
+				>
+					Confirm {selectedType === 'nil' ? 'Nil' : selectedType === 'blind_nil' ? 'Blind Nil' : `${selectedAmount} Tricks`}
+				</Button>
+			{:else}
+				<div class="py-4 text-center flex flex-col items-center justify-center gap-1.5">
+					<div class="flex items-center gap-2 text-xs sm:tall:text-sm font-semibold text-foreground">
+						<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+						Waiting for <span class="text-emerald-400 font-bold">{currentBidderName}</span> to place bid...
+					</div>
+					<span class="text-[10px] text-muted-foreground">
+						Bids are placed clockwise in order
+					</span>
+				</div>
+			{/if}
 		</CardContent>
 	</Card>
 </div>

@@ -50,7 +50,7 @@
 		onCardPlayed: (card: Card) => void;
 		onLeave: () => void;
 		showBidding?: boolean;
-		onBid?: (bid: number) => void;
+		onBid?: (bid: any) => void;
 		isRoundComplete?: boolean;
 		isGameOver?: boolean;
 		roundScores?: readonly ScoreEntry[] | null;
@@ -318,7 +318,7 @@
 				{playerIds}
 				{myId}
 				maxBid={playerIds.length === 6 ? 17 : 13}
-				onBid={(b) => onBid?.(b.amount)}
+				onBid={(b) => onBid?.(b)}
 			/>
 		{:else if gameId === 'euchre' && euchreUi && (euchreUi.phase === 'naming_round1' || euchreUi.phase === 'naming_round2')}
 			<EuchreNaming

@@ -24,7 +24,7 @@
 		onBackToLobby: () => void;
 		onLeave: () => void;
 		showBidding?: boolean;
-		onBid?: (bid: number) => void;
+		onBid?: (bid: any) => void;
 	}
 
 	let {

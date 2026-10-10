@@ -13,7 +13,7 @@ export default defineConfig({
 		baseURL: 'http://localhost:4173',
 		headless: true,
 		trace: 'on-first-retry',
-		video: 'retain-on-failure',
+		video: 'off',
 		launchOptions: {
 			executablePath:
 				process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||

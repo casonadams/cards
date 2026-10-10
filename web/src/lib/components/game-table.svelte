@@ -109,14 +109,20 @@
 		if (gameId === 'spades' && spadesUi) {
 			const b = spadesUi.bids.find((x) => x.playerId === id);
 			const t = spadesUi.tricksTaken[id] ?? 0;
+			const isFailedNil = (b?.bidType === 'nil' || b?.bidType === 'blind_nil') && t > 0;
 			const bidStr = b
 				? b.bidType === 'nil'
-					? `${t}/Nil`
+					? isFailedNil
+						? `${t}/Nil ❌`
+						: `${t}/Nil`
 					: b.bidType === 'blind_nil'
-						? `${t}/BNil`
+						? isFailedNil
+							? `${t}/BNil ❌`
+							: `${t}/BNil`
 						: `${t}/${b.amount}`
 				: `${t}t`;
-			const score = spadesUi.cumulativeScores[id] ?? previousTotals[id] ?? 0;
+			const stat = allPlayerStats.find((s) => s.playerId === id);
+			const score = stat?.currentScore ?? spadesUi.cumulativeScores[id] ?? previousTotals[id] ?? 0;
 			return compact ? `${bidStr} | ${score}p` : `${bidStr} | ${score} pts`;
 		}
 		if (gameId === 'wizard' && wizardUi) {
@@ -196,6 +202,21 @@
 	function isPartner(id: string): boolean {
 		return myTeam !== null && teamFor(rookUi, id) === myTeam;
 	}
+
+	const nilBreakText = $derived.by(() => {
+		if (gameId !== 'spades' || !spadesUi || !lastTrickWinnerId) return null;
+		const b = spadesUi.bids.find((x) => x.playerId === lastTrickWinnerId);
+		if (!b || (b.bidType !== 'nil' && b.bidType !== 'blind_nil')) return null;
+		if ((spadesUi.tricksTaken[lastTrickWinnerId] ?? 0) === 1) {
+			const isBlind = b.bidType === 'blind_nil';
+			const penalty = isBlind ? 100 : 50;
+			const isMe = lastTrickWinnerId === myId;
+			const target = isMe ? 'You' : (playerNames[lastTrickWinnerId] ?? 'Player');
+			const label = isBlind ? 'Blind Nil' : 'Nil';
+			return `${target} broke ${label}! (-${penalty} pts)`;
+		}
+		return null;
+	});
 </script>
 
 {#if isMyTurn && !isRoundComplete}
@@ -383,6 +404,7 @@
 				isRoundComplete={isRoundComplete}
 				onCollectComplete={() => (roundScoreReady = true)}
 				{isMyTurn}
+				{nilBreakText}
 			/>
 			<div class="h-6 min-h-[24px] sm:tall:h-7 sm:tall:min-h-[28px] flex items-center justify-center shrink-0 w-full">
 				<LastTrick

@@ -23,4 +23,6 @@ export const SPADES_BAG_PENALTY_THRESHOLD = 10;
 export const SPADES_BAG_PENALTY_POINTS = 100;
 export const SPADES_NIL_BONUS = 100;
 export const SPADES_BLIND_NIL_BONUS = 200;
+export const SPADES_NIL_PENALTY = 50;
+export const SPADES_BLIND_NIL_PENALTY = 100;
 export const SPADES_TARGET_SCORE = 500;

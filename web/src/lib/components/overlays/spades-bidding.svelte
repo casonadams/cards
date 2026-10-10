@@ -124,7 +124,7 @@
 							if (!isHandRevealed) onRevealHand?.();
 						}}
 					>
-						Nil (+100 / -100)
+						Nil (+100 / -50)
 					</button>
 					<button
 						type="button"
@@ -139,7 +139,7 @@
 						}}
 						title={isHandRevealed ? 'Blind Nil is disqualified once cards are viewed' : 'Contract to take 0 tricks declared without looking at hand'}
 					>
-						Blind Nil (+200)
+						Blind Nil (+200 / -100)
 					</button>
 				</div>
 
@@ -161,8 +161,8 @@
 				{:else}
 					<p class="text-[10px] sm:tall:text-xs text-muted-foreground text-center py-1">
 						{selectedType === 'nil'
-							? 'Contract to take 0 tricks. Success earns +100 pts, failure loses -100 pts.'
-							: 'Contract to take 0 tricks declared blind. Success earns +200 pts, failure loses -200 pts.'}
+							? 'Contract to take 0 tricks. Success earns +100 pts, failure loses -50 pts.'
+							: 'Contract to take 0 tricks declared blind. Success earns +200 pts, failure loses -100 pts.'}
 					</p>
 				{/if}
 

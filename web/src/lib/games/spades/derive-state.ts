@@ -11,7 +11,7 @@ import {
 import type { DeriveParams, DerivedState, PlayerStats } from '$lib/platform/types/game-runtime';
 import type { Card, TrickPlay } from '$lib/platform/types/card';
 import type { SpadesGameMode, SpadesPlayerBid, SpadesRoundState } from './types.ts';
-import { SPADES_TARGET_SCORE } from './types.ts';
+import { SPADES_TARGET_SCORE, SPADES_NIL_PENALTY, SPADES_BLIND_NIL_PENALTY } from './types.ts';
 
 export function deriveSpadesState(params: DeriveParams): DerivedState {
 	const { moves, seed, currentRound, playerCount, playerIds, myId, dealerIndex, gameSpecific } =
@@ -116,8 +116,22 @@ export function deriveSpadesState(params: DeriveParams): DerivedState {
 
 	for (const team of teams) {
 		const prev = previousCumulative[team.teamId] ?? 0;
-		const thisRound = isRoundComplete ? (scoringResult.teamPoints[team.teamId] ?? 0) : 0;
-		cumulativeScores[team.teamId] = prev + thisRound;
+		if (isRoundComplete) {
+			cumulativeScores[team.teamId] = prev + (scoringResult.teamPoints[team.teamId] ?? 0);
+		} else {
+			// Immediate mid-hand deduction for broken Nil contracts
+			let midHandPenalty = 0;
+			for (const pid of team.playerIds) {
+				const b = activeBids.find((x) => x.playerId === pid);
+				if (b && (b.bidType === 'nil' || b.bidType === 'blind_nil')) {
+					const taken = tricksTaken[pid] ?? 0;
+					if (taken > 0) {
+						midHandPenalty -= b.bidType === 'blind_nil' ? SPADES_BLIND_NIL_PENALTY : SPADES_NIL_PENALTY;
+					}
+				}
+			}
+			cumulativeScores[team.teamId] = prev + midHandPenalty;
+		}
 	}
 
 	const isGameOver =

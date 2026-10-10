@@ -16,6 +16,7 @@
 		myId?: string;
 		onCollectComplete?: () => void;
 		isMyTurn?: boolean;
+		nilBreakText?: string | null;
 	}
 
 	let {
@@ -30,7 +31,8 @@
 		winnerName = null,
 		myId = '',
 		onCollectComplete,
-		isMyTurn = false
+		isMyTurn = false,
+		nilBreakText = null
 	}: Props = $props();
 
 	let containerEl: HTMLElement | null = $state(null);
@@ -242,10 +244,17 @@
 	<!-- 1. Top Gap: Toast banner centered between top user badges and trick cards -->
 	<div class="flex-1 min-h-[30px] sm:tall:min-h-[48px] flex items-center justify-center w-full z-30 transition-all duration-200">
 		{#if (animPhase === 'gathering' || animPhase === 'flying') && winnerName}
-			{@const isUserWinner = Boolean(myId && winnerId === myId)}
-			<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:tall:text-base shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
-				<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
-			</div>
+			{#if nilBreakText}
+				<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-rose-950/95 border-2 border-rose-500 text-rose-100 font-black text-xs sm:tall:text-base shadow-[0_0_30px_rgba(244,63,94,0.6)] backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap flex items-center gap-2">
+					<span class="animate-bounce">💥</span>
+					<span>{nilBreakText}</span>
+				</div>
+			{:else}
+				{@const isUserWinner = Boolean(myId && winnerId === myId)}
+				<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:tall:text-base shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
+					<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
+				</div>
+			{/if}
 		{:else if isMyTurn && !isRoundComplete}
 			<div class="inline-flex items-center gap-2 sm:tall:gap-3 px-4 sm:tall:px-8 py-1 sm:tall:py-2.5 rounded-full bg-emerald-950/95 border-2 sm:tall:border-3 border-emerald-400 text-emerald-100 shadow-[0_0_35px_rgba(16,185,129,0.75)] backdrop-blur-md animate-pulse whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
 				<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">

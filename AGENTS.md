@@ -57,3 +57,20 @@
   - `make ripwire`: Code intelligence and symbol ranking via `ripwire web/src --top-k=30`.
 - **GitHub Actions (`deploy.yml`)**:
   - Every push to `main` runs `oxlint`, `svelte-check`, `cccc`, and production packaging before publishing to GitHub Pages.
+
+## Git & Version Control Guidelines
+
+### Conventional Commits
+- All commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification: `<type>(<scope>): <description>`.
+- Allowed types:
+  - `feat`: A new feature or rule addition
+  - `fix`: A bug fix or correction
+  - `docs`: Documentation changes
+  - `style`: Formatting, missing semicolons, etc. (no code change)
+  - `refactor`: Refactoring code without changing functionality
+  - `perf`: Code change that improves performance
+  - `test`: Adding or correcting tests
+  - `chore`: Build process, dependency updates, or tool configuration
+- The scope should identify the module or game affected (e.g. `spades`, `ui`, `trick-area`, `engine`, `networking`).
+- Keep commit descriptions imperative, lowercase, and concise (e.g. `feat(spades): deduct -50/-100 penalty immediately when nil is broken with live toast`).
+

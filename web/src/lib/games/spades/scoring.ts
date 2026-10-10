@@ -1,5 +1,12 @@
 import type { ScoreEntry } from '$lib/platform/types/game';
-import type { SpadesGameMode, SpadesPlayerBid } from './types.ts';
+import {
+	type SpadesGameMode,
+	type SpadesPlayerBid,
+	SPADES_NIL_BONUS,
+	SPADES_BLIND_NIL_BONUS,
+	SPADES_NIL_PENALTY,
+	SPADES_BLIND_NIL_PENALTY
+} from './types.ts';
 
 export interface SpadesTeamConfig {
 	readonly teamId: string;
@@ -94,12 +101,13 @@ export function calculateSpadesRoundScores(
 		for (const nilBid of nilBidders) {
 			const taken = tricksTaken[nilBid.playerId] ?? 0;
 			const isBlind = nilBid.bidType === 'blind_nil';
-			const bonus = isBlind ? 200 : 100;
+			const bonus = isBlind ? SPADES_BLIND_NIL_BONUS : SPADES_NIL_BONUS;
+			const penalty = isBlind ? SPADES_BLIND_NIL_PENALTY : SPADES_NIL_PENALTY;
 
 			if (taken === 0) {
 				teamRoundScore += bonus;
 			} else {
-				teamRoundScore -= bonus;
+				teamRoundScore -= penalty;
 				// Tricks taken on failed nil count as bags!
 				currentBags += taken;
 			}

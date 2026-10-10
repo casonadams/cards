@@ -241,10 +241,98 @@ describe('Spades Game Engine', () => {
 				mode: '4p_teams',
 				previousBags: { team1: 0 }
 			});
-			// Team 1: 4*10 (40) - 100 (nil penalty) = -60
+			// Team 1: 4*10 (40) - 50 (nil penalty) = -10
 			// And the 1 trick taken by p0 becomes a bag!
-			expect(resFail.teamPoints['team1']).toBe(-60);
+			expect(resFail.teamPoints['team1']).toBe(-10);
 			expect(resFail.newBags['team1']).toBe(1);
+		});
+
+		it('deducts -50 immediately mid-hand from cumulative score when Nil is broken in deriveSpadesState', () => {
+			const roundState: SpadesRoundState = {
+				mode: '4p_teams',
+				phase: 'playing',
+				bids: [
+					{ playerId: 'p0', bidType: 'nil', amount: 0 },
+					{ playerId: 'p1', bidType: 'regular', amount: 3 },
+					{ playerId: 'p2', bidType: 'regular', amount: 4 },
+					{ playerId: 'p3', bidType: 'regular', amount: 3 }
+				],
+				currentBidder: -1,
+				spadesBroken: false,
+				tricksTaken: {},
+				bags: { team1: 0, team2: 0 },
+				cumulativeScores: { team1: 100, team2: 100 }
+			};
+
+			const moves: Move[] = [
+				{ playerId: 'p1', card: { suit: 'hearts', rank: 2 } },
+				{ playerId: 'p2', card: { suit: 'hearts', rank: 5 } },
+				{ playerId: 'p3', card: { suit: 'hearts', rank: 9 } },
+				{ playerId: 'p0', card: { suit: 'hearts', rank: 14 } }
+			];
+
+			const state = deriveSpadesState({
+				moves,
+				seed: 42,
+				currentRound: 0,
+				playerCount: 4,
+				playerIds,
+				myId: 'p0',
+				dealerIndex: 0,
+				gameSpecific: roundState
+			});
+
+			const spadesUi = state.gameSpecific as SpadesRoundState;
+			expect(state.isRoundComplete).toBe(false);
+			expect(spadesUi.tricksTaken['p0']).toBe(1);
+			// Mid-hand cumulative score for team1 deducted by -50 pts (100 - 50 = 50)
+			expect(spadesUi.cumulativeScores['team1']).toBe(50);
+			expect(spadesUi.cumulativeScores['team2']).toBe(100);
+			expect(state.allPlayerStats.find((s) => s.playerId === 'p0')?.currentScore).toBe(50);
+			expect(state.allPlayerStats.find((s) => s.playerId === 'p2')?.currentScore).toBe(50);
+		});
+
+		it('deducts -100 immediately mid-hand from cumulative score when Blind Nil is broken', () => {
+			const roundState: SpadesRoundState = {
+				mode: '4p_teams',
+				phase: 'playing',
+				bids: [
+					{ playerId: 'p0', bidType: 'blind_nil', amount: 0 },
+					{ playerId: 'p1', bidType: 'regular', amount: 3 },
+					{ playerId: 'p2', bidType: 'regular', amount: 4 },
+					{ playerId: 'p3', bidType: 'regular', amount: 3 }
+				],
+				currentBidder: -1,
+				spadesBroken: false,
+				tricksTaken: {},
+				bags: { team1: 0, team2: 0 },
+				cumulativeScores: { team1: 150, team2: 100 }
+			};
+
+			const moves: Move[] = [
+				{ playerId: 'p1', card: { suit: 'clubs', rank: 3 } },
+				{ playerId: 'p2', card: { suit: 'clubs', rank: 6 } },
+				{ playerId: 'p3', card: { suit: 'clubs', rank: 8 } },
+				{ playerId: 'p0', card: { suit: 'clubs', rank: 14 } }
+			];
+
+			const state = deriveSpadesState({
+				moves,
+				seed: 42,
+				currentRound: 0,
+				playerCount: 4,
+				playerIds,
+				myId: 'p0',
+				dealerIndex: 0,
+				gameSpecific: roundState
+			});
+
+			const spadesUi = state.gameSpecific as SpadesRoundState;
+			expect(state.isRoundComplete).toBe(false);
+			expect(spadesUi.tricksTaken['p0']).toBe(1);
+			// Blind Nil broken mid-hand: 150 - 100 = 50
+			expect(spadesUi.cumulativeScores['team1']).toBe(50);
+			expect(state.allPlayerStats.find((s) => s.playerId === 'p0')?.currentScore).toBe(50);
 		});
 
 		it('triggers 10-bag penalty (-100 points) and resets bags modulo 10', () => {
@@ -298,8 +386,8 @@ describe('Spades Game Engine', () => {
 			expect(res.teamPoints['p2']).toBe(21);
 			expect(res.newBags['p2']).toBe(1);
 
-			// p3: Blind Nil, took 1 (failed) -> -200 pts, 1 bag
-			expect(res.teamPoints['p3']).toBe(-200);
+			// p3: Blind Nil, took 1 (failed) -> -100 pts, 1 bag
+			expect(res.teamPoints['p3']).toBe(-100);
 			expect(res.newBags['p3']).toBe(1);
 
 			// p4: bid 4, took 3 (set) -> -40 pts

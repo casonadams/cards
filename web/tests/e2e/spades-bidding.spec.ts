@@ -88,8 +88,8 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 		const confirmButton = page.getByRole('button', { name: /Confirm/i });
 		await expect(confirmButton).toBeVisible({ timeout: 15000 });
 
-		// Verify Blind Nil (+200) is enabled while cards are face-down
-		const blindNilBtn = page.getByRole('button', { name: 'Blind Nil (+200)' });
+		// Verify Blind Nil is enabled while cards are face-down
+		const blindNilBtn = page.getByRole('button', { name: /Blind Nil/i });
 		await expect(blindNilBtn).toBeEnabled();
 
 		// Take screenshot of face-down bidding phase with Blind Nil enabled
@@ -343,6 +343,124 @@ if (typeof (globalThis as any).Bun === 'undefined') {
 
 		// Screenshot 5P Solo bidding phase
 		await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_5p_solo_bidding.png' });
+	});
+
+	test('Broken Nil triggers immediate -50 penalty and rose toast banner mid-hand', async ({ page }) => {
+		test.setTimeout(120000);
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
+
+		// Set player name if needed
+		const nameInput = page.getByPlaceholder('Enter your name...');
+		if (await nameInput.isVisible()) {
+			await nameInput.fill('HostNil');
+			const saveButton = page.getByRole('button', { name: 'Save' });
+			if (await saveButton.isVisible()) {
+				await saveButton.click();
+				await page.waitForTimeout(200);
+			}
+		}
+
+		// Select Spades
+		const spadesButton = page
+			.locator('.grid.grid-cols-2 button')
+			.filter({ has: page.locator('span.block.text-base', { hasText: /^Spades$/ }) })
+			.first();
+		await spadesButton.click();
+		await page.waitForTimeout(150);
+
+		// Select 4 players
+		const countButton = page.locator('button[data-player-count="4"]').first();
+		await countButton.click();
+		await page.waitForTimeout(150);
+
+		// Create Table
+		await page.getByRole('button', { name: 'Create Table' }).click();
+		await page.waitForFunction(() => window.location.hash.includes('code='), null, { timeout: 15000 });
+		await expect(page.getByText('Waiting Room')).toBeVisible({ timeout: 10000 });
+
+		// Add 3 AI players
+		const addAiButton = page.getByRole('button', { name: '+ Add AI Player' });
+		for (let i = 0; i < 3; i++) {
+			await addAiButton.click();
+			await page.waitForTimeout(150);
+		}
+
+		// Start game
+		await page.getByRole('button', { name: 'Start Game' }).click();
+
+		// Partner selection modal
+		await expect(page.getByText('Choose Your Partner')).toBeVisible({ timeout: 10000 });
+		const partnerCandidate = page.getByRole('button', { name: /Bot (Bob|Alice|Carol)/i }).first();
+		await partnerCandidate.click();
+		await page.waitForTimeout(150);
+		await page.getByRole('button', { name: 'Confirm Teams & Deal' }).click();
+
+		// Bidding modal appears
+		const biddingBadge = page.getByText('Spades — Contract Bidding');
+		await expect(biddingBadge).toBeVisible({ timeout: 10000 });
+
+		// Select Nil (+100 / -50)
+		const nilButton = page.getByRole('button', { name: /Nil \(\+100 \/ -50\)/i });
+		await expect(nilButton).toBeVisible();
+		await nilButton.click();
+		await page.waitForTimeout(150);
+
+		// Confirm Nil bid
+		const confirmBtn = page.getByRole('button', { name: /Confirm/i });
+		await expect(confirmBtn).toBeVisible({ timeout: 15000 });
+		await confirmBtn.click();
+
+		// Wait for play phase
+		await expect(biddingBadge).not.toBeVisible({ timeout: 10000 });
+		await expect(page.locator('.felt-table-surface')).toBeVisible();
+
+		// Play cards when turn arrives until Host wins a trick and breaks Nil
+		let brokeNil = false;
+		const startTime = Date.now();
+		while (Date.now() - startTime < 90000 && !brokeNil) {
+			const hostBadge = page.locator('[data-player-id]').filter({ hasText: /HostNil/ });
+			const hostText = await hostBadge.textContent().catch(() => '');
+			if (hostText?.includes('❌')) {
+				brokeNil = true;
+				await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_nil_broken_toast.png' });
+				break;
+			}
+
+			const bodyText = await page.locator('main').textContent().catch(() => '');
+			if (bodyText?.includes('broke Nil')) {
+				brokeNil = true;
+				await page.screenshot({ path: '/home/tyson/.gemini/antigravity/brain/e8870d59-bbcb-47fc-80b3-58c5c93c12d0/spades_nil_broken_toast.png' });
+				break;
+			}
+
+			// If it's our turn, play highest card
+			const playableCards = page.locator('.card-hand-slot.is-playable button');
+			try {
+				if (await playableCards.first().isVisible()) {
+					// Play highest spade if available (first in suit group), else highest playable card
+					const spadeCard = page.locator('.card-hand-slot.is-playable button').filter({ hasText: /♠/ }).first();
+					if (await spadeCard.isVisible()) {
+						await spadeCard.click();
+					} else {
+						await playableCards.first().click();
+					}
+					await page.waitForTimeout(400);
+				} else {
+					await page.waitForTimeout(200);
+				}
+			} catch {
+				await page.waitForTimeout(200);
+			}
+		}
+
+		expect(brokeNil).toBe(true);
+
+		// Verify player status badge displays failed Nil indicator (❌)
+		const hostBadge = page.locator('[data-player-id]').filter({ hasText: /HostNil/ });
+		await expect(hostBadge).toBeVisible();
+		const finalHostText = await hostBadge.textContent();
+		expect(finalHostText).toContain('❌');
 	});
 }
 

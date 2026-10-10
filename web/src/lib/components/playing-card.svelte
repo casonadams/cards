@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import SuitIcon from './suit-icon.svelte';
+	import CardBack from './card-back.svelte';
 	import { RANK_NAMES } from '$lib/platform/types/card';
 	import { cardToRook } from '$lib/games/rook/card-adapter';
 	import type { Card } from '$lib/platform/types/index';
@@ -113,12 +114,7 @@
 	{onclick}
 >
 	{#if faceDown}
-		<div class="absolute inset-1 rounded-md border border-indigo-400/30 bg-gradient-to-br from-indigo-950 via-blue-950 to-slate-950 flex items-center justify-center overflow-hidden">
-			<div class="w-full h-full opacity-20 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:6px_6px]"></div>
-			<div class="absolute inset-1.5 rounded border border-indigo-400/25 flex items-center justify-center">
-				<span class="text-indigo-300/40 text-xs">◆</span>
-			</div>
-		</div>
+		<CardBack />
 	{:else if isRook && rookCard}
 		{#if rookCard.type === 'bird'}
 			<span

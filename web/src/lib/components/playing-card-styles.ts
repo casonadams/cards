@@ -53,7 +53,7 @@ export function getRookCardPoints(rook: RookCard): number {
 	return ROOK_NUMBER_POINTS[rook.value] ?? 0;
 }
 
-export const FACE_DOWN_BG = 'bg-slate-900 border-indigo-700/60 shadow-md';
+export const FACE_DOWN_BG = 'bg-white border-zinc-300 shadow-md';
 export const ROOK_BIRD_BG = 'bg-white border-purple-500/50 shadow-md';
 
 export function resolveRookBg(type: string, _color: string): string {

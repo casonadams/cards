@@ -229,15 +229,30 @@
 				? lastCompleteTrick
 				: []
 	);
+
+	const isTurnActive = $derived(Boolean(isMyTurn && !isRoundComplete));
 </script>
 
 <div
 	bind:this={containerEl}
-	class="relative w-full max-w-3xl mx-auto flex flex-col items-center justify-between flex-1 min-h-0 sm:tall:min-h-[220px] p-1.5 sm:tall:p-4 rounded-2xl sm:tall:rounded-[2.5rem] border-0 sm:tall:border-2 sm:tall:border-emerald-500/25 sm:tall:bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] sm:tall:shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)] overflow-visible"
+	class={cn(
+		'relative w-full max-w-3xl mx-auto flex flex-col items-center justify-between flex-1 min-h-0 sm:tall:min-h-[220px] p-1.5 sm:tall:p-4 rounded-2xl sm:tall:rounded-[2.5rem] border-2 overflow-visible transition-colors duration-300',
+		isTurnActive
+			? 'trick-area-turn-active border-emerald-400 bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.45)_0%,rgba(2,44,34,0.2)_50%,transparent_80%)]'
+			: 'border-transparent sm:tall:border-emerald-500/25 sm:tall:bg-[radial-gradient(ellipse_at_center,rgba(6,78,59,0.35)_0%,rgba(2,44,34,0.15)_50%,transparent_80%)] sm:tall:shadow-[inset_0_2px_28px_rgba(0,0,0,0.5),0_12px_36px_rgba(0,0,0,0.35)]'
+	)}
 	style:--target-x={`${targetX}px`}
 	style:--target-y={`${targetY}px`}
 >
-	<div class="hidden sm:tall:block absolute inset-2.5 rounded-[2.2rem] border border-dashed border-emerald-500/20 pointer-events-none"></div>
+	<div
+		class={cn(
+			'hidden sm:tall:block absolute inset-2.5 rounded-[2.2rem] border transition-all duration-300 pointer-events-none',
+			isTurnActive
+				? 'border-emerald-400/50 shadow-[0_0_15px_rgba(52,211,153,0.25)]'
+				: 'border-dashed border-emerald-500/20'
+		)}
+		aria-hidden="true"
+	></div>
 
 	<!-- 1. Top Gap: Toast banner centered between top user badges and trick cards -->
 	<div class="flex-1 min-h-[30px] sm:tall:min-h-[48px] flex items-center justify-center w-full z-30 transition-all duration-200">
@@ -246,7 +261,7 @@
 			<div class="px-5 sm:tall:px-7 py-1 sm:tall:py-2 rounded-full bg-emerald-950/95 border-2 border-emerald-400 text-emerald-200 font-black text-xs sm:tall:text-base shadow-xl shadow-emerald-950/60 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap">
 				<span>{isUserWinner ? 'You won the trick!' : `${winnerName} won the trick!`}</span>
 			</div>
-		{:else if isMyTurn && !isRoundComplete}
+		{:else if isTurnActive}
 			<div class="inline-flex items-center gap-2 sm:tall:gap-3 px-4 sm:tall:px-8 py-1 sm:tall:py-2.5 rounded-full bg-emerald-950/95 border-2 sm:tall:border-3 border-emerald-400 text-emerald-100 shadow-[0_0_35px_rgba(16,185,129,0.75)] backdrop-blur-md animate-pulse whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
 				<span class="relative flex h-2.5 w-2.5 sm:tall:h-3.5 sm:tall:w-3.5">
 					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
@@ -380,5 +395,20 @@
 			transform: translate(0, 0) scale(1) rotate(0deg);
 			opacity: 1;
 		}
+	}
+
+	@keyframes trick-ring-glow {
+		0%, 100% {
+			box-shadow: inset 0 2px 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.35), inset 0 0 24px rgba(16, 185, 129, 0.2);
+			border-color: rgba(52, 211, 153, 0.6);
+		}
+		50% {
+			box-shadow: inset 0 2px 28px rgba(0, 0, 0, 0.5), 0 0 32px rgba(52, 211, 153, 0.65), inset 0 0 40px rgba(16, 185, 129, 0.35);
+			border-color: rgba(52, 211, 153, 0.95);
+		}
+	}
+
+	.trick-area-turn-active {
+		animation: trick-ring-glow 2s ease-in-out infinite;
 	}
 </style>

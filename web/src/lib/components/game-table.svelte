@@ -130,13 +130,6 @@
 	}
 </script>
 
-{#if isMyTurn && !isRoundComplete}
-	<div
-		class="fixed inset-0 pointer-events-none z-50 transition-opacity duration-300 turn-glow-border"
-		aria-hidden="true"
-	></div>
-{/if}
-
 <main class="flex-1 min-h-0 flex flex-col justify-between p-1.5 sm:tall:p-4 max-w-6xl self-center mx-auto w-full gap-1 sm:tall:gap-2.5 overflow-hidden">
 	<div class="flex flex-wrap justify-center items-center gap-1 sm:tall:gap-2 px-1 py-0.5 max-w-5xl mx-auto w-full shrink-0">
 		{#each playerIds as id (id)}

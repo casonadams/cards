@@ -115,9 +115,10 @@
 			}
 			return;
 		}
-
-		if (currentSig.length === 0) return;
-
+		if (currentSig.length === 0) {
+			animatedCardKeys.clear();
+			return;
+		}
 		if (currentSig !== handledTrickSig) {
 			handledTrickSig = currentSig;
 			animPhase = 'landing';
@@ -186,7 +187,7 @@
 		let originCenterY = 0;
 
 		const isLocal = Boolean(myId && params.playerId === myId);
-		const handPos = isLocal ? getLastPlayedCardPosition() : null;
+		const handPos = isLocal ? getLastPlayedCardPosition(params.cardKey) : null;
 		if (handPos) {
 			originCenterX = handPos.x;
 			originCenterY = handPos.y;
@@ -222,13 +223,17 @@
 		};
 	}
 
-	const visible = $derived(
-		plays.length > 0
-			? plays
-			: (animPhase === 'landing' || animPhase === 'gathering' || animPhase === 'flying' || isRoundComplete)
-				? lastCompleteTrick
-				: []
-	);
+	const visible = $derived.by<readonly TrickPlay[]>(() => {
+		if (plays.length > 0) return plays;
+		if (
+			animPhase !== 'idle' ||
+			isRoundComplete ||
+			(lastCompleteTrick.length > 0 && trickSig !== handledTrickSig)
+		) {
+			return lastCompleteTrick;
+		}
+		return [];
+	});
 
 	const isTurnActive = $derived(Boolean(isMyTurn && !isRoundComplete));
 </script>
@@ -306,9 +311,9 @@
 							{@const cardKey = `${play.card.suit}-${play.card.rank}`}
 							<div
 								use:flyInFromBadge={{ playerId: play.playerId, cardKey }}
-								class="w-full flex flex-col items-center gap-0.5 sm:gap-1 transition-all"
+								class="w-full flex flex-col items-center gap-0.5 sm:gap-1"
 							>
-								<div class="transform transition-transform hover:scale-105 duration-200 drop-shadow-xl rounded-lg">
+								<div class="drop-shadow-xl rounded-lg">
 									<PlayingCard card={play.card} {gameId} {handType} {trumpSuit} size={useTwoRows ? 'sm' : 'md'} inspection={true} />
 								</div>
 								<span

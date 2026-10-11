@@ -73,7 +73,7 @@
 		if (!interactive || !isPlayable(card) || !onCardPlayed) return;
 		if (typeof document !== 'undefined') {
 			const el = document.querySelector(`[data-card-key="${key}"]`);
-			recordPlayedCardPosition(el as HTMLElement);
+			recordPlayedCardPosition(el as HTMLElement, key);
 		}
 		onCardPlayed(card);
 	}

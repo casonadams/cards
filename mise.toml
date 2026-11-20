@@ -22,6 +22,23 @@ run = "cargo test --workspace"
 description = "Run every Rust quality gate"
 depends = ["fmt", "clippy", "rust-test"]
 
+[tasks.web]
+description = "Package the nsh app for the web into dist/Cards (needs a wasm-capable clang)"
+dir = "app"
+run = '''
+LLVM=/opt/homebrew/opt/llvm/bin
+if [ -x "$LLVM/clang" ]; then CLANG="$LLVM/clang"; AR="$LLVM/llvm-ar"; else CLANG=clang; AR=llvm-ar; fi
+CC_wasm32_unknown_unknown="${CC_wasm32_unknown_unknown:-$CLANG}" \
+AR_wasm32_unknown_unknown="${AR_wasm32_unknown_unknown:-$AR}" \
+  nsh package --target web --out ../dist
+touch ../dist/Cards/.nojekyll
+'''
+
+[tasks.web-run]
+description = "Package the web app and serve it at http://127.0.0.1:4173/cards/"
+depends = ["web"]
+run = "mkdir -p target/serve && ln -sfn ../../dist/Cards target/serve/cards && cd target/serve && python3 -m http.server 4173 --bind 127.0.0.1"
+
 [tasks.install]
 description = "Install web dependencies"
 dir = "web"

@@ -1,0 +1,10 @@
+{
+  "name": "Cards",
+  "id": "io.github.casonadams.cards",
+  "version": "0.1.0",
+  "build": 1,
+  "rust": ".",
+  "root": "App",
+  "appearance": "dark",
+  "web": { "base": "/cards/" }
+}

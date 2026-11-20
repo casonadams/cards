@@ -5,12 +5,11 @@ use super::{Ctx, card, model};
 use crate::session::Intent;
 
 pub fn bar(ctx: Ctx) -> impl IntoElement {
-    let rules_open = signal(false);
+    let menu_open = signal(false);
     let title = move || {
         ctx.read(|_, v| model::round_title(v.kind, v.round, v.total_rounds, &v.round_label))
             .unwrap_or_default()
     };
-    let game = move || ctx.read(|_, v| v.kind.name()).unwrap_or_default();
     let trump = move || ctx.read(|_, v| v.trump_card).flatten();
     let penalty = move || {
         ctx.read(|_, v| v.hand_type.map(model::penalty_summary))
@@ -18,47 +17,60 @@ pub fn bar(ctx: Ctx) -> impl IntoElement {
     };
     let rules = move || ctx.read(|_, v| v.rules_text.clone()).unwrap_or_default();
     view()
+        .relative()
+        .z_index(50)
         .w_full()
-        .bg(panel)
-        .border_color(panel_border)
-        .border_1()
-        .px_3()
-        .py_2()
+        .h(move || px(ctx.layout.get().bar_h))
+        .flex_shrink_0()
+        .flex_row()
+        .items_center()
         .gap_2()
+        .px_3()
+        .bg(panel)
+        .border_b_1()
+        .border_color(panel_border)
         .child(
-            view()
-                .flex_row()
-                .flex_wrap()
-                .items_center()
-                .gap_2()
-                .child(
-                    text(game)
-                        .text_sm()
-                        .font_weight(FontWeight::BLACK)
-                        .text_color(ink),
-                )
-                .child(text(title).text_sm().text_color(muted).truncate())
-                .child(dynamic(move || trump().map(card::mini)))
-                .child(dynamic(move || {
-                    penalty().map(|p| {
-                        text(p)
-                            .text_xs()
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(ink)
-                    })
-                }))
-                .child(view().flex_1())
-                .child(toggle(rules_open))
-                .child(leave_controls(ctx)),
+            text(title)
+                .flex_1()
+                .min_w(px(0.0))
+                .text_sm()
+                .font_weight(FontWeight::BOLD)
+                .text_color(ink)
+                .truncate(),
         )
+        .child(dynamic(move || trump().map(card::mini)))
+        .child(dynamic(move || {
+            penalty().map(|p| {
+                text(p)
+                    .text_xs()
+                    .font_weight(FontWeight::BOLD)
+                    .text_color(ink)
+                    .truncate()
+            })
+        }))
+        .child(toggle(menu_open))
         .child(when(
-            move || rules_open.get(),
-            move || text(rules).text_sm().text_color(muted),
+            move || menu_open.get(),
+            move || {
+                view()
+                    .absolute()
+                    .top(move || px(ctx.layout.get().bar_h))
+                    .left(px(0.0))
+                    .right(px(0.0))
+                    .gap_3()
+                    .p_3()
+                    .bg(panel)
+                    .border_b_1()
+                    .border_color(panel_border)
+                    .shadow_lg()
+                    .child(text(rules).text_sm().text_color(muted))
+                    .child(leave_controls(ctx))
+            },
         ))
 }
 
 fn toggle(open: Signal<bool>) -> impl IntoElement {
-    button("Rules", false, || true, move || open.update(|o| *o = !*o))
+    button("Menu", false, || true, move || open.update(|o| *o = !*o))
 }
 
 fn leave_controls(ctx: Ctx) -> impl IntoElement {

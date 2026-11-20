@@ -1,15 +1,17 @@
 mod bidding;
 mod card;
 mod hand;
+mod layout;
 mod model;
 mod motion;
+mod progress;
 mod scores;
 mod seats;
 mod standings;
 mod top_bar;
 mod trick;
 
-use cards_core::{Phase, Seat, SeatView};
+use cards_core::{Seat, SeatView};
 use cards_net::{Snapshot, Stage};
 use nsh_core::prelude::*;
 
@@ -21,6 +23,7 @@ struct Ctx {
     controller: Controller,
     snapshot: Memo<Option<Snapshot>>,
     motion: motion::Motion,
+    layout: Memo<layout::TableLayout>,
 }
 
 impl Ctx {
@@ -62,24 +65,16 @@ fn name_of(snap: &Snapshot, seat: Seat) -> String {
         .unwrap_or_default()
 }
 
-/// What docks between the trick area and the hand, besides nothing while cards are played.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Mode {
-    Bidding,
-    RoundOver,
-}
-
-/// Short or narrow windows (phones in either orientation) use small cards and compact stats.
-pub fn compact() -> bool {
-    let size = window();
-    size.width.0 < 520.0 || size.height.0 < 520.0
-}
-
 pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl IntoElement {
     let ctx = Ctx {
         controller,
         snapshot,
         motion: motion::Motion::new(),
+        layout: computed(move || {
+            let seats = snapshot.with(|s| s.as_ref().map_or(0, |s| s.capacity));
+            let size = window();
+            layout::table_layout(size.width.0, size.height.0, seats)
+        }),
     };
     let standings_open = signal(false);
     dynamic(move || {
@@ -92,51 +87,39 @@ pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl 
 }
 
 fn table(ctx: Ctx, standings_open: Signal<bool>) -> impl IntoElement {
-    let mode = computed(move || {
-        ctx.read(|_, v| match v.phase {
-            Phase::Bidding => Some(Mode::Bidding),
-            Phase::RoundOver | Phase::GameOver => Some(Mode::RoundOver),
-            Phase::Playing => None,
-        })
-        .flatten()
-    });
+    let gap = move || px(ctx.layout.get().gap);
     view()
+        .relative()
         .flex_1()
         .flex_col()
-        .child(when(
-            move || ctx.away(),
-            || {
-                text("Paused - waiting for the host to return")
-                    .text_sm()
-                    .text_center()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(danger)
-                    .p_2()
-                    .bg(panel)
-            },
-        ))
-        .child(super::home::notice(ctx.controller))
+        .overflow_hidden()
+        .gap(gap)
         .child(top_bar::bar(ctx))
+        .child(seats::strip(ctx))
+        .child(trick::area(ctx))
+        .child(hand::hand(ctx, standings_open))
         .child(
-            scroll().flex_1().child(
-                view()
-                    .w_full()
-                    .flex_col()
-                    .items_center()
-                    .gap_3()
-                    .px_2()
-                    .pt_4()
-                    .pb_2()
-                    .child(seats::strip(ctx))
-                    .child(trick::area(ctx))
-                    .child(dynamic(move || match mode.get() {
-                        Some(Mode::Bidding) => bidding::console(ctx).into_element(),
-                        Some(Mode::RoundOver) => {
-                            scores::round_panel(ctx, standings_open).into_element()
-                        }
-                        None => view().into_element(),
-                    })),
-            ),
+            view()
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .z_index(60)
+                .gap_1()
+                .p_2()
+                .child(when(
+                    move || ctx.away(),
+                    || {
+                        text("Paused - waiting for the host to return")
+                            .text_sm()
+                            .text_center()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(danger)
+                            .p_2()
+                            .rounded_lg()
+                            .bg(panel)
+                    },
+                ))
+                .child(super::home::notice(ctx.controller)),
         )
-        .child(hand::hand(ctx))
 }

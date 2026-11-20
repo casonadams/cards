@@ -20,10 +20,29 @@ pub struct Row {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Status {
     YourBid,
-    YourPlay,
+    YourPlay(PlayHint),
     YouWonYourLead,
     Won(Seat),
     Waiting { seat: Seat, bidding: bool },
+}
+
+/// What the viewer may play into the current trick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlayHint {
+    Lead,
+    Follow(Suit),
+    /// Void in the led suit, so any card may be played.
+    Discard(Suit),
+}
+
+pub fn play_hint(current: &[Play], hand: &[Card]) -> PlayHint {
+    match current.first() {
+        None => PlayHint::Lead,
+        Some(lead) if hand.iter().any(|c| c.suit == lead.card.suit) => {
+            PlayHint::Follow(lead.card.suit)
+        }
+        Some(lead) => PlayHint::Discard(lead.card.suit),
+    }
 }
 
 pub struct Layout {
@@ -52,16 +71,6 @@ pub fn penalty_summary(hand: HandType) -> &'static str {
         HandType::NoKingSpades => "+100 king of spades",
         HandType::NoLastTrick => "+100 last trick",
         HandType::Combination => "all penalties",
-    }
-}
-
-pub fn stat_line(kind: GameKind, bid: Option<u8>, tricks: usize, total: i32) -> String {
-    match kind {
-        GameKind::OhWell => match bid {
-            Some(bid) => format!("{bid} | {total}p"),
-            None => format!("- | {total}p"),
-        },
-        GameKind::CanadianSalad => format!("{tricks}t | {total}p"),
     }
 }
 
@@ -105,11 +114,12 @@ pub fn status(
     actor: Option<Seat>,
     bidding: bool,
     winner: Option<Seat>,
+    hint: PlayHint,
 ) -> Option<Status> {
     match (actor, winner) {
         (Some(a), Some(w)) if a == me && w == me => Some(Status::YouWonYourLead),
         (Some(a), _) if a == me && bidding => Some(Status::YourBid),
-        (Some(a), _) if a == me => Some(Status::YourPlay),
+        (Some(a), _) if a == me => Some(Status::YourPlay(hint)),
         (_, Some(w)) => Some(Status::Won(w)),
         (Some(seat), None) => Some(Status::Waiting { seat, bidding }),
         (None, None) => None,
@@ -270,11 +280,44 @@ mod tests {
     }
 
     #[test]
+    fn play_hints_say_lead_follow_or_discard() {
+        let led = [play(2, 9)];
+        let heart = |rank| Card {
+            suit: Suit::Hearts,
+            rank,
+        };
+        let club = Card {
+            suit: Suit::Clubs,
+            rank: 5,
+        };
+        let led_suit = led[0].card.suit;
+        assert_eq!(play_hint(&[], &[club]), PlayHint::Lead);
+        let follow = [
+            Card {
+                suit: led_suit,
+                rank: 3,
+            },
+            club,
+        ];
+        assert_eq!(play_hint(&led, &follow), PlayHint::Follow(led_suit));
+        let void: Vec<Card> = [heart(4), club]
+            .into_iter()
+            .filter(|c| c.suit != led_suit)
+            .collect();
+        assert_eq!(play_hint(&led, &void), PlayHint::Discard(led_suit));
+    }
+
+    #[test]
     fn status_shows_one_message_for_the_viewer() {
         let me = Seat(1);
         let cases = [
             (Some(me), true, None, Some(Status::YourBid)),
-            (Some(me), false, None, Some(Status::YourPlay)),
+            (
+                Some(me),
+                false,
+                None,
+                Some(Status::YourPlay(PlayHint::Lead)),
+            ),
             (Some(me), false, Some(me), Some(Status::YouWonYourLead)),
             (
                 Some(Seat(2)),
@@ -296,18 +339,11 @@ mod tests {
         ];
         for (actor, bidding, winner, expected) in cases {
             assert_eq!(
-                status(me, actor, bidding, winner),
+                status(me, actor, bidding, winner, PlayHint::Lead),
                 expected,
                 "{actor:?} {winner:?}"
             );
         }
-    }
-
-    #[test]
-    fn stat_lines_follow_each_game() {
-        assert_eq!(stat_line(GameKind::OhWell, Some(2), 1, 12), "2 | 12p");
-        assert_eq!(stat_line(GameKind::OhWell, None, 0, -3), "- | -3p");
-        assert_eq!(stat_line(GameKind::CanadianSalad, None, 3, 45), "3t | 45p");
     }
 
     #[test]

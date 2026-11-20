@@ -4,55 +4,13 @@ use nsh_core::prelude::*;
 use super::super::style::{accent, accent_ink, suit_color};
 use super::super::text::{card_label, rank_glyph, suit_symbol};
 
-#[derive(Clone, Copy, PartialEq)]
-pub struct Size {
-    pub w: f32,
-    pub h: f32,
-    pub rank: f32,
-    pub index: f32,
-}
+pub use super::layout::CardSize as Size;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
     Playable,
     Inspect,
     Muted,
-}
-
-pub fn hand_size(compact: bool) -> Size {
-    if compact {
-        Size {
-            w: 54.0,
-            h: 80.0,
-            rank: 26.0,
-            index: 11.0,
-        }
-    } else {
-        Size {
-            w: 72.0,
-            h: 108.0,
-            rank: 36.0,
-            index: 14.0,
-        }
-    }
-}
-
-pub fn trick_size(compact: bool) -> Size {
-    if compact {
-        Size {
-            w: 58.0,
-            h: 86.0,
-            rank: 28.0,
-            index: 12.0,
-        }
-    } else {
-        Size {
-            w: 80.0,
-            h: 120.0,
-            rank: 40.0,
-            index: 15.0,
-        }
-    }
 }
 
 fn white() -> AdaptiveColor {

@@ -1,4 +1,3 @@
-use cards_core::Seat;
 use cards_net::{Occupant, SeatInfo};
 use nsh_core::prelude::*;
 
@@ -6,17 +5,6 @@ use super::super::style::{accent, accent_ink, danger, ink, muted, panel, panel_b
 use super::super::text::{first_name, initials};
 use super::{Ctx, model};
 use crate::session::Command;
-
-pub fn lead(ctx: Ctx) -> Seat {
-    ctx.read(|_, v| model::leader(v.first_actor, v.tricks.last().map(|t| t.winner)))
-        .unwrap_or(Seat(0))
-}
-
-/// Short or narrow windows (phones in either orientation) use small cards and compact stats.
-pub fn compact() -> bool {
-    let size = window();
-    size.width.0 < 520.0 || size.height.0 < 520.0
-}
 
 pub fn strip(ctx: Ctx) -> impl IntoElement {
     let seats = move || ctx.read(|snap, _| snap.roster.clone()).unwrap_or_default();
@@ -36,8 +24,11 @@ fn badge(ctx: Ctx, info: ReadSignal<SeatInfo>) -> impl IntoElement {
     let seat = info.with(|s| s.seat);
     let active = move || ctx.read(|_, v| v.actor == Some(seat)).unwrap_or(false);
     let number = move || {
-        ctx.read(|_, v| model::order_number(seat, lead(ctx), v.seats))
-            .unwrap_or(1)
+        ctx.read(|_, v| {
+            let leader = model::leader(v.first_actor, v.tricks.last().map(|t| t.winner));
+            model::order_number(seat, leader, v.seats).to_string()
+        })
+        .unwrap_or_default()
     };
     let stats = move || {
         ctx.read(|_, v| {
@@ -88,7 +79,7 @@ fn badge(ctx: Ctx, info: ReadSignal<SeatInfo>) -> impl IntoElement {
 fn avatar(
     info: ReadSignal<SeatInfo>,
     active: impl Fn() -> bool + Copy + 'static,
-    number: impl Fn() -> usize + Copy + 'static,
+    number: impl Fn() -> String + Copy + 'static,
 ) -> impl IntoElement {
     view()
         .relative()
@@ -119,7 +110,7 @@ fn avatar(
                 .justify_center()
                 .bg(move || if active() { accent() } else { panel_border() })
                 .child(
-                    text(move || number().to_string())
+                    text(number)
                         .text_size(px(10.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(move || if active() { accent_ink() } else { ink() }),
@@ -128,7 +119,6 @@ fn avatar(
 }
 
 fn tags(ctx: Ctx, info: ReadSignal<SeatInfo>) -> impl IntoElement {
-    let host = ctx.is_host();
     let seat = info.with(|s| s.seat);
     let label = move || {
         info.with(|s| match (s.occupant, s.connected, s.autoplay) {
@@ -138,12 +128,15 @@ fn tags(ctx: Ctx, info: ReadSignal<SeatInfo>) -> impl IntoElement {
         })
     };
     let control = move || {
-        info.with(|s| (host && s.occupant == Occupant::Guest && !s.connected).then_some(s.autoplay))
+        info.with(|s| {
+            (ctx.is_host() && s.occupant == Occupant::Guest && !s.connected).then_some(s.autoplay)
+        })
     };
     view()
         .flex_row()
         .items_center()
         .gap_1()
+        .h(px(14.0))
         .child(
             text(label)
                 .text_size(px(10.0))

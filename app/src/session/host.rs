@@ -5,7 +5,7 @@ use cards_core::{Event, GameKind, Rng};
 use cards_net::transport::{
     ALPN, Directory, HostEvent, HostNet, PkarrDirectory, claim_code, keep_published, player_id,
 };
-use cards_net::{Delivery, HostError, HostSession, Stage};
+use cards_net::{Delivery, HostError, HostSession};
 use nsh_core::prelude::*;
 
 use super::{Command, Controller, Intent, Status, bind, until_leave};
@@ -50,16 +50,23 @@ async fn open(
             HostSession::new(code, player_id(net_id), &name, kind, seats).map_err(host_error)
         }
         Start::Resume => {
-            let mut session = identity::saved_host().ok_or("there is no saved table to resume")?;
+            let saved = identity::saved_host().map_err(|e| {
+                identity::forget_host();
+                e.to_string()
+            })?;
+            let mut session = saved.ok_or("there is no saved table to resume")?;
             if session.host_id() != Some(player_id(net_id)) {
                 identity::forget_host();
                 return Err("the saved table was hosted from another device".into());
+            }
+            if let Err(e) = session.resume() {
+                identity::forget_host();
+                return Err(host_error(e));
             }
             directory
                 .publish(session.code(), net_id)
                 .await
                 .map_err(|e| e.to_string())?;
-            session.resume();
             Ok(session)
         }
     }
@@ -84,16 +91,42 @@ async fn serve(
         .await;
     });
     let mut rng = Rng::new(identity::random_u64().map_err(|e| e.to_string())?);
-    let (tick_sender, ticks) = async_channel::unbounded::<()>();
-    let mut tick_pending = false;
     publish(controller, &session);
     controller.status.set(Status::Online);
 
-    let ended = loop {
+    let outcome = play(controller, intents, &mut session, &net, &mut rng).await;
+    let closed = match outcome {
+        Ok(Exit::End) => {
+            identity::forget_host();
+            send(&net, session.close())
+        }
+        Ok(Exit::Pause) => Ok(()),
+        Err(message) => Err(message),
+    };
+    publisher.cancel();
+    net.shutdown().await;
+    closed
+}
+
+enum Exit {
+    Pause,
+    End,
+}
+
+async fn play(
+    controller: Controller,
+    intents: &Receiver<Intent>,
+    session: &mut HostSession,
+    net: &HostNet,
+    rng: &mut Rng,
+) -> Result<Exit, String> {
+    let (tick_sender, ticks) = async_channel::unbounded::<()>();
+    let mut tick_pending = false;
+    loop {
         if !tick_pending && session.ai_actor().is_some() {
             tick_pending = true;
             let sender = tick_sender.clone();
-            set_timeout(ai_delay(&session), move || {
+            set_timeout(ai_delay(session), move || {
                 let _ = sender.try_send(());
             });
         }
@@ -106,9 +139,9 @@ async fn serve(
         )
         .await;
         let deliveries = match step {
-            Step::Intent(None | Some(Intent::Leave)) => break false,
-            Step::Intent(Some(Intent::End)) => break true,
-            Step::Intent(Some(Intent::Room(command))) => apply(&mut session, command, &mut rng)
+            Step::Intent(None | Some(Intent::Leave)) => return Ok(Exit::Pause),
+            Step::Intent(Some(Intent::End)) => return Ok(Exit::End),
+            Step::Intent(Some(Intent::Room(command))) => apply(session, command, rng)
                 .unwrap_or_else(|e| {
                     controller.notice.set(Some(host_error(e)));
                     Vec::new()
@@ -119,25 +152,15 @@ async fn serve(
             Step::Net(Some(HostEvent::Disconnected(peer))) => session.disconnected(peer),
             Step::AiTick => {
                 tick_pending = false;
-                match session.play_ai(&mut rng) {
+                match session.play_ai(rng) {
                     None => Vec::new(),
-                    Some(result) => {
-                        result.map_err(|r| format!("the AI made an illegal move: {r:?}"))?
-                    }
+                    Some(result) => result.map_err(host_error)?,
                 }
             }
         };
-        send(&net, deliveries)?;
-        publish(controller, &session);
-    };
-
-    if ended {
-        send(&net, session.close())?;
-        identity::forget_host();
+        send(net, deliveries)?;
+        publish(controller, session);
     }
-    publisher.cancel();
-    net.shutdown().await;
-    Ok(())
 }
 
 fn apply(
@@ -168,10 +191,10 @@ fn publish(controller: Controller, session: &HostSession) {
 }
 
 fn ai_delay(session: &HostSession) -> Duration {
-    let trick_just_won = match &session.host_snapshot().stage {
-        Stage::Playing { events, .. } => events.iter().any(|e| matches!(e, Event::TrickWon { .. })),
-        Stage::Lobby => false,
-    };
+    let trick_just_won = session
+        .last_events()
+        .iter()
+        .any(|e| matches!(e, Event::TrickWon { .. }));
     if trick_just_won {
         AI_AFTER_TRICK
     } else {
@@ -193,5 +216,7 @@ fn host_error(error: HostError) -> String {
         }
         HostError::Setup(e) => format!("Could not deal: {e:?}"),
         HostError::Rejected(r) => crate::ui::text::rejection(r),
+        HostError::NoAiAction => "An AI player had no legal move; the game cannot continue.".into(),
+        HostError::InvalidSave => "The saved table could not be restored.".into(),
     }
 }

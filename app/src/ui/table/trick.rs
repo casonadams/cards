@@ -5,13 +5,13 @@ use nsh_core::prelude::*;
 
 use super::super::style::{accent, accent_ink, felt_dark, ink, panel, panel_border};
 use super::super::text::first_name;
-use super::{Ctx, card, model, seats};
+use super::{Ctx, card, model};
 
 const PILL_H: f32 = 22.0;
 const CALLOUT_H: f32 = 30.0;
 
 pub fn area(ctx: Ctx) -> impl IntoElement {
-    let compact = computed(seats::compact);
+    let compact = computed(super::compact);
     let seat_count = computed(move || ctx.read(|_, v| v.seats).unwrap_or(0));
     let size = move || card::trick_size(compact.get());
     view()
@@ -67,7 +67,7 @@ fn turn_pill(ctx: Ctx) -> impl IntoElement {
         label().map(|l| {
             view()
                 .absolute()
-                .top(px(-14.0))
+                .top(px(4.0))
                 .left(px(0.0))
                 .right(px(0.0))
                 .z_index(40)

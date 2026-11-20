@@ -13,6 +13,7 @@ pub enum StoreError {
     Entropy(getrandom::Error),
     StorageFull,
     Encode(serde_json::Error),
+    Decode(serde_json::Error),
 }
 
 impl fmt::Display for StoreError {
@@ -21,6 +22,10 @@ impl fmt::Display for StoreError {
             StoreError::Entropy(e) => write!(f, "no secure randomness available: {e}"),
             StoreError::StorageFull => f.write_str("browser storage is full"),
             StoreError::Encode(e) => write!(f, "could not save the table: {e}"),
+            StoreError::Decode(e) => write!(
+                f,
+                "the saved table could not be read and was discarded: {e}"
+            ),
         }
     }
 }
@@ -55,8 +60,11 @@ pub fn save_name(name: &str) -> Result<(), StoreError> {
     save(NAME_KEY, name.to_owned())
 }
 
-pub fn saved_host() -> Option<HostSession> {
-    serde_json::from_str(&Storage::get_item(HOST_KEY)?).ok()
+/// The table this device was hosting, if any; Err when the stored copy is unreadable.
+pub fn saved_host() -> Result<Option<HostSession>, StoreError> {
+    Storage::get_item(HOST_KEY)
+        .map(|json| serde_json::from_str(&json).map_err(StoreError::Decode))
+        .transpose()
 }
 
 pub fn save_host(session: &HostSession) -> Result<(), StoreError> {

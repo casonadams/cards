@@ -9,13 +9,22 @@ use crate::identity;
 use crate::session::{Controller, Intent};
 
 const GAMES: [GameKind; 2] = [GameKind::OhWell, GameKind::CanadianSalad];
+#[allow(clippy::cast_possible_truncation)]
+const NAME_INPUT_LIMIT: u32 = MAX_NAME_LEN as u32;
 
 pub fn screen(controller: Controller) -> impl IntoElement {
     let name = signal(identity::saved_name());
     let kind = signal(GameKind::OhWell);
     let seats = signal(4usize);
     let code = signal(String::new());
-    let resumable = identity::saved_host().map(|s| s.code());
+    let resumable = match identity::saved_host() {
+        Ok(saved) => saved.map(|s| s.code()),
+        Err(e) => {
+            identity::forget_host();
+            controller.notice.set(Some(e.to_string()));
+            None
+        }
+    };
 
     let valid_name = move || {
         let len = name.with(|n| n.trim().chars().count());
@@ -68,7 +77,7 @@ pub fn screen(controller: Controller) -> impl IntoElement {
                     .value(move || name.get())
                     .on_change(move |t: &str| name.set(t.to_owned()))
                     .placeholder("First and last name")
-                    .max_length(u32::try_from(MAX_NAME_LEN).unwrap_or(20))
+                    .max_length(NAME_INPUT_LIMIT)
                     .px_3()
                     .py_2()
                     .rounded_lg()

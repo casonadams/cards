@@ -25,6 +25,7 @@ pub fn refusal(refusal: Refusal) -> &'static str {
         Refusal::TableFull => "The table is full.",
         Refusal::GameInProgress => "That game has already started.",
         Refusal::InvalidName => "Enter a name of 1 to 20 characters.",
+        Refusal::Removed => "The host removed you from this table.",
     }
 }
 

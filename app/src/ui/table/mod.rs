@@ -67,6 +67,12 @@ enum Mode {
     Play,
 }
 
+/// Short or narrow windows (phones in either orientation) use small cards and compact stats.
+pub fn compact() -> bool {
+    let size = window();
+    size.width.0 < 520.0 || size.height.0 < 520.0
+}
+
 pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl IntoElement {
     let ctx = Ctx {
         controller,

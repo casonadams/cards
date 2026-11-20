@@ -1,11 +1,16 @@
+use std::time::Duration;
+
 use async_channel::Receiver;
 use cards_net::transport::{GuestLink, GuestReceiver, NetError, PkarrDirectory, join, rejoin};
 use cards_net::{GuestState, Link, RoomCode, ToGuest, ToHost};
-use iroh::EndpointId;
+use iroh::{Endpoint, EndpointId};
 use nsh_core::prelude::*;
 
 use super::{Command, Controller, Intent, Status, bind, until_leave};
 use crate::identity;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const MESSAGE_LIMIT: usize = 64;
 
 enum LinkEnd {
     Lost,
@@ -32,13 +37,30 @@ async fn serve(
     code: RoomCode,
 ) -> Result<(), String> {
     let endpoint = bind(Vec::new()).await?;
-    let directory = PkarrDirectory::new(&endpoint).map_err(|e| e.to_string())?;
+    let outcome = follow_room(controller, intents, &endpoint, name, code).await;
+    endpoint.close().await;
+    outcome
+}
+
+async fn follow_room(
+    controller: Controller,
+    intents: &Receiver<Intent>,
+    endpoint: &Endpoint,
+    name: &str,
+    code: RoomCode,
+) -> Result<(), String> {
+    let directory = PkarrDirectory::new(endpoint).map_err(|e| e.to_string())?;
     let mut state = GuestState::default();
     let mut host: Option<EndpointId> = None;
     loop {
-        let attempt = match host {
-            None => join(&endpoint, &directory, code, name).await,
-            Some(host) => rejoin(&endpoint, host, code, name).await,
+        let connecting = async {
+            match host {
+                None => join(endpoint, &directory, code, name).await,
+                Some(host) => rejoin(endpoint, host, code, name).await,
+            }
+        };
+        let Some(attempt) = cancellable(intents, connecting).await else {
+            return Ok(());
         };
         let end = match attempt {
             Err(NetError::Lookup(_)) if host.is_none() => {
@@ -52,20 +74,37 @@ async fn serve(
             }
         };
         match end {
-            LinkEnd::Left => break,
+            LinkEnd::Left => return Ok(()),
             LinkEnd::Ended => {
                 until_leave(intents).await;
-                break;
+                return Ok(());
             }
             LinkEnd::Lost => {
                 if wait_to_retry(controller, intents, &mut state).await? {
-                    break;
+                    return Ok(());
                 }
             }
         }
     }
-    endpoint.close().await;
-    Ok(())
+}
+
+/// Runs a connection attempt with a timeout; None when the player leaves meanwhile.
+async fn cancellable(
+    intents: &Receiver<Intent>,
+    connecting: impl Future<Output = Result<GuestLink, NetError>>,
+) -> Option<Result<GuestLink, NetError>> {
+    let timed = async {
+        let timeout = async {
+            timer(CONNECT_TIMEOUT).await;
+            Err(NetError::Connect("timed out".into()))
+        };
+        Some(n0_future::future::race(connecting, timeout).await)
+    };
+    let left = async {
+        until_leave(intents).await;
+        None
+    };
+    n0_future::future::race(timed, left).await
 }
 
 /// Shows the pause and waits out the backoff; true when the player left meanwhile.
@@ -105,7 +144,7 @@ async fn follow(
         receiver,
         ..
     } = link;
-    let (forward, messages) = async_channel::unbounded();
+    let (forward, messages) = async_channel::bounded(MESSAGE_LIMIT);
     let reader = spawn(read_all(receiver, forward));
     let end = loop {
         let step =
@@ -115,9 +154,9 @@ async fn follow(
             .await;
         match step {
             Step::Intent(None | Some(Intent::Leave | Intent::End)) => {
-                let _ = sender.send(&ToHost::Leave).await;
-                sender.close();
-                break LinkEnd::Left;
+                reader.cancel();
+                sender.leave().await;
+                return Ok(LinkEnd::Left);
             }
             Step::Intent(Some(Intent::Room(Command::Act(action)))) => {
                 if sender.send(&ToHost::Act(action)).await.is_err() {

@@ -10,6 +10,7 @@ import {
 } from '$lib/platform/adapters/p2p-webrtc.ts';
 import type { GameRoom, RoomPlayer } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
+import type { DocDelta } from '$lib/platform/engine/doc-delta';
 
 // --- MOCK MQTT HARNESS ---
 
@@ -583,6 +584,7 @@ export interface TestNode {
 	readonly manager: P2pNetworkManager;
 	readonly receivedRooms: GameRoom[];
 	readonly receivedDocs: GameDocument[];
+	readonly receivedDeltas: DocDelta[];
 	readonly receivedJoinRequests: { code: string; player: RoomPlayer }[];
 	readonly statuses: NetworkStatusInfo[];
 	lastStatus?: NetworkStatusInfo;
@@ -595,6 +597,7 @@ export async function createTestNode(
 ): Promise<TestNode> {
 	const receivedRooms: GameRoom[] = [];
 	const receivedDocs: GameDocument[] = [];
+	const receivedDeltas: DocDelta[] = [];
 	const receivedJoinRequests: { code: string; player: RoomPlayer }[] = [];
 	const statuses: NetworkStatusInfo[] = [];
 
@@ -603,6 +606,7 @@ export async function createTestNode(
 		isHost,
 		receivedRooms,
 		receivedDocs,
+		receivedDeltas,
 		receivedJoinRequests,
 		statuses,
 		manager: null as unknown as P2pNetworkManager
@@ -614,6 +618,9 @@ export async function createTestNode(
 		},
 		onDocMessage: (_roomId, doc) => {
 			receivedDocs.push(doc);
+		},
+		onDocDelta: (delta) => {
+			receivedDeltas.push(delta);
 		},
 		onJoinRequest: (code, player) => {
 			receivedJoinRequests.push({ code, player });
@@ -701,7 +708,9 @@ export async function createCorruptedCiphertextEnvelope(
 	const raw = await encryptData(key, payload);
 	const parsed = JSON.parse(raw);
 	// Corrupt first byte of ciphertext
-	parsed.ciphertext[0] = (parsed.ciphertext[0] + 1) % 256;
+	const bytes = Buffer.from(parsed.ciphertext, 'base64');
+	bytes[0] = (bytes[0] + 1) % 256;
+	parsed.ciphertext = bytes.toString('base64');
 	return JSON.stringify(parsed);
 }
 
@@ -713,7 +722,7 @@ export async function createBadIvEnvelope(
 	const key = await deriveRoomKey(code);
 	const raw = await encryptData(key, payload);
 	const parsed = JSON.parse(raw);
-	parsed.iv = parsed.iv.slice(0, badIvLength);
+	parsed.iv = Buffer.from(parsed.iv, 'base64').subarray(0, badIvLength).toString('base64');
 	return JSON.stringify(parsed);
 }
 

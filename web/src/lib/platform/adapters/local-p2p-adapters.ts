@@ -1,6 +1,7 @@
 import type { GameRoom } from '$lib/platform/types/index';
 import type { GameDocument, Move } from '$lib/platform/engine/index';
 import { shouldAcceptDocUpdate } from '$lib/platform/engine/game-sync';
+import { diffDoc } from '$lib/platform/engine/doc-delta';
 import type { GameRoomRepository, RealtimeSync } from '$lib/platform/ports/index';
 import { generateRoomCode } from '$lib/platform/engine/room-code';
 
@@ -236,25 +237,28 @@ export function createLocalP2pSync(broadcaster?: () => P2pBroadcaster | null): R
 	const channel =
 		typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cards-sync-channel') : null;
 
-	function persistDoc(roomId: string, doc: GameDocument): boolean {
+	function persistDoc(roomId: string, doc: GameDocument): GameDocument | null | false {
 		const current = docs.get(roomId) ?? loadStorage<GameDocument>('cards_doc', roomId);
 		if (current && !shouldAcceptDocUpdate(doc, current)) {
 			return false;
 		}
 		docs.set(roomId, doc);
 		saveStorage('cards_doc', roomId, doc);
-		return true;
+		return current;
 	}
 
 	function notify(roomId: string, doc: GameDocument, broadcast = true): void {
-		const accepted = persistDoc(roomId, doc);
-		if (!accepted) return;
+		const previous = persistDoc(roomId, doc);
+		if (previous === false) return;
 		listeners.get(roomId)?.forEach((cb) => cb(doc));
 		if (broadcast) {
 			try {
 				const serialized = JSON.parse(JSON.stringify({ roomId, doc }));
 				channel?.postMessage(serialized);
-				broadcaster?.()?.broadcast({ type: 'sync_doc', roomId, doc });
+				const delta = diffDoc(previous, doc);
+				broadcaster?.()?.broadcast(
+					delta ? { type: 'doc_delta', delta } : { type: 'sync_doc', roomId, doc }
+				);
 			} catch {
 				// Ignore serialization errors
 			}

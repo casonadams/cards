@@ -13,6 +13,7 @@
 		shouldAcceptDocUpdate,
 		DocDedupCache
 	} from '$lib/platform/engine/game-sync';
+	import { applyDocDelta, isDeltaStale } from '$lib/platform/engine/doc-delta';
 	import { P2pNetworkManager, type NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import {
@@ -123,6 +124,25 @@
 	const isHost = $derived(room?.hostId === myPlayer.id);
 	const isTempHost = $derived(Boolean(room?.tempHostId === myPlayer.id));
 	const isActingHost = $derived(isHost || isTempHost);
+	const activeHostId = $derived(room?.tempHostId || room?.hostId);
+
+	const DOC_RESYNC_INTERVAL_MS = 2000;
+	let lastDocResyncAt = 0;
+
+	function acceptRemoteDoc(targetRoomId: string, doc: GameDocument, authoritative = false) {
+		if (!authoritative && docDedup.has(doc)) return;
+		docDedup.add(doc);
+		if (gameDoc && JSON.stringify(gameDoc) === JSON.stringify(doc)) return;
+		gameDoc = doc;
+		sync.publish(targetRoomId, doc, false);
+	}
+
+	function requestDocResync(targetRoomId: string) {
+		const now = Date.now();
+		if (now - lastDocResyncAt < DOC_RESYNC_INTERVAL_MS) return;
+		lastDocResyncAt = now;
+		void p2p?.broadcast({ type: 'query_doc', roomId: targetRoomId });
+	}
 
 	let hostGraceTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -173,7 +193,6 @@
 					};
 					room = promotedRoom;
 					roomRepo.update(promotedRoom.id, promotedRoom, true);
-					p2p?.broadcast({ type: 'sync_room', room: promotedRoom });
 
 					addNotice({
 						playerId: myPlayer.id,
@@ -273,10 +292,9 @@
 				};
 				room = updatedRoom;
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
-				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 
 				if (gameDoc) {
-					p2p?.broadcast({ type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc });
+					void p2p?.sendTo(joiningPlayer.id, { type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc, resync: true });
 				}
 
 				if (wasDisconnected || notices.some((n) => n.playerId === joiningPlayer.id)) {
@@ -311,7 +329,6 @@
 						room = updatedRoom;
 						if (candidateNextHost.id === myPlayer.id) {
 							roomRepo.update(updatedRoom.id, updatedRoom, true);
-							p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 						}
 						startHostGraceCountdown(updatedRoom);
 						return;
@@ -335,9 +352,8 @@
 					};
 					room = updatedRoom;
 					roomRepo.update(updatedRoom.id, updatedRoom, true);
-					p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 					if (gameDoc) {
-						p2p?.broadcast({ type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc });
+						void p2p?.sendTo(peerId, { type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc, resync: true });
 					}
 					addNotice({
 						playerId: peerId,
@@ -362,10 +378,9 @@
 				const updatedRoom = { ...room, players: updatedPlayers };
 				room = updatedRoom;
 				roomRepo.update(updatedRoom.id, updatedRoom, true);
-				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 
 				if (isConnected && gameDoc) {
-					p2p?.broadcast({ type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc });
+					void p2p?.sendTo(peerId, { type: 'sync_doc', roomId: updatedRoom.id, doc: gameDoc, resync: true });
 				}
 
 				if (!isConnected) {
@@ -406,7 +421,6 @@
 						room = updatedRoom;
 						if (candidateNextHost.id === myPlayer.id) {
 							roomRepo.update(updatedRoom.id, updatedRoom, true);
-							p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 						}
 						startHostGraceCountdown(updatedRoom);
 						return;
@@ -420,7 +434,6 @@
 					const updatedRoom = { ...room, players: updatedPlayers };
 					room = updatedRoom;
 					roomRepo.update(updatedRoom.id, updatedRoom, true);
-					p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 				}
 
 				addNotice({
@@ -475,39 +488,44 @@
 					roomId = updatedRoom.id;
 					roomRepo.update(updatedRoom.id, updatedRoom, false);
 				}
-				if (!isActingHost && (updatedRoom.phase === 'playing' || updatedRoom.phase === 'roundScoring')) {
+				if (!isActingHost && !gameDoc && (updatedRoom.phase === 'playing' || updatedRoom.phase === 'roundScoring')) {
 					p2p?.broadcast({ type: 'query_doc', roomId: updatedRoom.id });
 				}
 			},
-			onDocMessage(docRoomId, doc) {
+			onDocMessage(docRoomId, doc, senderId, resync) {
 				if (!doc) return;
 				const targetRoomId = room?.id ?? doc.roomId ?? docRoomId;
 				if (!roomId && (room?.id === docRoomId || room?.code === docRoomId || doc.roomId === room?.id)) {
 					roomId = targetRoomId;
 				}
 				if (docRoomId !== roomId && room?.id !== docRoomId && room?.code !== docRoomId && doc.roomId !== roomId) return;
-				// Monotonic Move Reconciliation & Dedup
-				if (!shouldAcceptDocUpdate(doc, gameDoc)) {
+				const authoritative = resync && senderId === activeHostId;
+				if (!authoritative && !shouldAcceptDocUpdate(doc, gameDoc)) {
 					return;
 				}
-				if (docDedup.has(doc)) {
-					return;
-				}
-				docDedup.add(doc);
-				if (gameDoc && JSON.stringify(gameDoc) === JSON.stringify(doc)) {
-					return;
-				}
-				gameDoc = doc;
-				sync.publish(targetRoomId, doc, false);
+				acceptRemoteDoc(targetRoomId, doc, authoritative);
 			},
-			onQueryRoom() {
+			onDocDelta(delta, senderId) {
+				if (!room || (delta.roomId !== room.id && delta.roomId !== roomId)) return;
+				const next = applyDocDelta(gameDoc, delta);
+				if (next) {
+					acceptRemoteDoc(room.id, next);
+				} else if (isDeltaStale(gameDoc, delta)) {
+					return;
+				} else if (isActingHost && gameDoc) {
+					void p2p?.sendTo(senderId, { type: 'sync_doc', roomId: room.id, doc: gameDoc, resync: true });
+				} else if (!isActingHost) {
+					requestDocResync(room.id);
+				}
+			},
+			onQueryRoom(requesterId) {
 				if (room && isActingHost) {
-					p2p?.broadcast({ type: 'sync_room', room });
+					void p2p?.sendTo(requesterId, { type: 'sync_room', room });
 				}
 			},
-			onQueryDoc(docRoomId) {
+			onQueryDoc(docRoomId, requesterId) {
 				if (gameDoc && isActingHost && (roomId === docRoomId || room?.id === docRoomId || room?.code === docRoomId)) {
-					p2p?.broadcast({ type: 'sync_doc', roomId: room?.id ?? docRoomId, doc: gameDoc });
+					void p2p?.sendTo(requesterId, { type: 'sync_doc', roomId: room?.id ?? docRoomId, doc: gameDoc, resync: true });
 				}
 			}
 		});
@@ -567,8 +585,9 @@
 		return roomRepo.onRoomChanged(roomId, (r) => (room = r));
 	});
 
+	const gameSyncActive = $derived(needsGameSync(room, false));
 	$effect(() => {
-		if (!roomId || !needsGameSync(room, false)) return;
+		if (!roomId || !gameSyncActive) return;
 		const unsub = createGameSyncManager(sync, roomId).subscribe((d) => (gameDoc = d));
 		return () => unsub();
 	});
@@ -682,7 +701,6 @@
 				await roomRepo.update(target.id, updatedRoom);
 				room = updatedRoom;
 				roomId = target.id;
-				p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 				p2p?.broadcast({ type: 'join_request', code, player: myRoomPlayer });
 				if (target.phase === 'playing' || target.phase === 'roundScoring') {
 					p2p?.broadcast({ type: 'query_doc', roomId: target.id });
@@ -880,7 +898,6 @@
 		const updatedRoom = { ...room, players: updatedPlayers };
 		room = updatedRoom;
 		await roomRepo.update(room.id, updatedRoom, true);
-		p2p?.broadcast({ type: 'sync_room', room: updatedRoom });
 
 		notices = notices.map((n) =>
 			n.playerId === targetPlayerId ? { ...n, isAiControlled: nextAiState } : n

@@ -1,6 +1,8 @@
 import mqtt, { type MqttClient } from 'mqtt';
 import type { GameRoom, RoomPlayer } from '$lib/platform/types/index';
 import type { GameDocument } from '$lib/platform/engine/index';
+import type { DocDelta } from '$lib/platform/engine/doc-delta';
+import { isAiPlayer } from '$lib/platform/engine/ai-player';
 
 export const BROKER_URLS: readonly string[] = [
 	'wss://broker.emqx.io:8084/mqtt',
@@ -18,7 +20,8 @@ export type P2pMessage =
 	| { type: 'query_room'; code: string; senderId: string }
 	| { type: 'join_request'; code: string; player: RoomPlayer; senderId: string }
 	| { type: 'sync_room'; room: GameRoom; senderId: string }
-	| { type: 'sync_doc'; roomId: string; doc: GameDocument; senderId: string }
+	| { type: 'sync_doc'; roomId: string; doc: GameDocument; resync?: boolean; senderId: string }
+	| { type: 'doc_delta'; delta: DocDelta; senderId: string }
 	| { type: 'query_doc'; roomId: string; senderId: string }
 	| { type: 'signal_offer'; targetId: string; offer: RTCSessionDescriptionInit; senderId: string }
 	| { type: 'signal_answer'; targetId: string; answer: RTCSessionDescriptionInit; senderId: string }
@@ -29,6 +32,29 @@ export type P2pMessage =
 
 export type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 export type P2pBroadcastPayload = DistributiveOmit<P2pMessage, 'senderId'>;
+
+const DISCOVERY_MESSAGE_TYPES: ReadonlySet<P2pMessage['type']> = new Set([
+	'query_room',
+	'join_request',
+	'player_leave'
+]);
+
+export const RECONNECT_BASE_DELAY_MS = 1000;
+export const RECONNECT_MAX_DELAY_MS = 30000;
+const STABLE_CONNECTION_MS = 30000;
+const MAX_HOST_WEBRTC_RETRIES = 3;
+
+export function reconnectDelayMs(attempt: number, jitter = Math.random()): number {
+	if (attempt <= 0) return 0;
+	const exponential = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_DELAY_MS * 2 ** (attempt - 1));
+	return Math.round(exponential * (0.75 + 0.25 * jitter));
+}
+
+function humanPeerIds(room: GameRoom, selfId: string): Set<string> {
+	return new Set(
+		(room.players ?? []).map((p) => p.id).filter((id) => id !== selfId && !isAiPlayer(id))
+	);
+}
 
 export interface NetworkStatusInfo {
 	readonly mode: 'p2p' | 'relay' | 'connecting' | 'disconnected';
@@ -43,6 +69,7 @@ const VALID_MESSAGE_TYPES: Record<string, true> = {
 	join_request: true,
 	sync_room: true,
 	sync_doc: true,
+	doc_delta: true,
 	query_doc: true,
 	signal_offer: true,
 	signal_answer: true,
@@ -110,39 +137,51 @@ export async function deriveRoomKey(code: string): Promise<RoomCryptoKey> {
 }
 
 export interface EncryptedEnvelope {
-	readonly iv?: number[];
-	readonly ciphertext?: number[];
+	readonly iv?: string | number[];
+	readonly ciphertext?: string | number[];
 	readonly fallback?: boolean;
 	readonly data?: string;
 }
 
-export async function encryptData(key: RoomCryptoKey, data: unknown): Promise<string> {
-	const jsonStr = JSON.stringify(data);
-	const keyAny = key as unknown as { roomCode?: string; keyString?: string; key?: string };
-	const keyString = keyAny.keyString || keyAny.key || `cards:room:key:v1:${keyAny.roomCode || 'DEFAULT'}`;
+function bytesToBase64(bytes: Uint8Array): string {
+	let binStr = '';
+	for (let i = 0; i < bytes.length; i++) {
+		binStr += String.fromCharCode(bytes[i]);
+	}
+	return btoa(binStr);
+}
 
-	// Compute universal fallback XOR stream
-	const encoded = new TextEncoder().encode(jsonStr);
-	const keyBytes = new TextEncoder().encode(keyString);
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
+	const binStr = atob(base64);
+	const bytes = new Uint8Array(binStr.length);
+	for (let i = 0; i < binStr.length; i++) {
+		bytes[i] = binStr.charCodeAt(i);
+	}
+	return bytes;
+}
+
+function decodeEnvelopeBytes(value: unknown): Uint8Array<ArrayBuffer> | null {
+	if (typeof value === 'string') return base64ToBytes(value);
+	if (Array.isArray(value)) return new Uint8Array(value);
+	return null;
+}
+
+export async function encryptData(key: RoomCryptoKey, data: unknown): Promise<string> {
+	const encoded = new TextEncoder().encode(JSON.stringify(data));
+	const keyBytes = new TextEncoder().encode(getRoomKeyString(key));
 	const xored = new Uint8Array(encoded.length);
 	for (let i = 0; i < encoded.length; i++) {
 		xored[i] = encoded[i] ^ keyBytes[i % keyBytes.length];
 	}
-	let binStr = '';
-	for (let i = 0; i < xored.length; i++) {
-		binStr += String.fromCharCode(xored[i]);
-	}
-	const fallbackData = btoa(binStr);
+	const fallbackData = bytesToBase64(xored);
 
 	const hasSubtle = typeof crypto !== 'undefined' && Boolean(crypto.subtle);
-	const isNativeKey = 'algorithm' in key && key.algorithm?.name === 'AES-GCM' && !('key' in (key as unknown as Record<string, unknown>));
-
-	if (hasSubtle && isNativeKey) {
+	if (hasSubtle && isNativeAesGcmKey(key)) {
 		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key as CryptoKey, encoded);
+		const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
 		const envelope: EncryptedEnvelope = {
-			iv: Array.from(iv),
-			ciphertext: Array.from(new Uint8Array(encryptedBuf)),
+			iv: bytesToBase64(iv),
+			ciphertext: bytesToBase64(new Uint8Array(encryptedBuf)),
 			fallback: true,
 			data: fallbackData
 		};
@@ -169,22 +208,24 @@ function isNativeAesGcmKey(key: RoomCryptoKey): key is CryptoKey {
 	);
 }
 
-async function decryptNativeAesGcm(key: CryptoKey, iv: number[], ciphertext: number[]): Promise<unknown> {
+async function decryptNativeAesGcm(
+	key: CryptoKey,
+	iv: Uint8Array<ArrayBuffer>,
+	ciphertext: Uint8Array<ArrayBuffer>
+): Promise<unknown> {
 	if (iv.length !== 12) {
 		throw new Error('Invalid IV length');
 	}
-	const ivBytes = new Uint8Array(iv);
-	const cipherBytes = new Uint8Array(ciphertext);
-	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivBytes }, key, cipherBytes);
+	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
 	return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 function decryptFallbackData(key: RoomCryptoKey, base64Data: string): unknown {
-	const binStr = atob(base64Data);
+	const xored = base64ToBytes(base64Data);
 	const keyBytes = new TextEncoder().encode(getRoomKeyString(key));
-	const unxored = new Uint8Array(binStr.length);
-	for (let i = 0; i < binStr.length; i++) {
-		unxored[i] = binStr.charCodeAt(i) ^ keyBytes[i % keyBytes.length];
+	const unxored = new Uint8Array(xored.length);
+	for (let i = 0; i < xored.length; i++) {
+		unxored[i] = xored[i] ^ keyBytes[i % keyBytes.length];
 	}
 	return JSON.parse(new TextDecoder().decode(unxored));
 }
@@ -196,10 +237,12 @@ export async function decryptData(key: RoomCryptoKey, raw: string): Promise<unkn
 	}
 
 	const hasSubtle = typeof crypto !== 'undefined' && Boolean(crypto.subtle);
-	const hasNativePayload = Array.isArray(parsed.iv) && Array.isArray(parsed.ciphertext);
+	const iv = decodeEnvelopeBytes(parsed.iv);
+	const ciphertext = decodeEnvelopeBytes(parsed.ciphertext);
+	const hasNativePayload = iv !== null && ciphertext !== null;
 
 	if (hasSubtle && isNativeAesGcmKey(key) && hasNativePayload) {
-		return decryptNativeAesGcm(key as CryptoKey, parsed.iv!, parsed.ciphertext!);
+		return decryptNativeAesGcm(key, iv, ciphertext);
 	}
 
 	if (parsed.fallback && typeof parsed.data === 'string') {
@@ -261,6 +304,11 @@ export class WebRtcPeer {
 
 	public get isOpen(): boolean {
 		return this.channel?.readyState === 'open';
+	}
+
+	public get isFailed(): boolean {
+		const state = this.pc?.connectionState;
+		return !this.pc || state === 'failed' || state === 'closed' || this.channel?.readyState === 'closed';
 	}
 
 	public setupChannel(ch: RTCDataChannel): void {
@@ -355,9 +403,10 @@ export class WebRtcPeer {
 export interface P2pManagerCallbacks {
 	readonly onRoomMessage?: (room: GameRoom) => void;
 	readonly onJoinRequest?: (code: string, player: RoomPlayer) => void;
-	readonly onDocMessage?: (roomId: string, doc: GameDocument) => void;
-	readonly onQueryRoom?: () => void;
-	readonly onQueryDoc?: (roomId: string) => void;
+	readonly onDocMessage?: (roomId: string, doc: GameDocument, senderId: string, resync: boolean) => void;
+	readonly onDocDelta?: (delta: DocDelta, senderId: string) => void;
+	readonly onQueryRoom?: (requesterId: string) => void;
+	readonly onQueryDoc?: (roomId: string, requesterId: string) => void;
 	readonly onStatusChange?: (status: NetworkStatusInfo) => void;
 	readonly onPeerConnectionChange?: (peerId: string, isConnected: boolean) => void;
 	readonly onPlayerLeave?: (roomId: string, playerId: string) => void;
@@ -377,6 +426,15 @@ export class P2pNetworkManager {
 	private currentLatency?: number;
 	private isDestroyed = false;
 	private isFailingOver = false;
+	private sessionId = 0;
+	private roomMembers: ReadonlySet<string> | null = null;
+	private activeHostId: string | null = null;
+	private hostRetryAttempts = 0;
+	private hostRetryTimer: ReturnType<typeof setTimeout> | null = null;
+	private reconnectAttempt = 0;
+	private connectedAt = 0;
+	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private cancelReconnectWait: (() => void) | null = null;
 
 	private readonly callbacks: P2pManagerCallbacks;
 
@@ -403,10 +461,14 @@ export class P2pNetworkManager {
 		this.myId = myId;
 		this.isHost = isHost;
 		this.topic = `cards/v1/${this.roomCode}`;
-		this.cryptoKey = await deriveRoomKey(this.roomCode);
+		const session = this.sessionId;
+		const key = await deriveRoomKey(this.roomCode);
+		if (session !== this.sessionId) return;
+		this.cryptoKey = key;
 
 		this.emitStatus('connecting');
 		await this.connectWithFailover(0);
+		if (session !== this.sessionId) return;
 		this.startPingInterval();
 	}
 
@@ -425,21 +487,22 @@ export class P2pNetworkManager {
 	}
 
 	public async connectWithFailover(startIndex = 0): Promise<boolean> {
+		const session = this.sessionId;
 		for (let offset = 0; offset < BROKER_URLS.length; offset++) {
-			if (this.isDestroyed || !this.roomCode) return false;
+			if (session !== this.sessionId || !this.roomCode) return false;
 			const idx = (startIndex + offset) % BROKER_URLS.length;
-			const success = await this.tryBroker(idx);
-			if (this.isDestroyed || !this.roomCode) {
-				if (this.client) {
-					try {
-						this.client.end(true);
-					} catch {}
-					this.client = null;
-				}
+			const client = await this.tryBroker(idx);
+			if (session !== this.sessionId || !this.roomCode) {
+				try {
+					client?.end(true);
+				} catch {}
 				return false;
 			}
-			if (success) {
+			if (client) {
+				this.client = client;
+				this.attachMqttListeners(client);
 				this.brokerIndex = idx;
+				this.connectedAt = Date.now();
 				this.emitStatus();
 				return true;
 			}
@@ -449,8 +512,8 @@ export class P2pNetworkManager {
 		return false;
 	}
 
-	private tryBroker(index: number): Promise<boolean> {
-		const { promise, resolve } = Promise.withResolvers<boolean>();
+	private tryBroker(index: number): Promise<MqttClient | null> {
+		const { promise, resolve } = Promise.withResolvers<MqttClient | null>();
 		let settled = false;
 
 		const broker = BROKER_URLS[index];
@@ -458,7 +521,7 @@ export class P2pNetworkManager {
 			clientId: `cards_${this.myId}_${Math.random().toString(36).slice(2, 6)}`,
 			clean: true,
 			connectTimeout: 4000,
-			reconnectPeriod: 5000
+			reconnectPeriod: 0
 		});
 
 		const timeoutId = setTimeout(() => {
@@ -467,7 +530,7 @@ export class P2pNetworkManager {
 				try {
 					client.end(true);
 				} catch {}
-				resolve(false);
+				resolve(null);
 			}
 		}, 4000);
 
@@ -480,11 +543,9 @@ export class P2pNetworkManager {
 						try {
 							client.end(true);
 						} catch {}
-						resolve(false);
+						resolve(null);
 					} else {
-						this.client = client;
-						this.attachMqttListeners(client);
-						resolve(true);
+						resolve(client);
 					}
 				}
 			});
@@ -497,7 +558,7 @@ export class P2pNetworkManager {
 				try {
 					client.end(true);
 				} catch {}
-				resolve(false);
+				resolve(null);
 			}
 		});
 
@@ -542,9 +603,33 @@ export class P2pNetworkManager {
 			this.client = null;
 		}
 
+		if (Date.now() - this.connectedAt >= STABLE_CONNECTION_MS) {
+			this.reconnectAttempt = 0;
+		}
+		const session = this.sessionId;
 		const nextIndex = (this.brokerIndex + 1) % BROKER_URLS.length;
-		await this.connectWithFailover(nextIndex);
-		this.isFailingOver = false;
+		let connected = false;
+		while (!connected && session === this.sessionId) {
+			await this.waitBeforeReconnect(reconnectDelayMs(this.reconnectAttempt));
+			this.reconnectAttempt++;
+			if (session !== this.sessionId) return;
+			connected = await this.connectWithFailover(nextIndex);
+		}
+		if (session === this.sessionId) {
+			this.isFailingOver = false;
+		}
+	}
+
+	private waitBeforeReconnect(ms: number): Promise<void> {
+		if (ms <= 0) return Promise.resolve();
+		const { promise, resolve } = Promise.withResolvers<void>();
+		this.cancelReconnectWait = resolve;
+		this.reconnectTimer = setTimeout(() => {
+			this.reconnectTimer = null;
+			this.cancelReconnectWait = null;
+			resolve();
+		}, ms);
+		return promise;
 	}
 
 	private async handleIncomingMessage(msg: P2pMessage): Promise<void> {
@@ -559,11 +644,7 @@ export class P2pNetworkManager {
 				await this.handleSignalIce(msg.senderId, msg.targetId, msg.candidate);
 				break;
 			case 'ping':
-				this.sendDirectOrRelay(msg.senderId, {
-					type: 'pong',
-					senderId: this.myId,
-					timestamp: msg.timestamp
-				});
+				await this.sendTo(msg.senderId, { type: 'pong', timestamp: msg.timestamp });
 				break;
 			case 'pong':
 				this.currentLatency = Math.max(1, Math.round((Date.now() - msg.timestamp) / 2));
@@ -577,23 +658,67 @@ export class P2pNetworkManager {
 
 	private dispatchApplicationMessage(msg: P2pMessage): void {
 		if (msg.type === 'sync_room') {
+			this.trackRoom(msg.room);
 			this.callbacks.onRoomMessage?.(msg.room);
-			// If we are a non-host peer receiving room info and don't have a peer connection to host, initiate it
-			const activeHost = msg.room.tempHostId || msg.room.hostId;
-			if (!this.isHost && activeHost && !this.peers.has(activeHost) && activeHost !== this.myId) {
-				this.initiateWebRtcToHost(activeHost);
-			}
+			this.connectToActiveHost();
 		} else if (msg.type === 'join_request') {
 			this.callbacks.onJoinRequest?.(msg.code, msg.player);
 		} else if (msg.type === 'sync_doc') {
-			this.callbacks.onDocMessage?.(msg.roomId, msg.doc);
+			this.callbacks.onDocMessage?.(msg.roomId, msg.doc, msg.senderId, msg.resync === true);
+		} else if (msg.type === 'doc_delta') {
+			this.callbacks.onDocDelta?.(msg.delta, msg.senderId);
 		} else if (msg.type === 'query_room') {
-			this.callbacks.onQueryRoom?.();
+			this.callbacks.onQueryRoom?.(msg.senderId);
 		} else if (msg.type === 'query_doc') {
-			this.callbacks.onQueryDoc?.(msg.roomId);
+			this.callbacks.onQueryDoc?.(msg.roomId, msg.senderId);
 		} else if (msg.type === 'player_leave') {
 			this.callbacks.onPlayerLeave?.(msg.roomId, msg.playerId);
 		}
+	}
+
+	private trackRoom(room: GameRoom): void {
+		this.roomMembers = humanPeerIds(room, this.myId);
+		const hostId = room.tempHostId || room.hostId || null;
+		if (hostId !== this.activeHostId) {
+			this.hostRetryAttempts = 0;
+		}
+		this.activeHostId = hostId;
+	}
+
+	private get isActingHost(): boolean {
+		return this.activeHostId ? this.activeHostId === this.myId : this.isHost;
+	}
+
+	private connectToActiveHost(): void {
+		const hostId = this.activeHostId;
+		if (!hostId || this.isActingHost || this.peers.has(hostId) || this.hostRetryTimer) return;
+		if (this.hostRetryAttempts > MAX_HOST_WEBRTC_RETRIES) return;
+		void this.initiateWebRtcToHost(hostId);
+	}
+
+	private handlePeerStateChange(peer: WebRtcPeer, open: boolean): void {
+		if (this.peers.get(peer.remotePeerId) !== peer) return;
+		this.emitStatus();
+		this.callbacks.onPeerConnectionChange?.(peer.remotePeerId, open);
+		if (open) {
+			if (peer.remotePeerId === this.activeHostId) this.hostRetryAttempts = 0;
+			return;
+		}
+		if (!peer.isFailed) return;
+		this.peers.delete(peer.remotePeerId);
+		peer.close();
+		if (peer.remotePeerId === this.activeHostId && !this.isActingHost) {
+			this.scheduleHostRetry();
+		}
+	}
+
+	private scheduleHostRetry(): void {
+		this.hostRetryAttempts++;
+		if (this.hostRetryAttempts > MAX_HOST_WEBRTC_RETRIES || this.hostRetryTimer) return;
+		this.hostRetryTimer = setTimeout(() => {
+			this.hostRetryTimer = null;
+			this.connectToActiveHost();
+		}, reconnectDelayMs(this.hostRetryAttempts + 1));
 	}
 
 	public async initiateWebRtcToHost(hostId: string): Promise<void> {
@@ -628,15 +753,11 @@ export class P2pNetworkManager {
 			(payload) => this.broadcastMqtt(payload),
 			(msg) => {
 				this.dispatchApplicationMessage(msg);
-				// If host receives action from a peer over DataChannel, relay to other peers
-				if (this.isHost) {
+				if (this.isActingHost) {
 					void this.relayToOtherPeers(remotePeerId, msg);
 				}
 			},
-			(peerId, open) => {
-				this.emitStatus();
-				this.callbacks.onPeerConnectionChange?.(peerId, open);
-			}
+			(_peerId, open) => this.handlePeerStateChange(peer, open)
 		);
 		this.peers.set(remotePeerId, peer);
 		this.drainEarlyCandidates(remotePeerId, peer);
@@ -644,23 +765,25 @@ export class P2pNetworkManager {
 	}
 
 	public async relayToOtherPeers(excludeSenderId: string, msg: P2pMessage): Promise<void> {
-		let sentCount = 0;
-		let targetPeersCount = 0;
 		for (const [peerId, peer] of this.peers.entries()) {
-			if (peerId !== excludeSenderId) {
-				targetPeersCount++;
-				if (peer.isOpen && peer.send(msg)) {
-					sentCount++;
-				}
+			if (peerId !== excludeSenderId && peer.isOpen) {
+				peer.send(msg);
 			}
 		}
 
-		const anyPeerInRelay = targetPeersCount === 0 || sentCount < targetPeersCount;
-		if (anyPeerInRelay) {
+		if (!this.reachesDirectly(this.roomMembers, excludeSenderId)) {
 			const { senderId: _discarded, ...payload } = msg;
 			void _discarded;
 			await this.broadcastMqtt(payload as P2pBroadcastPayload);
 		}
+	}
+
+	private reachesDirectly(recipients: ReadonlySet<string> | null, excludeId?: string): boolean {
+		if (!recipients) return false;
+		for (const id of recipients) {
+			if (id !== excludeId && !this.peers.get(id)?.isOpen) return false;
+		}
+		return true;
 	}
 
 	private async handleSignalOffer(
@@ -669,6 +792,11 @@ export class P2pNetworkManager {
 		offer: RTCSessionDescriptionInit
 	): Promise<void> {
 		if (targetId !== this.myId) return;
+		const stale = this.peers.get(senderId);
+		if (stale) {
+			this.peers.delete(senderId);
+			stale.close();
+		}
 		const peer = this.getOrCreatePeer(senderId);
 		const answer = await peer.handleOffer(offer);
 		this.drainEarlyCandidates(senderId, peer);
@@ -710,41 +838,36 @@ export class P2pNetworkManager {
 		}
 	}
 
-	private sendDirectOrRelay(targetId: string, msg: P2pMessage): void {
+	public async sendTo(targetId: string, payload: P2pBroadcastPayload): Promise<void> {
 		const peer = this.peers.get(targetId);
-		if (peer?.isOpen) {
-			peer.send(msg);
-		} else {
-			this.broadcastMqtt(msg as P2pBroadcastPayload);
-		}
+		const fullMsg = { ...payload, senderId: this.myId } as P2pMessage;
+		if (peer?.isOpen && peer.send(fullMsg)) return;
+		await this.broadcastMqtt(payload);
 	}
 
 	public async broadcast(payload: P2pBroadcastPayload): Promise<void> {
 		const fullMsg: P2pMessage = { ...payload, senderId: this.myId } as P2pMessage;
-		let sentCount = 0;
+		let recipients = this.roomMembers;
+		if (payload.type === 'sync_room') {
+			const previousMembers = this.roomMembers ?? [];
+			this.trackRoom(payload.room);
+			recipients = new Set([...previousMembers, ...(this.roomMembers ?? [])]);
+		}
 
-		// 1. Direct WebRTC DataChannel delivery
 		for (const peer of this.peers.values()) {
-			if (peer.isOpen && peer.send(fullMsg)) {
-				sentCount++;
+			if (peer.isOpen) {
+				peer.send(fullMsg);
 			}
 		}
 
-		// 2. Broadcast via MQTT relay if DataChannels are not fully established
-		// or for critical sync/discovery packets (room queries, join requests, sync room)
-		const needsMqttBroadcast =
-			sentCount === 0 ||
-			sentCount < this.peers.size ||
-			payload.type === 'query_room' ||
-			payload.type === 'join_request' ||
-			payload.type === 'sync_room' ||
-			payload.type === 'query_doc' ||
-			payload.type === 'sync_doc' ||
-			payload.type === 'player_leave';
-
-		if (needsMqttBroadcast) {
+		if (DISCOVERY_MESSAGE_TYPES.has(payload.type) || !this.reachesRoom(recipients)) {
 			await this.broadcastMqtt(payload);
 		}
+	}
+
+	private reachesRoom(recipients: ReadonlySet<string> | null): boolean {
+		if (this.isActingHost) return this.reachesDirectly(recipients);
+		return Boolean(this.activeHostId && this.peers.get(this.activeHostId)?.isOpen);
 	}
 
 	private async broadcastMqtt(payload: P2pBroadcastPayload): Promise<void> {
@@ -774,6 +897,21 @@ export class P2pNetworkManager {
 	public destroy(): void {
 		this.isDestroyed = true;
 		this.isFailingOver = false;
+		this.sessionId++;
+		this.roomMembers = null;
+		this.activeHostId = null;
+		this.hostRetryAttempts = 0;
+		if (this.hostRetryTimer) {
+			clearTimeout(this.hostRetryTimer);
+			this.hostRetryTimer = null;
+		}
+		this.reconnectAttempt = 0;
+		if (this.reconnectTimer) {
+			clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = null;
+		}
+		this.cancelReconnectWait?.();
+		this.cancelReconnectWait = null;
 		if (this.pingTimer) {
 			clearInterval(this.pingTimer);
 			this.pingTimer = null;

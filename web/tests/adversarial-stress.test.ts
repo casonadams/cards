@@ -72,26 +72,24 @@ describe('Adversarial Stress Test: Protocol & Fault Injection Layer', () => {
 			}
 		});
 
-		it('survives 9 consecutive broker drops (3 full cyclic failovers)', async () => {
+		it('fails over immediately once, then backs off when the next broker drops right after connect', async () => {
 			const node = await createTestNode('node-cycle', true, 'CYC001');
 			activeNodes.push(node);
+			expect(node.manager.currentBrokerIndex).toBe(0);
 
-			let expectedIndex = 0;
-			expect(node.manager.currentBrokerIndex).toBe(expectedIndex);
+			cluster.dropBroker(BROKER_URLS[0], true);
+			await new Promise((r) => setTimeout(r, 70));
+			expect(node.manager.currentBrokerIndex).toBe(1);
+			const attemptsAfterFirstFailover = cluster.connectAttempts.length;
 
-			for (let drop = 0; drop < 9; drop++) {
-				const currentUrl = BROKER_URLS[expectedIndex];
-				expectedIndex = (expectedIndex + 1) % BROKER_URLS.length;
+			cluster.dropBroker(BROKER_URLS[1], true);
+			await new Promise((r) => setTimeout(r, 70));
+			expect(cluster.connectAttempts.length).toBe(attemptsAfterFirstFailover);
+			expect(node.lastStatus?.mode).toBe('connecting');
 
-				// Make next broker online just in case
-				cluster.setBrokerStatus(BROKER_URLS[expectedIndex], 'online');
-				// Drop current broker
-				cluster.dropBroker(currentUrl, true);
-
-				await new Promise((r) => setTimeout(r, 70));
-				expect(node.manager.currentBrokerIndex).toBe(expectedIndex);
-				expect(node.lastStatus?.brokerIndex).toBe(expectedIndex);
-			}
+			await new Promise((r) => setTimeout(r, 1000));
+			expect(node.manager.currentBrokerIndex).toBe(2);
+			expect(node.lastStatus?.mode).toBe('relay');
 		});
 
 		it('handles broker timeout cleanly without hanging and fails over after exactly 4000ms timeout', async () => {
@@ -311,9 +309,10 @@ describe('Adversarial Stress Test: Protocol & Fault Injection Layer', () => {
 				const parsed = JSON.parse(validJson);
 
 				// Corrupt ciphertext at a random position
-				const ct = parsed.ciphertext as number[];
+				const ct = Buffer.from(parsed.ciphertext, 'base64');
 				const mutateIdx = Math.floor(Math.random() * ct.length);
 				ct[mutateIdx] = (ct[mutateIdx] ^ 0xff) & 0xff; // Invert bits
+				parsed.ciphertext = ct.toString('base64');
 
 				const corruptedJson = JSON.stringify(parsed);
 
@@ -442,7 +441,7 @@ describe('Adversarial Stress Test: Protocol & Fault Injection Layer', () => {
 				room: {
 					id: 'room-flood',
 					code: 'FLOOD1',
-					gameType: 'regicide',
+					gameType: 'oh-well',
 					phase: 'lobby',
 					hostId: 'other-host',
 					players: [],

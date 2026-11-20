@@ -319,8 +319,8 @@ describe('R4: Edge-Case Resilience & Dynamic Fallback Verification', () => {
 			await new Promise((r) => setTimeout(r, 300));
 			await guest.manager.broadcast({ type: 'query_room', code: roomCode });
 
-			// Host receives and broadcasts sync_room
-			await host.manager.broadcast({ type: 'sync_room', room: hostRoom });
+			// Host answers the retried query directly to the requester
+			await host.manager.sendTo(guest.id, { type: 'sync_room', room: hostRoom });
 			await new Promise((r) => setTimeout(r, 40));
 
 			expect(guest.receivedRooms.length).toBeGreaterThanOrEqual(1);

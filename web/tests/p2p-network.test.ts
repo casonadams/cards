@@ -51,12 +51,27 @@ describe('P2P Network Primitives & Crypto', () => {
 		expect(env1).not.toBe(env2);
 
 		const parsed1 = JSON.parse(env1);
-		expect(Array.isArray(parsed1.iv)).toBe(true);
-		expect(parsed1.iv.length).toBe(12);
-		expect(Array.isArray(parsed1.ciphertext)).toBe(true);
+		expect(typeof parsed1.iv).toBe('string');
+		expect(Buffer.from(parsed1.iv, 'base64').length).toBe(12);
+		expect(typeof parsed1.ciphertext).toBe('string');
 
 		const decrypted = (await decryptData(key, env1)) as typeof sampleDoc;
 		expect(decrypted).toEqual(sampleDoc);
+	});
+
+	it('keeps the native envelope compact compared with legacy byte arrays', async () => {
+		const key = await deriveRoomKey('ROOM98');
+		const doc = { moves: Array.from({ length: 40 }, (_, i) => ({ playerId: `p${i % 4}`, rank: i })) };
+		const envelope = await encryptData(key, doc);
+		const parsed = JSON.parse(envelope);
+		const legacy = JSON.stringify({
+			...parsed,
+			iv: Array.from(Buffer.from(parsed.iv, 'base64')),
+			ciphertext: Array.from(Buffer.from(parsed.ciphertext, 'base64'))
+		});
+
+		expect(envelope.length).toBeLessThan(legacy.length * 0.6);
+		expect(await decryptData(key, legacy)).toEqual(doc);
 	});
 
 	it('fails to decrypt with incorrect room key or malformed envelope', async () => {

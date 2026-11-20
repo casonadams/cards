@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/cards-core"]
+members = ["crates/cards-core", "crates/cards-net"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,6 +11,7 @@ publish = false
 
 [workspace.dependencies]
 cards-core = { path = "crates/cards-core" }
+cards-net = { path = "crates/cards-net" }
 serde = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]

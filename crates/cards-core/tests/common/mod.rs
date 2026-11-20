@@ -23,7 +23,7 @@ pub fn play_game(table: &mut Table, rng: &mut Rng) -> Outcome {
             }
             _ => {
                 let seat = table.actor().expect("actor");
-                let action = ai::choose(&table.view(seat), rng);
+                let action = ai::choose(&table.view(seat), rng).expect("ai has an action");
                 events.extend(table.apply(seat, action).expect("ai action accepted"));
                 assert_conserved(table);
             }

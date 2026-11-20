@@ -10,7 +10,7 @@ fn step(table: &mut Table, rng: &mut Rng) {
         Phase::GameOver => {}
         _ => {
             let seat = table.actor().unwrap();
-            let action = ai::choose(&table.view(seat), rng);
+            let action = ai::choose(&table.view(seat), rng).unwrap();
             table.apply(seat, action).unwrap();
         }
     }

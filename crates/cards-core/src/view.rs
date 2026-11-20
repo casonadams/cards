@@ -77,7 +77,7 @@ impl Table {
             trump_suit: self.trump_suit(),
             hand_type,
             dealer: self.dealer,
-            first_actor: Seat::from_index((self.dealer.index() + 1) % self.seats),
+            first_actor: self.first_actor(),
             bids: self.bids.clone(),
             current_trick: self.current.clone(),
             tricks: self.tricks.clone(),

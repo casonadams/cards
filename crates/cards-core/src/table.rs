@@ -62,7 +62,7 @@ impl Table {
         self.bids.clear();
         self.current.clear();
         self.tricks.clear();
-        self.leader = Seat::from_index((self.dealer.index() + 1) % self.seats);
+        self.leader = self.first_actor();
         match self.kind {
             GameKind::OhWell => {
                 let deal = oh_well::deal(self.seats, self.round, self.seed);
@@ -123,16 +123,24 @@ impl Table {
     }
 
     pub fn actor(&self) -> Option<Seat> {
-        let offset = match self.phase {
-            Phase::Bidding => self.bids.len(),
-            Phase::Playing => self.current.len(),
+        let (start, offset) = match self.phase {
+            Phase::Bidding => (self.first_actor(), self.bids.len()),
+            Phase::Playing => (self.leader, self.current.len()),
             Phase::RoundOver | Phase::GameOver => return None,
         };
-        let start = match self.phase {
-            Phase::Bidding => self.dealer.index() + 1,
-            _ => self.leader.index(),
-        };
-        Some(Seat::from_index((start + offset) % self.seats))
+        Some(self.seat_after(start, offset))
+    }
+
+    pub(crate) fn first_actor(&self) -> Seat {
+        self.seat_after(self.dealer, 1)
+    }
+
+    fn seat_after(&self, seat: Seat, steps: usize) -> Seat {
+        Seat::from_index((seat.index() + steps) % self.seats)
+    }
+
+    fn max_bid(&self) -> u8 {
+        u8::try_from(self.cards_per_player).unwrap_or(u8::MAX)
     }
 
     pub(crate) fn led_suit(&self) -> Option<Suit> {
@@ -148,8 +156,7 @@ impl Table {
             return Vec::new();
         }
         let hook = self.hook();
-        let max = u8::try_from(self.cards_per_player).unwrap_or(u8::MAX);
-        (0..=max).filter(|b| Some(*b) != hook).collect()
+        (0..=self.max_bid()).filter(|b| Some(*b) != hook).collect()
     }
 
     pub(crate) fn playable(&self, seat: Seat) -> Vec<Card> {
@@ -184,7 +191,7 @@ impl Table {
         if self.actor() != Some(seat) {
             return Err(Rejection::NotYourTurn);
         }
-        let max = u8::try_from(self.cards_per_player).unwrap_or(u8::MAX);
+        let max = self.max_bid();
         if amount > max {
             return Err(Rejection::BidOutOfRange { max });
         }
@@ -255,7 +262,7 @@ impl Table {
             return Err(Rejection::WrongPhase);
         }
         self.round += 1;
-        self.dealer = Seat::from_index((self.dealer.index() + 1) % self.seats);
+        self.dealer = self.seat_after(self.dealer, 1);
         self.deal_round();
         Ok(vec![Event::RoundStarted {
             round: self.round,

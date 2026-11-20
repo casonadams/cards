@@ -85,15 +85,22 @@ fn oh_well_ducks_under_high_card_when_bid_is_zero() {
     let mut rng = Rng::new(12345);
     assert_eq!(
         ai::choose(&view, &mut rng),
-        Action::Play(c(Suit::Diamonds, 4))
+        Some(Action::Play(c(Suit::Diamonds, 4)))
     );
+}
+
+#[test]
+fn ai_has_no_action_when_it_is_not_the_seats_turn() {
+    let mut view = oh_well_view(0, oh_well_hand(), c(Suit::Diamonds, 13));
+    view.actor = Some(Seat(2));
+    assert_eq!(ai::choose(&view, &mut Rng::new(1)), None);
 }
 
 #[test]
 fn oh_well_follows_suit_when_it_needs_tricks() {
     let view = oh_well_view(2, oh_well_hand(), c(Suit::Diamonds, 13));
     let mut rng = Rng::new(12345);
-    let Action::Play(card) = ai::choose(&view, &mut rng) else {
+    let Some(Action::Play(card)) = ai::choose(&view, &mut rng) else {
         panic!()
     };
     assert_eq!(card.suit, Suit::Diamonds);
@@ -110,9 +117,9 @@ fn oh_well_bid_is_always_legal_and_avoids_the_hook() {
     view.playable_cards = Vec::new();
     view.legal_bids = vec![0, 1, 2];
     let mut rng = Rng::new(1);
-    assert_eq!(ai::choose(&view, &mut rng), Action::Bid(2));
+    assert_eq!(ai::choose(&view, &mut rng), Some(Action::Bid(2)));
     view.legal_bids = vec![0, 1, 3];
-    let Action::Bid(b) = ai::choose(&view, &mut rng) else {
+    let Some(Action::Bid(b)) = ai::choose(&view, &mut rng) else {
         panic!()
     };
     assert!(view.legal_bids.contains(&b));
@@ -141,7 +148,7 @@ fn salad_follows_led_suit_when_held() {
     ];
     let view = salad_view(HandType::NoTricks, hand, c(Suit::Hearts, 8));
     let mut rng = Rng::new(12345);
-    let Action::Play(card) = ai::choose(&view, &mut rng) else {
+    let Some(Action::Play(card)) = ai::choose(&view, &mut rng) else {
         panic!()
     };
     assert_eq!(card.suit, Suit::Hearts);
@@ -157,7 +164,7 @@ fn salad_avoids_taking_king_of_spades() {
     ];
     let view = salad_view(HandType::NoKingSpades, hand, c(Suit::Spades, 10));
     let mut rng = Rng::new(12345);
-    let Action::Play(card) = ai::choose(&view, &mut rng) else {
+    let Some(Action::Play(card)) = ai::choose(&view, &mut rng) else {
         panic!()
     };
     assert_eq!(card, c(Suit::Spades, 4));

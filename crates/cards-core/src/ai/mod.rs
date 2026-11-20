@@ -12,23 +12,20 @@ use determinize::{OpponentNeed, sample_opponent_hands, track_voids};
 
 pub const ITERATIONS: usize = 40;
 
-/// Picks an action for the view's seat; returns `Action::Bid(0)` if the view has no legal action.
-pub fn choose(view: &SeatView, rng: &mut Rng) -> Action {
+/// Picks an action for the view's seat, or `None` when it is not that seat's turn.
+pub fn choose(view: &SeatView, rng: &mut Rng) -> Option<Action> {
+    if view.actor != Some(view.seat) {
+        return None;
+    }
     match view.phase {
-        Phase::Bidding => Action::Bid(oh_well::ai::bid(view)),
-        _ => match play(view, rng) {
-            Some(card) => Action::Play(card),
-            None => Action::Bid(0),
-        },
+        Phase::Bidding => Some(Action::Bid(oh_well::ai::bid(view))),
+        Phase::Playing => play(view, rng).map(Action::Play),
+        Phase::RoundOver | Phase::GameOver => None,
     }
 }
 
 fn play(view: &SeatView, rng: &mut Rng) -> Option<Card> {
-    let candidates = if view.playable_cards.is_empty() {
-        view.hand.clone()
-    } else {
-        view.playable_cards.clone()
-    };
+    let candidates = &view.playable_cards;
     if candidates.len() <= 1 {
         return candidates.first().copied();
     }
@@ -49,7 +46,7 @@ fn play(view: &SeatView, rng: &mut Rng) -> Option<Card> {
             hands[seat.index()] = cards;
         }
         hands[view.seat.index()].clone_from(&view.hand);
-        for (score, candidate) in scores.iter_mut().zip(&candidates) {
+        for (score, candidate) in scores.iter_mut().zip(candidates) {
             *score += rollout_value(view, &hands, *candidate);
         }
     }

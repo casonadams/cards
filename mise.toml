@@ -1,0 +1,48 @@
+[tools]
+"github:longbridge/nsh" = "0.6.0"
+"cargo:wasm-bindgen-cli" = "0.2.130"
+
+[tasks.fmt]
+description = "Check Rust formatting"
+run = "cargo fmt --all --check"
+
+[tasks.clippy]
+description = "Lint Rust with clippy, warnings as errors"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.test]
+description = "Run the Rust workspace tests"
+run = "cargo test --workspace"
+
+[tasks.rust]
+description = "Run every Rust quality gate"
+depends = ["fmt", "clippy", "test"]
+
+[tasks.web]
+description = "Package the nsh app for the web into dist/Cards (needs a wasm-capable clang)"
+dir = "app"
+run = '''
+LLVM=/opt/homebrew/opt/llvm/bin
+if [ -x "$LLVM/clang" ]; then CLANG="$LLVM/clang"; AR="$LLVM/llvm-ar"; else CLANG=clang; AR=llvm-ar; fi
+CC_wasm32_unknown_unknown="${CC_wasm32_unknown_unknown:-$CLANG}" \
+AR_wasm32_unknown_unknown="${AR_wasm32_unknown_unknown:-$AR}" \
+  nsh package --target web --out ../dist
+touch ../dist/Cards/.nojekyll
+'''
+
+[tasks.serve]
+description = "Package the web app and serve it at http://127.0.0.1:4173/cards/"
+depends = ["web"]
+run = "mkdir -p target/serve && ln -sfn ../../dist/Cards target/serve/cards && cd target/serve && python3 -m http.server 4173 --bind 127.0.0.1"
+
+[tasks.ripwire]
+description = "Map code intelligence and symbol ranking (needs ripwire on PATH)"
+run = "ripwire crates app/src --top-k=30"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf dist target/serve"
+
+[tasks.all]
+description = "Run every quality gate and package the web app"
+depends = ["rust", "web"]

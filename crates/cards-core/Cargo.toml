@@ -1,0 +1,17 @@
+[package]
+name = "cards-core"
+description = "Card game rules: deck, seeded deal, tricks, Oh Well, Canadian Salad, scoring and AI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json = "1"

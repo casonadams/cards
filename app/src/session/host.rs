@@ -1,0 +1,331 @@
+use std::time::Duration;
+
+use async_channel::Receiver;
+use cards_core::{Event, GameKind, Phase, Rng};
+use cards_net::transport::{
+    ALPN, Directory, HostEvent, HostNet, PkarrDirectory, claim_code, keep_published, player_id,
+};
+use cards_net::{Delivery, HostError, HostSession, SeatInfo, Snapshot, Stage};
+use nsh_core::prelude::*;
+
+use super::{Command, Controller, Intent, Status, bind, until_leave};
+use crate::identity;
+
+const AI_THINK: Duration = Duration::from_millis(800);
+const AI_AFTER_TRICK: Duration = Duration::from_millis(2400);
+
+pub enum Start {
+    New {
+        name: String,
+        kind: GameKind,
+        seats: usize,
+    },
+    Resume,
+}
+
+enum Step {
+    Intent(Option<Intent>),
+    Net(Option<HostEvent>),
+    AiTick,
+}
+
+pub async fn run(controller: Controller, intents: &Receiver<Intent>, start: Start) {
+    if let Err(message) = serve(controller, intents, start).await {
+        controller.fail(message);
+        until_leave(intents).await;
+    }
+}
+
+async fn open(
+    start: Start,
+    net_id: iroh::EndpointId,
+    directory: &PkarrDirectory,
+) -> Result<HostSession, String> {
+    match start {
+        Start::New { name, kind, seats } => {
+            let mut rng = Rng::new(identity::random_u64().map_err(|e| e.to_string())?);
+            let code = claim_code(directory, &mut rng, net_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            HostSession::new(code, player_id(net_id), &name, kind, seats).map_err(host_error)
+        }
+        Start::Resume => {
+            let saved = identity::saved_host().map_err(|e| {
+                identity::forget_host();
+                e.to_string()
+            })?;
+            let mut session = saved.ok_or("there is no saved table to resume")?;
+            if session.host_id() != Some(player_id(net_id)) {
+                identity::forget_host();
+                return Err("the saved table was hosted from another device".into());
+            }
+            if let Err(e) = session.resume() {
+                identity::forget_host();
+                return Err(host_error(e));
+            }
+            directory
+                .publish(session.code(), net_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(session)
+        }
+    }
+}
+
+async fn serve(
+    controller: Controller,
+    intents: &Receiver<Intent>,
+    start: Start,
+) -> Result<(), String> {
+    let endpoint = bind(vec![ALPN.to_vec()]).await?;
+    let id = endpoint.id();
+    let directory = PkarrDirectory::new(&endpoint).map_err(|e| e.to_string())?;
+    let mut session = open(start, id, &directory).await?;
+    let code = session.code();
+    controller.code.set(Some(code));
+    let net = HostNet::start(endpoint);
+    let publisher = spawn(async move {
+        let mut announced = None;
+        keep_published(&directory, code, id, |failure| match failure {
+            Some(e) => {
+                let message = e.to_string();
+                announced = Some(message.clone());
+                controller.notice.set(Some(message));
+            }
+            None => {
+                if controller.notice.get_untracked() == announced.take() {
+                    controller.notice.set(None);
+                }
+            }
+        })
+        .await;
+    });
+    let mut rng = Rng::new(identity::random_u64().map_err(|e| e.to_string())?);
+    let mut saved = None;
+    publish(controller, &session, &mut saved);
+    controller.status.set(Status::Online);
+
+    let outcome = play(
+        controller,
+        intents,
+        &mut session,
+        &net,
+        &mut rng,
+        &mut saved,
+    )
+    .await;
+    let closed = match outcome {
+        Ok(Exit::End) => {
+            identity::forget_host();
+            send(&net, session.close())
+        }
+        Ok(Exit::Pause) => {
+            save(controller, &session);
+            Ok(())
+        }
+        Err(message) => {
+            save(controller, &session);
+            Err(message)
+        }
+    };
+    publisher.cancel();
+    net.shutdown().await;
+    closed
+}
+
+enum Exit {
+    Pause,
+    End,
+}
+
+async fn play(
+    controller: Controller,
+    intents: &Receiver<Intent>,
+    session: &mut HostSession,
+    net: &HostNet,
+    rng: &mut Rng,
+    saved: &mut Option<Durable>,
+) -> Result<Exit, String> {
+    let (tick_sender, ticks) = async_channel::unbounded::<()>();
+    let mut tick_pending = false;
+    loop {
+        if !tick_pending && session.ai_actor().is_some() {
+            tick_pending = true;
+            let sender = tick_sender.clone();
+            set_timeout(ai_delay(session), move || {
+                let _ = sender.try_send(());
+            });
+        }
+        let step = n0_future::future::race(
+            async { Step::Intent(intents.recv().await.ok()) },
+            n0_future::future::race(async { Step::Net(net.next_event().await) }, async {
+                let _ = ticks.recv().await;
+                Step::AiTick
+            }),
+        )
+        .await;
+        let deliveries = match step {
+            Step::Intent(None | Some(Intent::Leave)) => return Ok(Exit::Pause),
+            Step::Intent(Some(Intent::End)) => return Ok(Exit::End),
+            Step::Intent(Some(Intent::Room(command))) => apply(session, command, rng)
+                .unwrap_or_else(|e| {
+                    controller.notice.set(Some(host_error(e)));
+                    Vec::new()
+                }),
+            Step::Intent(Some(_)) => continue,
+            Step::Net(None) => return Err("networking stopped".into()),
+            Step::Net(Some(HostEvent::Message { from, message })) => session.handle(from, message),
+            Step::Net(Some(HostEvent::Disconnected(peer))) => session.disconnected(peer),
+            Step::AiTick => {
+                tick_pending = false;
+                match session.play_ai(rng) {
+                    None => Vec::new(),
+                    Some(result) => result.map_err(host_error)?,
+                }
+            }
+        };
+        send(net, deliveries)?;
+        publish(controller, session, saved);
+    }
+}
+
+fn apply(
+    session: &mut HostSession,
+    command: Command,
+    rng: &mut Rng,
+) -> Result<Vec<Delivery>, HostError> {
+    match command {
+        Command::AddAi => session.add_ai(),
+        Command::Remove(seat) => session.remove(seat),
+        Command::Start => session.start(rng.next_u64()),
+        Command::Act(action) => session.host_act(action),
+        Command::NextRound => session.next_round(),
+        Command::Autoplay(seat, on) => session.set_autoplay(seat, on),
+    }
+}
+
+fn send(net: &HostNet, deliveries: Vec<Delivery>) -> Result<(), String> {
+    net.deliver(deliveries)
+        .map_err(|e| format!("could not encode a message: {e:?}"))
+}
+
+/// What a resumed table must not lose: moves inside a hand are not durable, so a crash
+/// resumes from the start of that hand; pausing saves exactly.
+#[derive(PartialEq)]
+struct Durable {
+    progress: Option<(usize, Phase)>,
+    roster: Vec<SeatInfo>,
+}
+
+fn durable(snapshot: &Snapshot) -> Durable {
+    Durable {
+        progress: match &snapshot.stage {
+            Stage::Lobby => None,
+            Stage::Playing { view, .. } => Some((view.round, view.phase)),
+        },
+        roster: snapshot.roster.clone(),
+    }
+}
+
+fn publish(controller: Controller, session: &HostSession, saved: &mut Option<Durable>) {
+    let snapshot = session.host_snapshot();
+    let key = durable(&snapshot);
+    controller.snapshot.set(Some(snapshot));
+    if saved.as_ref() != Some(&key) {
+        save(controller, session);
+        *saved = Some(key);
+    }
+}
+
+fn save(controller: Controller, session: &HostSession) {
+    if let Err(e) = identity::save_host(session) {
+        controller.notice.set(Some(e.to_string()));
+    }
+}
+
+fn ai_delay(session: &HostSession) -> Duration {
+    let trick_just_won = session
+        .last_events()
+        .iter()
+        .any(|e| matches!(e, Event::TrickWon { .. }));
+    if trick_just_won {
+        AI_AFTER_TRICK
+    } else {
+        AI_THINK
+    }
+}
+
+fn host_error(error: HostError) -> String {
+    match error {
+        HostError::InvalidName => "Enter a name of 1 to 20 characters.".into(),
+        HostError::UnsupportedCapacity { min, max } => format!("Choose {min} to {max} players."),
+        HostError::TableFull => "The table is full.".into(),
+        HostError::TableNotFull => "Fill every seat before starting.".into(),
+        HostError::NotInLobby => "The game has already started.".into(),
+        HostError::NotPlaying => "The game has not started.".into(),
+        HostError::NoSuchSeat => "That seat is not available.".into(),
+        HostError::SeatIsHuman => {
+            "Only a disconnected player's seat can be played by the AI.".into()
+        }
+        HostError::Setup(e) => format!("Could not deal: {e:?}"),
+        HostError::Rejected(r) => crate::ui::text::rejection(r),
+        HostError::NoAiAction => "An AI player had no legal move; the game cannot continue.".into(),
+        HostError::InvalidSave => "The saved table could not be restored.".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cards_net::{PlayerId, RoomCode};
+
+    use super::*;
+
+    fn session() -> HostSession {
+        let code = RoomCode::parse("ABC234").unwrap();
+        let mut session =
+            HostSession::new(code, PlayerId([1; 32]), "Host", GameKind::OhWell, 3).unwrap();
+        session.add_ai().unwrap();
+        session.add_ai().unwrap();
+        session
+    }
+
+    #[test]
+    fn starting_a_game_is_durable() {
+        let mut session = session();
+        let lobby = durable(&session.host_snapshot());
+        session.start(5).unwrap();
+        assert!(lobby != durable(&session.host_snapshot()));
+    }
+
+    #[test]
+    fn moves_within_a_hand_are_not_durable() {
+        let mut session = session();
+        session.start(5).unwrap();
+        let before = durable(&session.host_snapshot());
+        let mut rng = Rng::new(1);
+        let mut moves = 0;
+        while let Some(result) = session.play_ai(&mut rng) {
+            result.unwrap();
+            moves += 1;
+            if durable(&session.host_snapshot()) != before {
+                break;
+            }
+        }
+        assert!(
+            moves > 1,
+            "several AI moves happened inside the first phase"
+        );
+    }
+
+    #[test]
+    fn an_unknown_peer_disconnecting_changes_nothing() {
+        let mut session = session();
+        let before = durable(&session.host_snapshot());
+        let guest = PlayerId([9; 32]);
+        session.disconnected(guest);
+        assert!(
+            before == durable(&session.host_snapshot()),
+            "unknown peers change nothing"
+        );
+    }
+}

@@ -4,7 +4,9 @@ use cards_net::protocol::MAX_NAME_LEN;
 use nsh_base::input;
 use nsh_core::prelude::*;
 
-use super::style::{accent, button, danger, ink, muted, panel, panel_border};
+use super::style::{
+    accent, button, column, danger, ink, muted, page, panel, panel_border, short_window,
+};
 use crate::identity;
 use crate::session::{Controller, Intent};
 
@@ -56,16 +58,11 @@ pub fn screen(controller: Controller) -> impl IntoElement {
             .set(Some("Room codes are 6 letters and digits.".into())),
     };
 
-    scroll().flex_1().child(
-        view()
-            .w_full()
-            .max_w_96()
-            .self_center()
-            .p_4()
-            .gap_4()
+    page([
+        column()
             .child(
                 text("Cards")
-                    .text_3xl()
+                    .text_size(move || px(if short_window() { 22.0 } else { 30.0 }))
                     .font_weight(FontWeight::BLACK)
                     .text_color(ink),
             )
@@ -85,11 +82,6 @@ pub fn screen(controller: Controller) -> impl IntoElement {
                     .border_color(panel_border)
                     .text_color(ink),
             ))
-            .child(section(
-                "New table",
-                new_table(kind, seats, valid_name, host),
-            ))
-            .child(section("Join a table", join_table(code, valid_name, join)))
             .child(resumable.map(|code| {
                 section(
                     "Your table",
@@ -103,7 +95,13 @@ pub fn screen(controller: Controller) -> impl IntoElement {
                     ),
                 )
             })),
-    )
+        column()
+            .child(section(
+                "New table",
+                new_table(kind, seats, valid_name, host),
+            ))
+            .child(section("Join a table", join_table(code, valid_name, join))),
+    ])
 }
 
 fn new_table(
@@ -117,6 +115,7 @@ fn new_table(
         .child(view().flex_row().gap_2().children(GAMES.map(|game| {
             choice(
                 game.name(),
+                game.name(),
                 move || kind.get() == game,
                 move || {
                     batch(|| {
@@ -129,10 +128,12 @@ fn new_table(
         .child(
             view()
                 .flex_row()
-                .flex_wrap()
+                .items_center()
                 .gap_2()
+                .child(text("Players").text_sm().text_color(muted))
                 .children((3..=7).map(|n| {
                     choice(
+                        n.to_string(),
                         format!("{n} players"),
                         move || seats.get() == n,
                         move || seats.set(n),
@@ -181,7 +182,7 @@ fn join_table(
 fn section(title: &'static str, body: impl IntoElement) -> impl IntoElement {
     view()
         .gap_2()
-        .p_4()
+        .p_3()
         .rounded_xl()
         .border_1()
         .border_color(panel_border)
@@ -198,11 +199,13 @@ fn section(title: &'static str, body: impl IntoElement) -> impl IntoElement {
 
 /// A selectable chip with fixed border width so selection never changes its size.
 fn choice(
+    shown: impl Into<SharedString>,
     label: impl Into<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
     on_press: impl Fn() + 'static,
 ) -> View {
     let label: SharedString = label.into();
+    let shown: SharedString = shown.into();
     view()
         .px_3()
         .py_1p5()
@@ -215,7 +218,7 @@ fn choice(
         .duration(150.0)
         .on_press(on_press)
         .child(
-            text(label)
+            text(shown)
                 .text_sm()
                 .font_weight(FontWeight::BOLD)
                 .text_color(move || if selected() { accent() } else { ink() }),
@@ -234,6 +237,7 @@ pub fn notice(controller: Controller) -> impl IntoElement {
                 .rounded_lg()
                 .border_1()
                 .border_color(danger)
+                .bg(panel)
                 .child(
                     text(move || controller.notice.get().unwrap_or_default())
                         .flex_1()

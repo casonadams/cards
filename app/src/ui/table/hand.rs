@@ -1,29 +1,54 @@
 use cards_core::Card;
 use nsh_core::prelude::*;
 
-use super::super::style::muted;
+use super::super::style::{ink, muted};
 use super::super::text::card_label;
-use super::{Ctx, card, model};
+use super::{Ctx, card, layout, model, progress, scores};
 use crate::session::Command;
+
+const HAND_BOTTOM: f32 = 8.0;
 
 /// A hand card tagged with its round, so a card dealt again later gets a fresh row.
 type Dealt = (usize, Card);
 
-pub fn hand(ctx: Ctx) -> impl IntoElement {
-    let compact = computed(super::compact);
+pub fn hand(ctx: Ctx, standings_open: Signal<bool>) -> impl IntoElement {
+    let round_over = computed(move || ctx.read(|_, v| v.round_over).unwrap_or(false));
+    view()
+        .w_full()
+        .flex_shrink_0()
+        .child(
+            text(move || ctx.read(|_, v| progress::your_line(v)).unwrap_or_default())
+                .h(move || px(ctx.layout.get().header_h))
+                .px_3()
+                .text_sm()
+                .font_weight(FontWeight::BOLD)
+                .text_color(ink)
+                .truncate(),
+        )
+        .child(dynamic(move || {
+            if round_over.get() {
+                let h = ctx.layout.get().card.h + layout::HAND_EXTRA;
+                scores::round_panel(ctx, standings_open)
+                    .h(px(h))
+                    .into_element()
+            } else {
+                cards(ctx).into_element()
+            }
+        }))
+}
+
+fn cards(ctx: Ctx) -> impl IntoElement {
     let width = signal(untracked(|| window().width.0));
     let cards = computed(move || {
         ctx.read(|_, v| v.hand.iter().map(|c| (v.round, *c)).collect::<Vec<Dealt>>())
             .unwrap_or_default()
     });
     dynamic(move || {
-        let size = card::hand_size(compact.get());
-        let slot_h = size.h + 22.0;
+        let size = ctx.layout.get().card;
+        let slot_h = size.h + layout::HAND_EXTRA;
         view()
             .w_full()
             .h(px(slot_h))
-            .mb_2()
-            .flex_shrink_0()
             .relative()
             .element_ref(&ctx.motion.hand())
             .on_layout(move |b: &Bounds<Points>| width.set(b.size.width.0))
@@ -61,7 +86,12 @@ fn slot(
         let l = layout();
         l.start + l.step * index.get() as f32
     };
-    let centre = move || point(px(left() + size.w / 2.0), px(slot_h - size.h / 2.0));
+    let centre = move || {
+        point(
+            px(left() + size.w / 2.0),
+            px(slot_h - HAND_BOTTOM - size.h / 2.0),
+        )
+    };
     let card = dealt.get_untracked().1;
     let playable = move || {
         ctx.my_turn()
@@ -78,7 +108,7 @@ fn slot(
     };
     view()
         .absolute()
-        .bottom(px(0.0))
+        .bottom(px(HAND_BOTTOM))
         .left(move || px(left()))
         .z_index(move || i32::try_from(index.get()).unwrap_or(i32::MAX))
         .child(

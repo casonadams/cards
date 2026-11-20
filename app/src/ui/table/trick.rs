@@ -1,10 +1,10 @@
 use cards_core::{Phase, Play, Seat};
 use nsh_core::prelude::*;
 
-use super::super::style::{accent, accent_ink, felt_dark, ink, muted, panel, panel_border};
-use super::super::text::first_name;
+use super::super::style::{accent, accent_ink, felt_dark, ink, muted, panel, panel_border, warn};
+use super::super::text::{first_name, suit_symbol};
 use super::motion::{CardMotion, Collect, TrickKey};
-use super::{Ctx, card, model};
+use super::{Ctx, bidding, card, model};
 
 const PILL_H: f32 = 22.0;
 const STATUS_H: f32 = 34.0;
@@ -21,8 +21,7 @@ struct Placed {
 type ShownTrick = Option<(usize, model::Shown)>;
 
 pub fn area(ctx: Ctx) -> impl IntoElement {
-    let compact = computed(super::compact);
-    let size = computed(move || card::trick_size(compact.get()));
+    let size = computed(move || ctx.layout.get().card);
     let seats = computed(move || ctx.read(|_, v| v.seats).unwrap_or_default());
     let width = signal(untracked(|| window().width.0));
     let row =
@@ -47,26 +46,30 @@ pub fn area(ctx: Ctx) -> impl IntoElement {
             spawn(async move { ctx.motion.collect(key).await });
         }
     });
+    let bidding = computed(move || ctx.read(|_, v| v.phase == Phase::Bidding).unwrap_or(false));
     view()
         .relative()
-        .w_full()
-        .max_w(px(720.0))
+        .flex_1()
+        .min_h(px(0.0))
+        .mx_2()
         .rounded_xl()
         .bg(felt_dark)
         .items_center()
         .justify_center()
         .pt(px(STATUS_H))
-        .h(move || px(STATUS_H + size.get().h + PILL_H + 12.0))
-        .flex_shrink_0()
         .on_layout(move |b: &Bounds<Points>| width.set(b.size.width.0))
         .child(status_row(ctx, shown))
         .child(dynamic(move || {
+            if bidding.get() {
+                return bidding::console(ctx).into_element();
+            }
             let size = size.get();
             view()
                 .relative()
                 .w(move || px(row.get().width))
                 .h(px(size.h + PILL_H))
                 .children((0..seats.get()).map(|slot| slot_view(ctx, slot, size, row, shown)))
+                .into_element()
         }))
 }
 
@@ -74,8 +77,11 @@ fn status_row(ctx: Ctx, shown: Memo<ShownTrick>) -> impl IntoElement {
     let status = computed(move || {
         let winner = shown.with(|s| s.as_ref().and_then(|(_, t)| t.winner));
         let actor = |v: &cards_core::SeatView| if ctx.away() { None } else { v.actor };
-        ctx.read(|snap, v| model::status(snap.you, actor(v), v.phase == Phase::Bidding, winner))
-            .flatten()
+        ctx.read(|snap, v| {
+            let hint = model::play_hint(&v.current_trick, &v.hand);
+            model::status(snap.you, actor(v), v.phase == Phase::Bidding, winner, hint)
+        })
+        .flatten()
     });
     view()
         .absolute()
@@ -93,7 +99,16 @@ fn status_pill(ctx: Ctx, status: model::Status) -> View {
     let name = |seat: Seat| first_name(&ctx.name(seat)).to_owned();
     let (label, urgent) = match status {
         model::Status::YourBid => ("YOUR TURN - BID".to_owned(), true),
-        model::Status::YourPlay => ("YOUR TURN - PLAY A CARD".to_owned(), true),
+        model::Status::YourPlay(model::PlayHint::Lead) => {
+            ("YOUR TURN - LEAD ANY CARD".to_owned(), true)
+        }
+        model::Status::YourPlay(model::PlayHint::Follow(suit)) => {
+            (format!("YOUR TURN - FOLLOW {}", suit_symbol(suit)), true)
+        }
+        model::Status::YourPlay(model::PlayHint::Discard(suit)) => (
+            format!("YOUR TURN - NO {}, PLAY ANY CARD", suit_symbol(suit)),
+            true,
+        ),
         model::Status::YouWonYourLead => ("YOU WON THE TRICK - YOUR LEAD".to_owned(), true),
         model::Status::Won(seat) => (format!("{} won the trick!", name(seat)), false),
         model::Status::Waiting {
@@ -225,29 +240,37 @@ fn landed(
         .child(
             motion
                 .bind(card::face(play.card, size, card::Tone::Inspect, badge))
+                .when(order == 0, |face| face.border_2().border_color(warn))
                 .element_ref(&el),
         )
         .child(
-            name_pill(ctx, play.seat, size.w)
+            name_pill(ctx, play.seat, size.w, order == 0)
                 .style_when(move || ctx.motion.stage(key).is_some(), |s| s.opacity(0.0))
                 .transition_opacity()
                 .duration(250.0),
         )
 }
 
-fn name_pill(ctx: Ctx, seat: Seat, width: f32) -> View {
+/// The player's first name under their card; the led card's pill is amber and says "led".
+fn name_pill(ctx: Ctx, seat: Seat, width: f32, led: bool) -> View {
     view()
         .max_w(px(width))
         .h(px(PILL_H - 4.0))
         .px_2()
+        .flex_row()
+        .items_center()
+        .gap_1()
         .rounded_full()
-        .bg(accent)
-        .justify_center()
+        .bg(move || if led { warn() } else { accent() })
         .child(
             text(first_name(&ctx.name(seat)).to_owned())
+                .min_w(px(0.0))
                 .text_xs()
                 .truncate()
                 .font_weight(FontWeight::BOLD)
                 .text_color(accent_ink),
         )
+        .when(led, |pill| {
+            pill.child(text("led").text_xs().flex_shrink_0().text_color(accent_ink))
+        })
 }

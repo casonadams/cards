@@ -33,6 +33,10 @@ pub fn accent_ink() -> AdaptiveColor {
     AdaptiveColor::rgb(0x052e1a, 0x052e1a)
 }
 
+pub fn warn() -> AdaptiveColor {
+    AdaptiveColor::rgb(0xfbbf24, 0xfbbf24)
+}
+
 pub fn danger() -> AdaptiveColor {
     AdaptiveColor::rgb(0xfb7185, 0xfb7185)
 }
@@ -76,4 +80,68 @@ pub fn button(
                 .text_sm()
                 .text_color(move || if primary { accent_ink() } else { ink() }),
         )
+}
+
+const COLUMN_MAX: f32 = 384.0;
+const PAGE_PADDING: f32 = 12.0;
+const COLUMN_GAP: f32 = 12.0;
+
+/// Width of one form column: two side by side when the window is wide enough, or in landscape.
+pub fn column_width(window_width: f32, window_height: f32) -> f32 {
+    let avail = window_width - 2.0 * PAGE_PADDING;
+    let two = (avail - COLUMN_GAP) / 2.0;
+    let min_pair = if window_width > window_height {
+        250.0
+    } else {
+        300.0
+    };
+    if two >= min_pair {
+        two.min(COLUMN_MAX)
+    } else {
+        avail.min(COLUMN_MAX)
+    }
+}
+
+/// A full-screen form page whose columns wrap; it scrolls only if a tiny screen cannot fit it.
+pub fn page(columns: [View; 2]) -> impl IntoElement {
+    scroll().flex_1().scrollbar(false).child(
+        view()
+            .w_full()
+            .p(px(PAGE_PADDING))
+            .flex_row()
+            .flex_wrap()
+            .justify_center()
+            .items_start()
+            .gap(px(COLUMN_GAP))
+            .children(columns),
+    )
+}
+
+/// Short windows (landscape phones) tighten headings and spacing.
+pub fn short_window() -> bool {
+    window().height.0 < 520.0
+}
+
+/// One column of a [`page`].
+pub fn column() -> View {
+    view()
+        .w(move || {
+            let size = window();
+            px(column_width(size.width.0, size.height.0))
+        })
+        .gap_3()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::column_width;
+
+    #[test]
+    fn columns_pair_up_only_when_both_stay_readable() {
+        assert_eq!(column_width(320.0, 568.0), 296.0);
+        assert_eq!(column_width(390.0, 664.0), 366.0);
+        assert_eq!(column_width(568.0, 320.0), 266.0);
+        assert_eq!(column_width(750.0, 342.0), 357.0);
+        assert_eq!(column_width(1280.0, 720.0), 384.0);
+    }
 }

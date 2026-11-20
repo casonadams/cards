@@ -25,26 +25,26 @@
 - Fanned hands stack left to right (z order rising), so each card covers the right edge of the previous one. Put penalty points (`+10`, `+25`, `+100`) and the Oh Well trump `T` badge in the bottom-left corner, which stays visible; keep the top-right clean.
 - Only playable cards lift on hover. Unplayable cards stay seated and use a solid, opaque muted background; never put opacity below 1 on cards in a fanned hand (overlaps brighten and indices bleed through).
 - The hand container has a fixed height and never collapses when the last card is played; show a quiet `All cards played` placeholder the height of a card.
-- Measure the hand's width: cards that fit sit centered with small gaps; otherwise overlap with step `(avail - card_w) / (count - 1)` to span the full width between the side paddings (8 points compact, 16 otherwise).
+- Measure the hand's width: cards that fit sit centered with small gaps; otherwise overlap with step `(avail - card_w) / (count - 1)` to span the full width between the side paddings (8 points for small cards, 16 otherwise).
+- A one-line header above the hand tells the viewer where they stand: Oh Well `You bid B, won W: need N more` / `on target, avoid winning more` / `over by N` / `can no longer make it` (or how many to bid); Canadian Salad `You: T tricks taken, +P this hand`.
 - During bidding the real hand stays visible in a non-interactive inspection state; card presses must never dispatch plays outside the playing phase.
 
 ### Table flow
-- Embed phase transitions (bidding console, round summary) in the table between the trick area and the hand, not as full-screen modals. Only final standings may take over the screen, and only after the player presses `View final standings ->`.
-- The bidding console shows who bids first and leads trick 1 (`1st bid & lead`) and who is the dealer (`Dealer (bids last)`), and explains a disabled hook bid.
-- When a round ends, keep the final trick on the felt with the winner callout and dock the round summary beneath it.
-- Anything dialog-like must fit 375x560 and scroll inside when needed.
+- The table always fits one screen with no page or section scroll, on phones in either orientation and on desktops (`table/layout.rs`, tested per screen size and seat count). Cards size from the window: trick and hand cards share one size, between 60 and 150 points tall (48 on landscape phones), small enough that a full trick shows at least 60% of each card.
+- Phase transitions stay on the table, never full-screen modals. While bidding, the viewer's bid buttons sit on the empty felt and explain a disabled hook bid; bids already placed show on the seat chips. When a round ends, the final trick stays on the felt with its winner message and the round summary takes the hand's place (the summary alone may scroll inside). Only final standings take over the screen, after the player presses `Final standings ->`.
+- Home and lobby use one or two form columns (two when each stays at least 300 points wide, 250 in landscape) and fit common phones without scrolling; scrollbars stay hidden.
 
 ### Top bar, seats and trick area
-- One top bar only: game name, round label, trump mini card (white card, dark border, rank and colored pip) or Canadian Salad penalty badge, a collapsible rules drawer, and the leave controls.
+- One fixed-height top bar: the round label (`Round 4 of 19`, `Hand 2 of 6: No Hearts`), the trump mini card (white card, dark border, rank and colored pip) or Canadian Salad penalty badge, and a `Menu` button whose drawer holds the rules and the leave controls. Paused and error notices float over the top of the table instead of pushing it down.
 - The trick area has a fixed height and one fixed slot per seat, in seat-strip order. Cards land in their slot and never move while the trick fills. Empty slots are dashed placeholders at z-index 0; played cards sit at 10 + play order. Trick cards are never smaller than hand cards, and each name pill is no wider than its card (first name only).
 - Card motion (`table/motion.rs`): a played card flies into its slot from where it sat in the hand (local player) or from the player's seat badge (420ms). A won trick then pauses 500ms, gathers to the centre in a slight fan (700ms), holds 250ms, and flies into the winner's seat badge, shrinking and fading (750ms); the host's AI waits 2.4s after a trick so the collection finishes first. The final trick of a round is not collected: it stays on the felt with the round summary docked beneath. Cards already on the felt never replay their entrance (keyed by round and card).
-- One status row sits over the top of the trick area with zero flow height and shows a single message: `YOUR TURN - BID`, `YOUR TURN - PLAY A CARD`, `YOU WON THE TRICK - YOUR LEAD`, `{Name} won the trick!` or `Waiting for {Name}...`.
-- Seats stay in fixed seat order. Each badge has an order number 1..N anchored to the avatar: 1 is the trick leader (first bidder for bidding and trick 1, then the last trick's winner), never whoever is acting; the acting seat's avatar shows a ping halo and its number pulses in emerald.
+- One status row sits over the top of the trick area with zero flow height and shows a single message: `YOUR TURN - BID`, `YOUR TURN - LEAD ANY CARD`, `YOUR TURN - FOLLOW {suit}`, `YOUR TURN - NO {suit}, PLAY ANY CARD`, `YOU WON THE TRICK - YOUR LEAD`, `{Name} won the trick!`, `{Name} is bidding...` or `Waiting for {Name}...`.
+- The led card is marked: an amber border, and its name pill is amber and reads `{Name} led`.
+- Seats stay in fixed seat order, in one row of equal-width chips that never wraps: avatar beside the text on wide or short windows, above it on narrow ones. Each badge has an order number 1..N anchored to the avatar: 1 is the trick leader (first bidder for bidding and trick 1, then the last trick's winner), never whoever is acting; the acting seat's avatar shows a ping halo and its number pulses in emerald.
 - Badge dimensions never change with state: fixed border widths, fixed font weight, color-only transitions.
-- Compact stat lines with monospace digits: Canadian Salad `{tricks}t | {total}p`, Oh Well `{bid} | {total}p`.
+- Chip stats in monospace digits: a coloured headline and the running total. Oh Well `{won}/{bid}` (amber while short, emerald on target, red when over or unreachable, `bid ?` before bidding); Canadian Salad `{tricks}t +{points}` this hand (red once points are taken). During bidding a tag names who leads and who deals; otherwise tags show `away` or `AI`.
 - Names allow 20 characters. Avatars show first+last initials (`Cason Adams` -> `CA`); seats show the first name (`John Doe` -> `John`) except bots (`Bot Bob`).
 - Selection chips (game, table size) keep identical dimensions selected or not.
-- Compact layout applies when the window is under 520 points wide or tall (phones in either orientation).
 
 ## Quality Tooling & CI/CD Pipeline
 - **mise** (`mise.toml` pins nsh 0.6.0 and wasm-bindgen-cli 0.2.130; Rust comes from `rust-toolchain.toml`):

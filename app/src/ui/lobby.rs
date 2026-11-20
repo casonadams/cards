@@ -1,7 +1,9 @@
 use cards_net::{Occupant, SeatInfo, Snapshot};
 use nsh_core::prelude::*;
 
-use super::style::{accent, button, danger, ink, muted, panel, panel_border};
+use super::style::{
+    accent, button, column, column_width, danger, ink, muted, page, panel, panel_border,
+};
 use super::text::initials;
 use crate::session::{Command, Controller, Intent, Role};
 
@@ -24,33 +26,11 @@ pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl 
             .unwrap_or_default()
     };
 
-    scroll().flex_1().child(
-        view()
-            .w_full()
-            .max_w_96()
-            .self_center()
-            .p_4()
-            .gap_4()
+    let members = move || roster.with(Vec::len);
+    page([
+        column()
             .child(super::home::notice(controller))
             .child(code_card(code))
-            .child(
-                view()
-                    .gap_2()
-                    .child(each(
-                        move || roster.get(),
-                        |s: &SeatInfo| s.seat,
-                        move |seat, _| member(controller, seat, is_host),
-                    ))
-                    .child(
-                        text(move || match open_seats() {
-                            0 => "Every seat is taken.".to_owned(),
-                            1 => "Waiting for 1 more player...".to_owned(),
-                            n => format!("Waiting for {n} more players..."),
-                        })
-                        .text_sm()
-                        .text_color(muted),
-                    ),
-            )
             .child(
                 when(is_host, move || {
                     view()
@@ -83,16 +63,33 @@ pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl 
                 "Leave table",
                 false,
                 || true,
-                move || controller.send(Intent::End),
+                move || {
+                    controller.send(Intent::End);
+                },
             )),
-    )
+        column()
+            .child(view().flex_row().flex_wrap().gap_2().child(each(
+                move || roster.get(),
+                |s: &SeatInfo| s.seat,
+                move |seat, _| member(controller, seat, is_host, members),
+            )))
+            .child(
+                text(move || match open_seats() {
+                    0 => "Every seat is taken.".to_owned(),
+                    1 => "Waiting for 1 more player...".to_owned(),
+                    n => format!("Waiting for {n} more players..."),
+                })
+                .text_sm()
+                .text_color(muted),
+            ),
+    ])
 }
 
 fn code_card(code: impl Fn() -> String + Copy + 'static) -> impl IntoElement {
     view()
         .items_center()
         .gap_1()
-        .p_4()
+        .p_3()
         .rounded_xl()
         .bg(panel)
         .border_1()
@@ -114,17 +111,27 @@ fn code_card(code: impl Fn() -> String + Copy + 'static) -> impl IntoElement {
         ))
 }
 
+/// Rows pair up when a long roster would not fit a short or narrow window.
 fn member(
     controller: Controller,
     seat: ReadSignal<SeatInfo>,
     is_host: impl Fn() -> bool + Copy + 'static,
+    members: impl Fn() -> usize + Copy + 'static,
 ) -> impl IntoElement {
     let removable = move || is_host() && seat.with(|s| s.occupant != Occupant::Host);
+    let width = move || {
+        let size = window();
+        let column = column_width(size.width.0, size.height.0);
+        let pair = members() > 4 && size.height.0 < 760.0;
+        px(if pair { (column - 8.0) / 2.0 } else { column })
+    };
     view()
+        .w(width)
         .flex_row()
         .items_center()
-        .gap_3()
-        .p_3()
+        .gap_2()
+        .px_2()
+        .py_2()
         .rounded_lg()
         .bg(panel)
         .border_1()

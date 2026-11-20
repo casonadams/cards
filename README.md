@@ -13,27 +13,35 @@ A zero-database, serverless card game platform powered by **Svelte 5**, **WebRTC
 
 1. **Oh Well (Oh Hell)**: 3–7 players, ascending/descending card rounds, trump card cut, exact bidding with the "Hook" dealer rule.
 2. **Canadian Salad**: 3–6 players, 6 contract rounds (No Tricks, No Hearts, No Queens, No King of Spades, No Last Trick, Combination).
-3. **Rook**: 4-player partnership trick-taking with bids, trump colors, nest exchange, and point scoring.
-4. **Regicide**: 1–4 player cooperative boss-battling card combat.
 
 ## Development & Quality Checks
 
+Tools are pinned in `mise.toml` ([mise](https://mise.jdx.dev)).
+
 ```bash
+# Install the pinned tools and web dependencies
+mise install
+mise run install
+
 # Run all quality checks and production build
-make all
+mise run all
 
 # Run fast AST linting across TypeScript/JS web code
-make lint
+mise run lint
 
 # Run Svelte and TypeScript type checking
-make check
+mise run check
+
+# Run unit tests (and `mise run e2e` for Playwright)
+mise run test
 
 # Enforce Cognitive and Cyclomatic complexity thresholds
-make complexity
+mise run complexity
 
 # Run ripwire code intelligence map and symbol ranking
-make ripwire
+mise run ripwire
 
-# Build production distribution for GitHub Pages
-make build
+# Start the dev server, or build production distribution for GitHub Pages
+mise run dev
+mise run build
 ```

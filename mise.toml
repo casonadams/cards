@@ -1,0 +1,56 @@
+[tools]
+node = "24.22.3"
+pnpm = "12.18.0"
+bun = "1.4.4"
+"cargo:cccc-cli" = "1.7.0"
+
+[tasks.install]
+description = "Install web dependencies"
+dir = "web"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.lint]
+description = "Lint the web code with oxlint"
+dir = "web"
+run = "pnpm lint"
+
+[tasks.check]
+description = "Type-check Svelte and TypeScript with svelte-check"
+dir = "web"
+run = "pnpm check"
+
+[tasks.test]
+description = "Run unit and behavior tests"
+dir = "web"
+run = "bun test"
+
+[tasks.e2e]
+description = "Run Playwright multi-client end-to-end tests"
+dir = "web"
+run = "pnpm exec playwright test"
+
+[tasks.complexity]
+description = "Enforce cognitive and cyclomatic complexity limits"
+run = "cccc web/src"
+
+[tasks.ripwire]
+description = "Map code intelligence and symbol ranking (needs ripwire on PATH)"
+run = "ripwire web/src --top-k=30"
+
+[tasks.dev]
+description = "Run the Vite dev server"
+dir = "web"
+run = "pnpm dev"
+
+[tasks.build]
+description = "Build the static bundle for GitHub Pages"
+dir = "web"
+run = "pnpm build"
+
+[tasks.clean]
+description = "Remove build artifacts and caches"
+run = "rm -rf web/dist .cccc.cache"
+
+[tasks.all]
+description = "Run every quality gate and the production build"
+depends = ["lint", "check", "test", "complexity", "build"]

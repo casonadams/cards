@@ -37,7 +37,7 @@
   1. **Deliberate Gathering Phase (700ms)**: After a 500ms landing pause, all played cards glide smoothly inward from their respective slot positions toward the horizontal center of the table (`translate(var(--gather-x), 0px) rotate(var(--gather-rot)) scale(1)` with `cubic-bezier(0.25, 1, 0.5, 1)`), rotating slightly into a tidy physical deck. Cards must strictly retain their chronological lay-down layering (`z-index: 10 + slotIdx`) without z-index jumps or decorative rings. Empty slots and player name tags fade out (250ms).
   2. **Pause & Winner Identification (250ms)**: The gathered stack rests stationary in the center while the winner callout banner displays (`{winnerName} won the trick!`).
   3. **Flight to Winner Phase (750ms)**: The entire gathered stack flies as a cohesive deck: if the local user wins (`winnerId === myId`), animate downward and rightward into the bottom-right corner of the screen into their personal trick pile adjacent to the tricks counter (`[data-tricks-counter]`); if an opponent wins, animate upward directly into that opponent's avatar badge in the seating row (`[data-player-id="${winnerId}"]`). The deck scales down to 0.2 and fades out upon arrival. Ensure both gathering and flying states share identical CSS transform function lists (`translate`, `rotate`, `scale`) for hardware-accelerated matrix interpolation.
-- Final Hand & Game Over Transition Flow: In multi-round games (such as Canadian Salad, Oh Well, Rook), when the final card of the final hand is played, NEVER mount the fullscreen `GameOverOverlay` instantaneously. The final hand must execute the exact same physical completion flow as every other hand:
+- Final Hand & Game Over Transition Flow: In multi-round games (such as Canadian Salad, Oh Well), when the final card of the final hand is played, NEVER mount the fullscreen `GameOverOverlay` instantaneously. The final hand must execute the exact same physical completion flow as every other hand:
   1. `TrickArea` completes its 2-phase trick collection animation (500ms landing pause, 700ms center gather, 250ms hold with winner banner, 750ms flight into the winner's player badge).
   2. `RoundScoreOverlay` mounts on the table felt, displaying the final hand label (`Hand 7: Salad`), the trick winner callout (`{winnerName} won trick`), the final hand's points, and an action button reading `View Final Standings →`.
   3. Only when `View Final Standings →` is clicked does `GameOverOverlay` mount with the final game podium, full round-by-round breakdown, and `Return to Lobby`.
@@ -49,11 +49,12 @@
 - Button selection groups (such as Table Size and Game Selector) must maintain stable dimensions between selected and unselected states without text wrapping shifts or layout jumps.
 
 ## Quality Tooling & CI/CD Pipeline
-- **Make Targets**:
-  - `make all`: Runs lint (`oxlint`), typecheck (`svelte-check`), complexity (`cccc`), and build (`vite build`).
-  - `make lint`: Fast AST linting via `oxlint --deny-warnings`.
-  - `make check`: Strict TypeScript and Svelte validation via `svelte-check`.
-  - `make complexity`: Cognitive & Cyclomatic complexity enforcement via `cccc web/src` (max-cognitive $\le 20$, max-cyclomatic $\le 20$).
-  - `make ripwire`: Code intelligence and symbol ranking via `ripwire web/src --top-k=30`.
+- **mise** (`mise.toml` pins node, pnpm, bun and cccc; run `mise install` once):
+  - `mise run all`: Runs lint (`oxlint`), typecheck (`svelte-check`), tests (`bun test`), complexity (`cccc`), and build (`vite build`).
+  - `mise run lint`: Fast AST linting via `oxlint --deny-warnings`.
+  - `mise run check`: Strict TypeScript and Svelte validation via `svelte-check`.
+  - `mise run test`: Unit and behavior tests via `bun test`; `mise run e2e` runs the Playwright multi-client suite.
+  - `mise run complexity`: Cognitive & Cyclomatic complexity enforcement via `cccc web/src` (max-cognitive $\le 20$, max-cyclomatic $\le 20$).
+  - `mise run ripwire`: Code intelligence and symbol ranking via `ripwire web/src --top-k=30`.
 - **GitHub Actions (`deploy.yml`)**:
-  - Every push to `main` runs `oxlint`, `svelte-check`, `cccc`, and production packaging before publishing to GitHub Pages.
+  - Every push to `main` installs the pinned tools with `jdx/mise-action` and runs `mise run all` before publishing to GitHub Pages.

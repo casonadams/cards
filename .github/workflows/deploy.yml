@@ -21,41 +21,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - name: Install pinned tools
+        uses: jdx/mise-action@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-          cache-dependency-path: 'web/pnpm-lock.yaml'
       - name: Install web dependencies
-        working-directory: ./web
-        run: pnpm install
-      - name: Install cccc
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cccc-cli@1.7.0
+        run: mise run install
 
-      - name: Lint web application (oxlint)
-        working-directory: ./web
-        run: pnpm lint
-
-      - name: Type check web (svelte-check)
-        working-directory: ./web
-        run: pnpm check
-
-      - name: Check complexity (cccc)
-        run: cccc web/src
-
-      - name: Build web application
-        working-directory: ./web
-        run: pnpm build
+      - name: Lint, type-check, test, complexity, and build
+        run: mise run all
         env:
           GITHUB_PAGES: "true"
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

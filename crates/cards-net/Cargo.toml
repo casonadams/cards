@@ -15,6 +15,11 @@ cards-core.workspace = true
 serde.workspace = true
 postcard = { version = "1.1", default-features = false, features = ["alloc"] }
 blake3 = { version = "1.8", default-features = false }
+iroh = { version = "1.5", default-features = false, features = ["tls-ring"] }
+n0-future = "0.3"
+async-channel = "2"
+url = "2"
 
 [dev-dependencies]
 serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

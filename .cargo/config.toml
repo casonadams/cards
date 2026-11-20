@@ -1,0 +1,2 @@
+[patch.crates-io]
+getrandom_0_4 = { package = "getrandom", path = "vendor/getrandom-0.4.3" }

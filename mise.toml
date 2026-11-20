@@ -3,6 +3,24 @@ node = "24.22.3"
 pnpm = "12.18.0"
 bun = "1.4.4"
 "cargo:cccc-cli" = "1.7.0"
+"github:longbridge/nsh" = "0.6.0"
+"cargo:wasm-bindgen-cli" = "0.2.130"
+
+[tasks.fmt]
+description = "Check Rust formatting"
+run = "cargo fmt --all --check"
+
+[tasks.clippy]
+description = "Lint Rust with clippy, warnings as errors"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.rust-test]
+description = "Run Rust workspace tests"
+run = "cargo test --workspace"
+
+[tasks.rust]
+description = "Run every Rust quality gate"
+depends = ["fmt", "clippy", "rust-test"]
 
 [tasks.install]
 description = "Install web dependencies"
@@ -53,4 +71,4 @@ run = "rm -rf web/dist .cccc.cache"
 
 [tasks.all]
 description = "Run every quality gate and the production build"
-depends = ["lint", "check", "test", "complexity", "build"]
+depends = ["lint", "check", "test", "complexity", "build", "rust"]

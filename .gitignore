@@ -1,4 +1,5 @@
 target/
+.nsh/
 node_modules/
 dist/
 target/lcov.info

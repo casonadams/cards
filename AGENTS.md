@@ -49,8 +49,9 @@
 - Button selection groups (such as Table Size and Game Selector) must maintain stable dimensions between selected and unselected states without text wrapping shifts or layout jumps.
 
 ## Quality Tooling & CI/CD Pipeline
-- **mise** (`mise.toml` pins node, pnpm, bun and cccc; run `mise install` once):
-  - `mise run all`: Runs lint (`oxlint`), typecheck (`svelte-check`), tests (`bun test`), complexity (`cccc`), and build (`vite build`).
+- **mise** (`mise.toml` pins node, pnpm, bun, cccc, nsh 0.6.0 and wasm-bindgen-cli; run `mise install` once):
+  - `mise run all`: Runs lint (`oxlint`), typecheck (`svelte-check`), tests (`bun test`), complexity (`cccc`), build (`vite build`), and the Rust gates.
+  - `mise run rust`: `cargo fmt --check`, `cargo clippy -D warnings`, and `cargo test` for the Rust workspace (`crates/cards-core`).
   - `mise run lint`: Fast AST linting via `oxlint --deny-warnings`.
   - `mise run check`: Strict TypeScript and Svelte validation via `svelte-check`.
   - `mise run test`: Unit and behavior tests via `bun test`; `mise run e2e` runs the Playwright multi-client suite.

@@ -41,8 +41,17 @@ fn generated_codes_parse_back() {
     let mut rng = Rng::new(42);
     for _ in 0..100 {
         let code = RoomCode::generate(&mut rng);
-        assert_eq!(RoomCode::parse(code.as_str()), Ok(code));
+        assert_eq!(RoomCode::parse(&code.to_string()), Ok(code));
     }
+}
+
+#[test]
+fn codes_serialize_as_text_and_reject_invalid_text() {
+    let code = RoomCode::parse("ABC234").unwrap();
+    let json = serde_json::to_string(&code).unwrap();
+    assert_eq!(json, "\"ABC234\"");
+    assert_eq!(serde_json::from_str::<RoomCode>(&json).unwrap(), code);
+    assert!(serde_json::from_str::<RoomCode>("\"ABC10O\"").is_err());
 }
 
 #[test]

@@ -159,6 +159,30 @@ async fn a_wrong_code_is_refused_and_the_connection_ends() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_connection_that_acts_before_joining_is_dropped() {
+    let (host, directory, lookup, code) = setup().await;
+    let guest_endpoint = endpoint(&lookup).await;
+    let host_id = directory.resolve(code).await.unwrap();
+    let connection = guest_endpoint
+        .connect(host_id, cards_net::transport::ALPN)
+        .await
+        .expect("connect");
+    let (mut send, mut recv) = connection.open_bi().await.expect("stream");
+    let frame = cards_net::encode(&cards_net::ToHost::Act(cards_core::Action::Bid(0))).unwrap();
+    send.write_all(&u32::try_from(frame.len()).unwrap().to_be_bytes())
+        .await
+        .unwrap();
+    send.write_all(&frame).await.unwrap();
+
+    let mut byte = [0u8; 1];
+    let ended = tokio::time::timeout(WAIT, recv.read_exact(&mut byte))
+        .await
+        .expect("closed in time");
+    assert!(ended.is_err());
+    assert_eq!(host.session.host_snapshot().roster.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_unknown_code_fails_lookup() {
     let (_host, directory, lookup, _code) = setup().await;
     let guest_endpoint = endpoint(&lookup).await;

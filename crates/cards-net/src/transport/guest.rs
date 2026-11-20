@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use iroh::endpoint::{Connection, RecvStream, SendStream};
 use iroh::{Endpoint, EndpointId};
 
@@ -5,6 +7,8 @@ use super::frame::{read_frame, write_frame};
 use super::{ALPN, Directory, NetError};
 use crate::code::RoomCode;
 use crate::protocol::{ToGuest, ToHost, decode, encode};
+
+const LEAVE_GRACE: Duration = Duration::from_secs(2);
 
 /// A joined connection to the host, split so sending and receiving can run concurrently.
 #[derive(Debug)]
@@ -32,6 +36,18 @@ impl GuestSender {
 
     pub fn close(&self) {
         self.connection.close(0u8.into(), b"leaving");
+    }
+
+    /// Tells the host this player is leaving and lets the message arrive before closing.
+    pub async fn leave(mut self) {
+        if self.send(&ToHost::Leave).await.is_ok() && self.send.finish().is_ok() {
+            let delivered = async {
+                let _ = self.send.stopped().await;
+            };
+            let give_up = n0_future::time::sleep(LEAVE_GRACE);
+            n0_future::future::race(delivered, give_up).await;
+        }
+        self.close();
     }
 }
 

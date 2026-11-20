@@ -1,15 +1,25 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
 
-use async_channel::{Receiver, Sender};
+use async_channel::{Receiver, Sender, TrySendError};
 use iroh::Endpoint;
-use iroh::endpoint::Connection;
+use iroh::endpoint::{Connection, RecvStream};
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 
 use super::frame::{read_frame, write_frame};
 use super::{ALPN, NetError, player_id};
 use crate::host::Delivery;
 use crate::protocol::{FrameError, PlayerId, ToGuest, ToHost, decode, encode};
+
+/// Connections allowed at once: the largest table plus room for refused strangers.
+const MAX_PEERS: usize = 16;
+/// Time a new connection gets to send a valid `Join`.
+const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
+/// Undelivered frames per guest before the guest is dropped (it rejoins and resyncs).
+const OUTBOX_LIMIT: usize = 32;
+/// Guest messages buffered for the session owner before readers wait.
+const EVENT_LIMIT: usize = 64;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HostEvent {
@@ -38,14 +48,18 @@ impl Peers {
         self.inner.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn register(&self, player: PlayerId, link: Sender<Outgoing>) -> u64 {
+    /// Registers the player's newest link, replacing an older one; None when full.
+    fn register(&self, player: PlayerId, link: Sender<Outgoing>) -> Option<u64> {
         let mut table = self.lock();
+        if !table.links.contains_key(&player) && table.links.len() >= MAX_PEERS {
+            return None;
+        }
         table.next_generation += 1;
         let generation = table.next_generation;
         if let Some((_, old)) = table.links.insert(player, (generation, link)) {
             old.close();
         }
-        generation
+        Some(generation)
     }
 
     /// Removes the link if it is still the player's newest; true when it was.
@@ -62,8 +76,10 @@ impl Peers {
     }
 
     fn send(&self, player: PlayerId, outgoing: Outgoing) {
-        if let Some((_, link)) = self.lock().links.get(&player) {
-            let _ = link.try_send(outgoing);
+        if let Some((_, link)) = self.lock().links.get(&player)
+            && let Err(TrySendError::Full(_)) = link.try_send(outgoing)
+        {
+            link.close();
         }
     }
 }
@@ -74,6 +90,18 @@ struct GuestHandler {
     events: Sender<HostEvent>,
 }
 
+async fn first_join(recv: &mut RecvStream) -> Result<ToHost, NetError> {
+    let read = async { decode::<ToHost>(&read_frame(recv).await?).map_err(NetError::from) };
+    let timeout = async {
+        n0_future::time::sleep(JOIN_TIMEOUT).await;
+        Err(NetError::Closed)
+    };
+    match n0_future::future::race(read, timeout).await? {
+        join @ ToHost::Join { .. } => Ok(join),
+        ToHost::Act(_) | ToHost::Leave => Err(NetError::Closed),
+    }
+}
+
 impl GuestHandler {
     async fn serve(&self, connection: &Connection) -> Result<(), NetError> {
         let player = player_id(connection.remote_id());
@@ -81,11 +109,12 @@ impl GuestHandler {
             .accept_bi()
             .await
             .map_err(|e| NetError::Stream(e.to_string()))?;
-        let (link, outbox) = async_channel::unbounded();
-        let generation = self.peers.register(player, link);
+        let join = first_join(&mut recv).await?;
+        let (link, outbox) = async_channel::bounded(OUTBOX_LIMIT);
+        let generation = self.peers.register(player, link).ok_or(NetError::Closed)?;
         let reader = async {
+            let mut message = join;
             loop {
-                let message = decode::<ToHost>(&read_frame(&mut recv).await?)?;
                 let event = HostEvent::Message {
                     from: player,
                     message,
@@ -94,6 +123,7 @@ impl GuestHandler {
                     .send(event)
                     .await
                     .map_err(|_| NetError::Closed)?;
+                message = decode::<ToHost>(&read_frame(&mut recv).await?)?;
             }
         };
         let writer = async {
@@ -137,7 +167,7 @@ pub struct HostNet {
 impl HostNet {
     pub fn start(endpoint: Endpoint) -> HostNet {
         let peers = Peers::default();
-        let (sender, events) = async_channel::unbounded();
+        let (sender, events) = async_channel::bounded(EVENT_LIMIT);
         let handler = GuestHandler {
             peers: peers.clone(),
             events: sender,
@@ -148,10 +178,6 @@ impl HostNet {
             peers,
             events,
         }
-    }
-
-    pub fn endpoint(&self) -> &Endpoint {
-        self.router.endpoint()
     }
 
     pub async fn next_event(&self) -> Option<HostEvent> {

@@ -27,7 +27,7 @@ impl HostSession {
         let removed = self.members.remove(seat.index());
         let mut out = self.broadcast();
         if let Some(player) = removed.player {
-            out.push(Delivery::to(player, ToGuest::Closed));
+            out.push(Delivery::to(player, ToGuest::Refused(Refusal::Removed)));
         }
         Ok(out)
     }

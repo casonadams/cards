@@ -29,6 +29,7 @@ pub enum Refusal {
     TableFull,
     GameInProgress,
     InvalidName,
+    Removed,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

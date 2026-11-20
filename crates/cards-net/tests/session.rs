@@ -85,6 +85,30 @@ fn start_requires_a_full_table() {
 }
 
 #[test]
+fn a_guest_removed_from_the_lobby_is_told_so_and_not_rejoined() {
+    let mut room = Room::new(GameKind::OhWell, 4);
+    room.join(guest_id(1), "Alice");
+    room.join(guest_id(2), "Bob");
+
+    let out = room.host.remove(Seat(1)).expect("remove");
+    room.deliver(out);
+
+    assert!(is_refused(&room.guests[&guest_id(1)], Refusal::Removed));
+    assert!(!room.guests[&guest_id(1)].should_reconnect());
+    assert_eq!(room.snapshot(guest_id(2)).roster.len(), 2);
+}
+
+#[test]
+fn resume_rejects_a_save_whose_seats_do_not_match_the_table() {
+    let room = started_room();
+    let mut saved: serde_json::Value = serde_json::to_value(&room.host).unwrap();
+    saved["members"].as_array_mut().unwrap().pop();
+    let mut broken: cards_net::HostSession = serde_json::from_value(saved).unwrap();
+
+    assert_eq!(broken.resume(), Err(HostError::InvalidSave));
+}
+
+#[test]
 fn leaving_the_lobby_frees_the_seat_and_renumbers() {
     let mut room = Room::new(GameKind::OhWell, 4);
     room.join(guest_id(1), "Alice");
@@ -190,7 +214,7 @@ fn a_restarted_host_resumes_the_saved_game_and_guests_rejoin() {
     let before = playing_view(&room, guest_id(1));
 
     room.host = serde_json::from_str(&saved).expect("load");
-    room.host.resume();
+    room.host.resume().expect("saved session is consistent");
     assert!(
         room.host
             .host_snapshot()

@@ -9,12 +9,38 @@ const LOBBY_CONTEXT: &str = "cards 2026-11 lobby key v1";
 const JOIN_CONTEXT: &str = "cards 2026-11 join proof v1";
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[serde(try_from = "String", into = "String")]
 pub struct RoomCode([u8; CODE_LEN]);
+
+impl TryFrom<String> for RoomCode {
+    type Error = CodeError;
+
+    fn try_from(text: String) -> Result<RoomCode, CodeError> {
+        RoomCode::parse(&text)
+    }
+}
+
+impl From<RoomCode> for String {
+    fn from(code: RoomCode) -> String {
+        code.to_string()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CodeError {
     WrongLength { found: usize },
     InvalidCharacter(char),
+}
+
+impl fmt::Display for CodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CodeError::WrongLength { found } => {
+                write!(f, "codes have {CODE_LEN} characters, not {found}")
+            }
+            CodeError::InvalidCharacter(c) => write!(f, "'{c}' is not used in codes"),
+        }
+    }
 }
 
 impl RoomCode {
@@ -45,10 +71,6 @@ impl RoomCode {
         Ok(RoomCode(code))
     }
 
-    pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0).unwrap_or_default()
-    }
-
     /// Seed of the signing key whose public half names the room's lookup record.
     pub fn lobby_secret(&self) -> [u8; 32] {
         blake3::derive_key(LOBBY_CONTEXT, &self.0)
@@ -66,6 +88,8 @@ impl RoomCode {
 
 impl fmt::Display for RoomCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        self.0
+            .iter()
+            .try_for_each(|&b| write!(f, "{}", char::from(b)))
     }
 }

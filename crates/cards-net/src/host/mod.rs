@@ -15,7 +15,10 @@ pub struct Delivery {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HostError {
     InvalidName,
-    UnsupportedCapacity { min: usize, max: usize },
+    UnsupportedCapacity {
+        min: usize,
+        max: usize,
+    },
     TableFull,
     TableNotFull,
     NotInLobby,
@@ -24,6 +27,10 @@ pub enum HostError {
     SeatIsHuman,
     Setup(SetupError),
     Rejected(Rejection),
+    /// The AI was due to act but had no legal action.
+    NoAiAction,
+    /// A saved session does not describe a consistent table.
+    InvalidSave,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -105,12 +112,28 @@ impl HostSession {
         self.members.first().and_then(|m| m.player)
     }
 
-    /// Marks every guest disconnected after the host restarts from saved state.
-    pub fn resume(&mut self) {
+    /// Prepares a session restored from storage: checks it is consistent and marks every
+    /// guest disconnected until they rejoin.
+    pub fn resume(&mut self) -> Result<(), HostError> {
+        let consistent = self.host_id().is_some()
+            && self.members.len() <= self.capacity
+            && self
+                .table
+                .as_ref()
+                .is_none_or(|t| t.seats() == self.members.len());
+        if !consistent {
+            return Err(HostError::InvalidSave);
+        }
         for member in self.members.iter_mut().skip(1) {
             member.connected = false;
         }
         self.seq += 1;
+        Ok(())
+    }
+
+    /// Public events produced by the most recent change.
+    pub fn last_events(&self) -> &[Event] {
+        &self.last_events
     }
 
     /// Ends the table for good: every connected guest is told it closed.
@@ -180,14 +203,20 @@ impl HostSession {
     /// The seat the AI should move for next, if any.
     pub fn ai_actor(&self) -> Option<Seat> {
         let seat = self.table.as_ref()?.actor()?;
-        self.members[seat.index()].is_ai_turn().then_some(seat)
+        self.members
+            .get(seat.index())
+            .is_some_and(Member::is_ai_turn)
+            .then_some(seat)
     }
 
     /// Plays one AI move; `None` when no AI seat is due to act.
-    pub fn play_ai(&mut self, rng: &mut Rng) -> Option<Result<Vec<Delivery>, Rejection>> {
+    pub fn play_ai(&mut self, rng: &mut Rng) -> Option<Result<Vec<Delivery>, HostError>> {
         let seat = self.ai_actor()?;
-        let action = ai::choose(&self.table.as_ref()?.view(seat), rng)?;
-        Some(self.act(seat, action))
+        let view = self.table.as_ref()?.view(seat);
+        Some(match ai::choose(&view, rng) {
+            Some(action) => self.act(seat, action).map_err(HostError::Rejected),
+            None => Err(HostError::NoAiAction),
+        })
     }
 
     pub fn snapshot(&self, seat: Seat) -> Snapshot {

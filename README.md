@@ -1,47 +1,56 @@
-# Cards &middot; Free P2P Card Game Platform
+# Cards
 
-A zero-database, serverless card game platform powered by **Svelte 5**, **WebRTC Peer-to-Peer DataChannels**, and static hosting on **GitHub Pages**.
+Oh Well and Canadian Salad for 3 to 7 players, in the browser, with no server of our own.
+Written in Rust: an [nsh](https://nsh.dev) app for the UI and [iroh](https://iroh.computer)
+for peer-to-peer networking, hosted statically on GitHub Pages.
 
-## Highlights
+## How it works
 
-- **Direct P2P WebRTC Networking**: Direct encrypted peer-to-peer room connections running in the browser via WebRTC DataChannels. Connect using deterministic 6-letter codes or 1-click invite URLs. Zero centralized database needed.
-- **Pure Deterministic Game Engine**: Deterministic rules, seeded PRNG shuffling, trick resolution, and state machine orchestration.
-- **Zero Operating Costs**: Hosted 100% statically on GitHub Pages with $0/month infrastructure cost.
-- **Strict Code Quality**: Gated on Cognitive and Cyclomatic Complexity (`cccc`), fast AST linting (`oxlint`), strict TypeScript type safety (`svelte-check`), and code intelligence analysis (`ripwire`).
+- **Join with a 6-character code.** The host's browser claims a code such as `ABC234` and
+  publishes a short-lived record, signed by a key derived from the code, on n0's public
+  pkarr relay. Guests type the code, look up the host and connect through iroh (relayed in
+  the browser, encrypted end to end). Inside the connection the guest proves it knows the
+  code, bound to both endpoints. Limits: a 6-character code is not a strong secret; the
+  record's name is derived from it, so someone collecting record names could recover a
+  code with hours of offline guessing while the table is open, and anyone who has the
+  code can join an open seat or claim the code. Fine for a card game; do not reuse it for
+  anything sensitive.
+- **The host is the single source of truth.** Guests send only their moves; the host
+  validates them against the rules and answers every change with a numbered snapshot of
+  that player's view. Each player receives only their own hand.
+- **Drops heal themselves.** Guests reconnect with exponential backoff and get a fresh
+  snapshot. If the host leaves or reloads, the game pauses for everyone until the host
+  returns (the table is saved in the host's browser and resumes from the home screen).
+  The host can let the AI play a disconnected guest's seat until they come back.
 
-## Implemented Games
+## Games
 
-1. **Oh Well (Oh Hell)**: 3–7 players, ascending/descending card rounds, trump card cut, exact bidding with the "Hook" dealer rule.
-2. **Canadian Salad**: 3–6 players, 6 contract rounds (No Tricks, No Hearts, No Queens, No King of Spades, No Last Trick, Combination).
+1. **Oh Well (Oh Hell)**: 3-7 players, descending then ascending hand sizes, trump card
+   cut, exact bidding with the dealer "hook" rule.
+2. **Canadian Salad**: 3-6 players, six hands (No Tricks, No Hearts, No Queens, No King of
+   Spades, No Last Trick, Combination); lowest total wins.
 
-## Development & Quality Checks
+## Layout
 
-Tools are pinned in `mise.toml` ([mise](https://mise.jdx.dev)).
+| Path | What it is |
+|---|---|
+| `crates/cards-core` | Rules, seeded deal, scoring, per-seat views and the AI. Pure, no I/O. |
+| `crates/cards-net` | Room codes, wire protocol, host session, guest state, iroh transport. |
+| `app` | The nsh app: home, lobby and table screens, and the session controller. |
+| `vendor/getrandom-0.4.3` | One-line patch needed for the web build (see `vendor/README.md`). |
+
+## Development
+
+Tools are pinned in `mise.toml` ([mise](https://mise.jdx.dev)); the Rust toolchain in
+`rust-toolchain.toml`. Packaging for the web also needs a wasm-capable `clang` and
+`llvm-ar` (on macOS: `brew install llvm`).
 
 ```bash
-# Install the pinned tools and web dependencies
-mise install
-mise run install
-
-# Run all quality checks and production build
-mise run all
-
-# Run fast AST linting across TypeScript/JS web code
-mise run lint
-
-# Run Svelte and TypeScript type checking
-mise run check
-
-# Run unit tests (and `mise run e2e` for Playwright)
-mise run test
-
-# Enforce Cognitive and Cyclomatic complexity thresholds
-mise run complexity
-
-# Run ripwire code intelligence map and symbol ranking
-mise run ripwire
-
-# Start the dev server, or build production distribution for GitHub Pages
-mise run dev
-mise run build
+mise install       # nsh and wasm-bindgen-cli
+mise run rust      # cargo fmt --check, clippy -D warnings, cargo test
+mise run web       # package the web app into dist/Cards
+mise run serve     # package and serve at http://127.0.0.1:4173/cards/
+mise run all       # every gate plus the web package
 ```
+
+Pushes to `main` run the gates in CI and deploy `dist/Cards` to GitHub Pages.

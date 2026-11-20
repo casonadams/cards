@@ -1,8 +1,4 @@
 [tools]
-node = "24.22.3"
-pnpm = "12.18.0"
-bun = "1.4.4"
-"cargo:cccc-cli" = "1.7.0"
 "github:longbridge/nsh" = "0.6.0"
 "cargo:wasm-bindgen-cli" = "0.2.130"
 
@@ -14,13 +10,13 @@ run = "cargo fmt --all --check"
 description = "Lint Rust with clippy, warnings as errors"
 run = "cargo clippy --workspace --all-targets -- -D warnings"
 
-[tasks.rust-test]
-description = "Run Rust workspace tests"
+[tasks.test]
+description = "Run the Rust workspace tests"
 run = "cargo test --workspace"
 
 [tasks.rust]
 description = "Run every Rust quality gate"
-depends = ["fmt", "clippy", "rust-test"]
+depends = ["fmt", "clippy", "test"]
 
 [tasks.web]
 description = "Package the nsh app for the web into dist/Cards (needs a wasm-capable clang)"
@@ -34,58 +30,19 @@ AR_wasm32_unknown_unknown="${AR_wasm32_unknown_unknown:-$AR}" \
 touch ../dist/Cards/.nojekyll
 '''
 
-[tasks.web-run]
+[tasks.serve]
 description = "Package the web app and serve it at http://127.0.0.1:4173/cards/"
 depends = ["web"]
 run = "mkdir -p target/serve && ln -sfn ../../dist/Cards target/serve/cards && cd target/serve && python3 -m http.server 4173 --bind 127.0.0.1"
 
-[tasks.install]
-description = "Install web dependencies"
-dir = "web"
-run = "pnpm install --frozen-lockfile"
-
-[tasks.lint]
-description = "Lint the web code with oxlint"
-dir = "web"
-run = "pnpm lint"
-
-[tasks.check]
-description = "Type-check Svelte and TypeScript with svelte-check"
-dir = "web"
-run = "pnpm check"
-
-[tasks.test]
-description = "Run unit and behavior tests"
-dir = "web"
-run = "bun test"
-
-[tasks.e2e]
-description = "Run Playwright multi-client end-to-end tests"
-dir = "web"
-run = "pnpm exec playwright test"
-
-[tasks.complexity]
-description = "Enforce cognitive and cyclomatic complexity limits"
-run = "cccc web/src"
-
 [tasks.ripwire]
 description = "Map code intelligence and symbol ranking (needs ripwire on PATH)"
-run = "ripwire web/src --top-k=30"
-
-[tasks.dev]
-description = "Run the Vite dev server"
-dir = "web"
-run = "pnpm dev"
-
-[tasks.build]
-description = "Build the static bundle for GitHub Pages"
-dir = "web"
-run = "pnpm build"
+run = "ripwire crates app/src --top-k=30"
 
 [tasks.clean]
-description = "Remove build artifacts and caches"
-run = "rm -rf web/dist .cccc.cache"
+description = "Remove build artifacts"
+run = "rm -rf dist target/serve"
 
 [tasks.all]
-description = "Run every quality gate and the production build"
-depends = ["lint", "check", "test", "complexity", "build", "rust"]
+description = "Run every quality gate and package the web app"
+depends = ["rust", "web"]

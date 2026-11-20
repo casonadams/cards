@@ -14,5 +14,5 @@ The patch is applied through `[patch.crates-io]` in `.cargo/config.toml`.
 
 Upstream will not change this: rust-random/getrandom#840 (the same failure) was closed as
 "not planned" on 2026-05-18, since enabling `wasm_js` alongside a custom backend is treated
-as a downstream problem. Reported to iroh instead: https://github.com/n0-computer/iroh/issues/4705. It goes away if iroh stops enabling `wasm_js` on the web or nsh
+as a downstream problem. Reported to iroh instead: https://github.com/n0-computer/iroh/issues/4705 (draft fix: https://github.com/n0-computer/iroh/pull/4706; `noq-proto` enables `wasm_js` too and needs the same change). It goes away if iroh stops enabling `wasm_js` on the web or nsh
 stops forcing the custom backend; drop this directory and the patch entry then.

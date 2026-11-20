@@ -111,22 +111,26 @@ pub async fn claim_code(
     Err(last_error)
 }
 
-/// Republishes the room record before it expires; reports failures and keeps retrying.
+/// Republishes the room record before it expires and keeps retrying; `report` gets the
+/// failure of each attempt, and `None` when an attempt succeeds again after a failure.
 pub async fn keep_published(
     directory: &impl Directory,
     code: RoomCode,
     host: EndpointId,
-    mut on_error: impl FnMut(NetError),
+    mut report: impl FnMut(Option<NetError>),
 ) {
     let mut failures = 0;
     loop {
         let wait = match directory.publish(code, host).await {
             Ok(()) => {
+                if failures > 0 {
+                    report(None);
+                }
                 failures = 0;
                 RECORD_REFRESH
             }
             Err(err) => {
-                on_error(err);
+                report(Some(err));
                 failures += 1;
                 reconnect_delay(failures, 1.0).min(RECORD_REFRESH)
             }

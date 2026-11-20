@@ -85,8 +85,18 @@ async fn serve(
     controller.code.set(Some(code));
     let net = HostNet::start(endpoint);
     let publisher = spawn(async move {
-        keep_published(&directory, code, id, |e| {
-            controller.notice.set(Some(e.to_string()))
+        let mut announced = None;
+        keep_published(&directory, code, id, |failure| match failure {
+            Some(e) => {
+                let message = e.to_string();
+                announced = Some(message.clone());
+                controller.notice.set(Some(message));
+            }
+            None => {
+                if controller.notice.get_untracked() == announced.take() {
+                    controller.notice.set(None);
+                }
+            }
         })
         .await;
     });

@@ -4,6 +4,9 @@ mod guest;
 mod host;
 
 use std::fmt;
+use std::time::Duration;
+
+use iroh::endpoint::QuicTransportConfig;
 
 pub use directory::{Directory, PkarrDirectory, RECORD_REFRESH, claim_code, keep_published};
 pub use guest::{GuestLink, GuestReceiver, GuestSender, join, rejoin};
@@ -12,6 +15,17 @@ pub use host::{HostEvent, HostNet};
 use crate::protocol::{FrameError, PlayerId};
 
 pub const ALPN: &[u8] = b"cards/1";
+
+/// How long a silent connection lasts before the other side is treated as gone.
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// QUIC settings for game endpoints: iroh's keep-alives with a short idle timeout,
+/// so a guest notices a vanished host (closed tab, lost network) within seconds.
+pub fn quic_config() -> QuicTransportConfig {
+    QuicTransportConfig::builder()
+        .max_idle_timeout(IDLE_TIMEOUT.try_into().ok())
+        .build()
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NetError {

@@ -37,6 +37,7 @@ impl Directory for MemoryDirectory {
 async fn endpoint(lookup: &MemoryLookup) -> Endpoint {
     Endpoint::builder(presets::Minimal)
         .relay_mode(RelayMode::Disabled)
+        .transport_config(cards_net::transport::quic_config())
         .address_lookup(lookup.clone())
         .bind()
         .await

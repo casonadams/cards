@@ -209,6 +209,20 @@ fn a_restarted_host_resumes_the_saved_game_and_guests_rejoin() {
 }
 
 #[test]
+fn closing_the_table_tells_every_connected_guest() {
+    let mut room = started_room();
+    let out = room.host.disconnected(guest_id(2));
+    room.deliver(out);
+
+    let out = room.host.close();
+
+    assert_eq!(out.len(), 1);
+    room.deliver(out);
+    assert_eq!(room.guests[&guest_id(1)].link(), Link::Closed);
+    assert!(!room.guests[&guest_id(1)].should_reconnect());
+}
+
+#[test]
 fn guest_state_keeps_the_newest_snapshot_and_pauses_only_mid_game() {
     let room = started_room();
     let alice = guest_id(1);

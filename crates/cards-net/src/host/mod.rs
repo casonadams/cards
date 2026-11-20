@@ -113,6 +113,20 @@ impl HostSession {
         self.seq += 1;
     }
 
+    /// Ends the table for good: every connected guest is told it closed.
+    pub fn close(&mut self) -> Vec<Delivery> {
+        self.members
+            .iter_mut()
+            .skip(1)
+            .filter(|m| m.connected)
+            .filter_map(|m| {
+                m.connected = false;
+                m.player
+            })
+            .map(|player| Delivery::to(player, ToGuest::Closed))
+            .collect()
+    }
+
     pub fn handle(&mut self, peer: PlayerId, message: ToHost) -> Vec<Delivery> {
         match message {
             ToHost::Join { name, proof } => self.join(peer, &name, proof),

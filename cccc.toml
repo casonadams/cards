@@ -1,6 +1,0 @@
-# cccc configuration for Cards project
-languages = ["typescript"]
-table = true
-cache = true
-max-cognitive = 20
-max-cyclomatic = 20

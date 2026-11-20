@@ -10,5 +10,9 @@ enables getrandom's `wasm_js` feature. With both set, getrandom 0.4.3 (and its `
 as of 2026-11-19) references `Error::WEB_CRYPTO`, which only exists when the custom
 backend is *not* selected, so the browser build fails to compile.
 
-The patch is applied through `[patch.crates-io]` in `.cargo/config.toml`. Remove this
-directory and that entry once a getrandom release fixes the `cfg`.
+The patch is applied through `[patch.crates-io]` in `.cargo/config.toml`.
+
+Upstream will not change this: rust-random/getrandom#840 (the same failure) was closed as
+"not planned" on 2026-05-18, since enabling `wasm_js` alongside a custom backend is treated
+as a downstream problem. It goes away if iroh stops enabling `wasm_js` on the web or nsh
+stops forcing the custom backend; drop this directory and the patch entry then.

@@ -14,6 +14,9 @@
 - Never name a function `view` inside the UI: it shadows nsh's `view()` builder.
 - Run clippy with `--color never` (or check the exit code); colored output hides `^error` from grep.
 - Web builds need the vendored getrandom patch (`vendor/README.md`) and `app/src/entropy.rs`.
+- `ElementRef::measure()` answers with the layout of the next commit: measure a newly created element only after `next_frame().await`, and never make a game action wait on a measurement (no commit may follow, and the action would never be sent).
+- Each `transition_*` call replaces the previous one; use `transition_all()` to transition several groups. Card motion uses `AnimatedValue`s (`table/motion.rs`) instead.
+- A hover lift must move a child, never the hovered element itself (`group()` + `group_hover`), or the card slides out from under the pointer and flickers.
 
 ## UX & UI Design Rules
 
@@ -33,9 +36,10 @@
 
 ### Top bar, seats and trick area
 - One top bar only: game name, round label, trump mini card (white card, dark border, rank and colored pip) or Canadian Salad penalty badge, a collapsible rules drawer, and the leave controls.
-- The turn indicator (`YOUR TURN - PLAY A CARD` / `- BID`) is absolutely positioned over the top of the trick area with zero flow height, so turn changes never shift layout.
-- The trick area has a fixed height and one fixed slot per seat. Cards land in their slot and never move while the trick fills. Empty slots are dashed placeholders at z-index 0; played cards sit at 10 + slot. Trick cards are never smaller than hand cards, and each name pill is no wider than its card (first name only).
-- Seats stay in fixed seat order. Each badge has an order number 1..N anchored to the avatar: 1 is the trick leader (first bidder for bidding and trick 1, then the last trick's winner), never whoever is acting; the acting seat's badge is highlighted in emerald.
+- The trick area has a fixed height and one fixed slot per seat, in seat-strip order. Cards land in their slot and never move while the trick fills. Empty slots are dashed placeholders at z-index 0; played cards sit at 10 + play order. Trick cards are never smaller than hand cards, and each name pill is no wider than its card (first name only).
+- Card motion (`table/motion.rs`): a played card flies into its slot from where it sat in the hand (local player) or from the player's seat badge (420ms). A won trick then pauses 500ms, gathers to the centre in a slight fan (700ms), holds 250ms, and flies into the winner's seat badge, shrinking and fading (750ms); the host's AI waits 2.4s after a trick so the collection finishes first. The final trick of a round is not collected: it stays on the felt with the round summary docked beneath. Cards already on the felt never replay their entrance (keyed by round and card).
+- One status row sits over the top of the trick area with zero flow height and shows a single message: `YOUR TURN - BID`, `YOUR TURN - PLAY A CARD`, `YOU WON THE TRICK - YOUR LEAD`, `{Name} won the trick!` or `Waiting for {Name}...`.
+- Seats stay in fixed seat order. Each badge has an order number 1..N anchored to the avatar: 1 is the trick leader (first bidder for bidding and trick 1, then the last trick's winner), never whoever is acting; the acting seat's avatar shows a ping halo and its number pulses in emerald.
 - Badge dimensions never change with state: fixed border widths, fixed font weight, color-only transitions.
 - Compact stat lines with monospace digits: Canadian Salad `{tricks}t | {total}p`, Oh Well `{bid} | {total}p`.
 - Names allow 20 characters. Avatars show first+last initials (`Cason Adams` -> `CA`); seats show the first name (`John Doe` -> `John`) except bots (`Bot Bob`).

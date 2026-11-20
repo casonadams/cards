@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use async_channel::Receiver;
-use cards_core::{Event, GameKind, Rng};
+use cards_core::{Event, GameKind, Phase, Rng};
 use cards_net::transport::{
     ALPN, Directory, HostEvent, HostNet, PkarrDirectory, claim_code, keep_published, player_id,
 };
-use cards_net::{Delivery, HostError, HostSession};
+use cards_net::{Delivery, HostError, HostSession, SeatInfo, Snapshot, Stage};
 use nsh_core::prelude::*;
 
 use super::{Command, Controller, Intent, Status, bind, until_leave};
@@ -101,17 +101,32 @@ async fn serve(
         .await;
     });
     let mut rng = Rng::new(identity::random_u64().map_err(|e| e.to_string())?);
-    publish(controller, &session);
+    let mut saved = None;
+    publish(controller, &session, &mut saved);
     controller.status.set(Status::Online);
 
-    let outcome = play(controller, intents, &mut session, &net, &mut rng).await;
+    let outcome = play(
+        controller,
+        intents,
+        &mut session,
+        &net,
+        &mut rng,
+        &mut saved,
+    )
+    .await;
     let closed = match outcome {
         Ok(Exit::End) => {
             identity::forget_host();
             send(&net, session.close())
         }
-        Ok(Exit::Pause) => Ok(()),
-        Err(message) => Err(message),
+        Ok(Exit::Pause) => {
+            save(controller, &session);
+            Ok(())
+        }
+        Err(message) => {
+            save(controller, &session);
+            Err(message)
+        }
     };
     publisher.cancel();
     net.shutdown().await;
@@ -129,6 +144,7 @@ async fn play(
     session: &mut HostSession,
     net: &HostNet,
     rng: &mut Rng,
+    saved: &mut Option<Durable>,
 ) -> Result<Exit, String> {
     let (tick_sender, ticks) = async_channel::unbounded::<()>();
     let mut tick_pending = false;
@@ -169,7 +185,7 @@ async fn play(
             }
         };
         send(net, deliveries)?;
-        publish(controller, session);
+        publish(controller, session, saved);
     }
 }
 
@@ -193,8 +209,35 @@ fn send(net: &HostNet, deliveries: Vec<Delivery>) -> Result<(), String> {
         .map_err(|e| format!("could not encode a message: {e:?}"))
 }
 
-fn publish(controller: Controller, session: &HostSession) {
-    controller.snapshot.set(Some(session.host_snapshot()));
+/// What a resumed table must not lose: moves inside a hand are not durable, so a crash
+/// resumes from the start of that hand; pausing saves exactly.
+#[derive(PartialEq)]
+struct Durable {
+    progress: Option<(usize, Phase)>,
+    roster: Vec<SeatInfo>,
+}
+
+fn durable(snapshot: &Snapshot) -> Durable {
+    Durable {
+        progress: match &snapshot.stage {
+            Stage::Lobby => None,
+            Stage::Playing { view, .. } => Some((view.round, view.phase)),
+        },
+        roster: snapshot.roster.clone(),
+    }
+}
+
+fn publish(controller: Controller, session: &HostSession, saved: &mut Option<Durable>) {
+    let snapshot = session.host_snapshot();
+    let key = durable(&snapshot);
+    controller.snapshot.set(Some(snapshot));
+    if saved.as_ref() != Some(&key) {
+        save(controller, session);
+        *saved = Some(key);
+    }
+}
+
+fn save(controller: Controller, session: &HostSession) {
     if let Err(e) = identity::save_host(session) {
         controller.notice.set(Some(e.to_string()));
     }
@@ -228,5 +271,61 @@ fn host_error(error: HostError) -> String {
         HostError::Rejected(r) => crate::ui::text::rejection(r),
         HostError::NoAiAction => "An AI player had no legal move; the game cannot continue.".into(),
         HostError::InvalidSave => "The saved table could not be restored.".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cards_net::{PlayerId, RoomCode};
+
+    use super::*;
+
+    fn session() -> HostSession {
+        let code = RoomCode::parse("ABC234").unwrap();
+        let mut session =
+            HostSession::new(code, PlayerId([1; 32]), "Host", GameKind::OhWell, 3).unwrap();
+        session.add_ai().unwrap();
+        session.add_ai().unwrap();
+        session
+    }
+
+    #[test]
+    fn starting_a_game_is_durable() {
+        let mut session = session();
+        let lobby = durable(&session.host_snapshot());
+        session.start(5).unwrap();
+        assert!(lobby != durable(&session.host_snapshot()));
+    }
+
+    #[test]
+    fn moves_within_a_hand_are_not_durable() {
+        let mut session = session();
+        session.start(5).unwrap();
+        let before = durable(&session.host_snapshot());
+        let mut rng = Rng::new(1);
+        let mut moves = 0;
+        while let Some(result) = session.play_ai(&mut rng) {
+            result.unwrap();
+            moves += 1;
+            if durable(&session.host_snapshot()) != before {
+                break;
+            }
+        }
+        assert!(
+            moves > 1,
+            "several AI moves happened inside the first phase"
+        );
+    }
+
+    #[test]
+    fn an_unknown_peer_disconnecting_changes_nothing() {
+        let mut session = session();
+        let before = durable(&session.host_snapshot());
+        let guest = PlayerId([9; 32]);
+        session.disconnected(guest);
+        assert!(
+            before == durable(&session.host_snapshot()),
+            "unknown peers change nothing"
+        );
     }
 }

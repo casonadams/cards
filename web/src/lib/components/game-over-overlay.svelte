@@ -15,7 +15,7 @@
 
 	let { playerNames, playerIds, rounds, onBackToLobby, gameId = '' }: Props = $props();
 
-	const isHighestScoreWins = $derived(gameId === 'oh-well' || gameId === 'rook');
+	const isHighestScoreWins = $derived(gameId === 'oh-well');
 
 	const totals = $derived(
 		playerIds

@@ -1,13 +1,11 @@
 import type { PlayerStats } from '$lib/platform/types/index';
 import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
-import type { RookUiState } from '$lib/games/rook/ui-state';
 
 export interface StatContext {
 	readonly gameId: string;
 	readonly allPlayerStats: readonly PlayerStats[];
 	readonly previousTotals: Record<string, number>;
 	readonly ohWellUi: OhWellUiState | null;
-	readonly rookUi: RookUiState | null;
 }
 
 function statsFor(ctx: StatContext, id: string): PlayerStats {
@@ -40,13 +38,6 @@ function ohWellStatLine(ctx: StatContext, id: string, compact = false): string {
 		: `${ohWellBidStr(ctx, id)} | ${score} pts`;
 }
 
-function rookStatLine(ctx: StatContext, id: string, compact = false): string {
-	const st = statsFor(ctx, id);
-	return compact
-		? `${st.tricksTaken}t | ${st.currentScore}p`
-		: `${st.tricksTaken} tricks | ${st.currentScore} pts`;
-}
-
 function defaultStatLine(ctx: StatContext, id: string, compact = false): string {
 	const st = statsFor(ctx, id);
 	const score = prevScore(ctx, id) + st.currentScore;
@@ -56,8 +47,7 @@ function defaultStatLine(ctx: StatContext, id: string, compact = false): string 
 }
 
 const STAT_LINE_FNS: Record<string, (ctx: StatContext, id: string, compact?: boolean) => string> = {
-	'oh-well': ohWellStatLine,
-	rook: rookStatLine
+	'oh-well': ohWellStatLine
 };
 
 export function playerStatLine(ctx: StatContext, id: string, compact = false): string {
@@ -67,16 +57,4 @@ export function playerStatLine(ctx: StatContext, id: string, compact = false): s
 export function myStatLine(ctx: StatContext, id: string): string {
 	if (ctx.gameId === 'oh-well') return ohWellBidStr(ctx, id);
 	return `${statsFor(ctx, id).tricksTaken}`;
-}
-
-function buildTeamMap(rookUi: RookUiState): Map<string, number> {
-	const map = new Map<string, number>();
-	rookUi.partnerships.team1.forEach((id) => map.set(id, 1));
-	rookUi.partnerships.team2.forEach((id) => map.set(id, 2));
-	return map;
-}
-
-export function teamFor(rookUi: RookUiState | null, id: string): number | null {
-	if (!rookUi) return null;
-	return buildTeamMap(rookUi).get(id) ?? null;
 }

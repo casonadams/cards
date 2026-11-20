@@ -3,7 +3,6 @@
 	import { getInitials } from '$lib/utils';
 	import type { Card } from '$lib/platform/types/index';
 	import { RANK_NAMES } from '$lib/platform/types/card';
-	import type { RookUiState } from '$lib/games/rook/ui-state';
 	import type { NetworkStatusInfo } from '$lib/platform/adapters/p2p-webrtc';
 
 	interface Props {
@@ -19,7 +18,6 @@
 		trumpSuit?: string | null;
 		trumpCard?: Card | null;
 		handType?: string;
-		rookUi?: RookUiState | null;
 		networkStatus?: NetworkStatusInfo | null;
 	}
 
@@ -36,7 +34,6 @@
 		trumpSuit = null,
 		trumpCard = null,
 		handType = '',
-		rookUi = null,
 		networkStatus = null
 	}: Props = $props();
 
@@ -149,10 +146,6 @@
 			<div class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] sm:text-xs font-bold shadow-xs whitespace-nowrap shrink-0">
 				<span>Penalty: {formatPenalty(handType)}</span>
 			</div>
-		{:else if rookUi && rookUi.trumpColor}
-			<div class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] sm:text-xs font-bold shadow-xs truncate capitalize">
-				Trump: {rookUi.trumpColor}
-			</div>
 		{/if}
 	</div>
 	<div class="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -181,22 +174,22 @@
 		{:else if onNameChange}
 			<button
 				type="button"
-				class="flex items-center gap-1.5 px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-emerald-500/40 hover:bg-card transition-all cursor-pointer group shadow-xs leading-none w-36 sm:w-48 shrink-0 text-left"
+				class="flex items-center justify-center sm:justify-start gap-1.5 sm:px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground hover:border-emerald-500/40 hover:bg-card transition-all cursor-pointer group shadow-xs leading-none w-8 sm:w-48 shrink-0 text-left"
 				onclick={startEdit}
 				title="Click to edit player name"
 			>
 				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[9px] font-black leading-none shrink-0">
 					{getInitials(displayName)}
 				</div>
-				<span class="flex-1 truncate font-semibold text-xs leading-none text-foreground" title={displayName}>{displayName}</span>
-				<span class="text-[10px] text-muted-foreground/60 group-hover:text-emerald-400 font-bold shrink-0">✎</span>
+				<span class="hidden sm:block flex-1 truncate font-semibold text-xs leading-none text-foreground" title={displayName}>{displayName}</span>
+				<span class="hidden sm:block text-[10px] text-muted-foreground/60 group-hover:text-emerald-400 font-bold shrink-0">✎</span>
 			</button>
 		{:else}
-			<div class="flex items-center gap-1.5 px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground shadow-xs leading-none w-36 sm:w-48 shrink-0">
+			<div class="flex items-center justify-center sm:justify-start gap-1.5 sm:px-2 h-8 rounded-full bg-background/60 border border-border/80 text-xs text-foreground shadow-xs leading-none w-8 sm:w-48 shrink-0" title={displayName}>
 				<div class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-[9px] font-black leading-none shrink-0">
 					{getInitials(displayName)}
 				</div>
-				<span class="flex-1 truncate font-semibold text-xs leading-none text-foreground" title={displayName}>{displayName}</span>
+				<span class="hidden sm:block flex-1 truncate font-semibold text-xs leading-none text-foreground">{displayName}</span>
 			</div>
 		{/if}
 		{#if showAdmin}

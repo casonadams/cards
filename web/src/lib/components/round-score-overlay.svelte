@@ -27,7 +27,7 @@
 		isGameOver = false
 	}: Props = $props();
 
-	const isHighestScoreWins = $derived(gameId === 'oh-well' || gameId === 'rook');
+	const isHighestScoreWins = $derived(gameId === 'oh-well');
 	const sorted = $derived(
 		[...scores].sort((a, b) => (isHighestScoreWins ? b.points - a.points : a.points - b.points))
 	);

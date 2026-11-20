@@ -7,12 +7,11 @@
 	import GameTableFooter from './game-table-footer.svelte';
 	import OhWellBidding from './oh-well-bidding.svelte';
 	import RoundScoreOverlay from './round-score-overlay.svelte';
-	import { playerStatLine, teamFor, type StatContext } from './game-table-stats';
+	import { playerStatLine, type StatContext } from './game-table-stats';
 	import { isAiPlayer } from '$lib/platform/engine/ai-player';
 	import type { Card, RoomPlayer, PlayerStats, ScoreEntry } from '$lib/platform/types/index';
 	import type { TrickPlay } from '$lib/platform/engine/index';
 	import type { OhWellUiState } from '$lib/games/oh-well/ui-state';
-	import type { RookUiState } from '$lib/games/rook/ui-state';
 
 	interface Props {
 		gameId: string;
@@ -83,11 +82,8 @@
 	}: Props = $props();
 
 	const isOhWell = $derived(gameId === 'oh-well');
-	const isRook = $derived(gameId === 'rook');
 	const ohWellUi = $derived(isOhWell && gameSpecific ? (gameSpecific as OhWellUiState) : null);
-	const rookUi = $derived(isRook && gameSpecific ? (gameSpecific as RookUiState) : null);
-	const ctx = $derived<StatContext>({ gameId, allPlayerStats, previousTotals, ohWellUi, rookUi });
-	const myTeam = $derived(teamFor(rookUi, myId));
+	const ctx = $derived<StatContext>({ gameId, allPlayerStats, previousTotals, ohWellUi });
 
 	const initialLeaderId = $derived.by(() => {
 		if (isOhWell && ohWellUi?.leaderId) {
@@ -124,10 +120,6 @@
 			return () => clearTimeout(fallback);
 		}
 	});
-
-	function isPartner(id: string): boolean {
-		return myTeam !== null && teamFor(rookUi, id) === myTeam;
-	}
 </script>
 
 <main class="flex-1 min-h-0 flex flex-col justify-between p-1.5 sm:tall:p-4 max-w-6xl self-center mx-auto w-full gap-1 sm:tall:gap-2.5 overflow-hidden">
@@ -138,8 +130,6 @@
 			{@const shortName = getFirstName(displayName)}
 			{@const playerIndex = playerIds.indexOf(id)}
 			{@const isTurn = currentTurnIndex === playerIndex}
-			{@const team = teamFor(rookUi, id)}
-			{@const partner = isPartner(id)}
 			{@const leadIndex = playerIds.indexOf(leaderId)}
 			{@const trickOrder = ((playerIndex - leadIndex + playerIds.length) % playerIds.length) + 1}
 			{@const isLeader = trickOrder === 1}
@@ -206,11 +196,6 @@
 				</div>
 				<div class="flex flex-col min-w-0 leading-tight">
 					<div class="flex items-center gap-1">
-						{#if isRook && team}
-							<span class="text-[9px] font-black px-1 py-0.2 rounded {team === 1 ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}">
-								T{team}
-							</span>
-						{/if}
 						<span
 							class={cn(
 								'font-bold truncate max-w-[55px] sm:tall:max-w-[120px] transition-colors duration-150 text-[10px] sm:tall:text-xs',
@@ -222,9 +207,7 @@
 											? 'text-emerald-300 font-extrabold'
 											: isMe
 												? 'text-foreground font-bold'
-												: partner
-													? 'text-foreground font-bold'
-													: 'text-foreground/90 font-medium'
+												: 'text-foreground/90 font-medium'
 							)}
 							title={displayName}
 						>
@@ -274,7 +257,6 @@
 				<LastTrick
 					plays={lastCompleteTrick}
 					winnerName={lastTrickWinnerId ? (playerNames[lastTrickWinnerId] ?? '?') : null}
-					{gameId}
 				/>
 			</div>
 		{/if}
@@ -297,8 +279,6 @@
 
 <GameTableFooter
 	{isOhWell}
-	{isRook}
-	{myTeam}
 	{ctx}
 	{myId}
 	{previousTotals}

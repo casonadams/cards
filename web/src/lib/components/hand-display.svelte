@@ -1,7 +1,6 @@
 <script lang="ts">
 	import PlayingCard from './playing-card.svelte';
 	import { sortHand } from '$lib/platform/engine/sort-hand';
-	import { sortRookHand } from '$lib/games/rook/sort-hand';
 	import { recordPlayedCardPosition } from '$lib/utils';
 	import type { Card, Suit } from '$lib/platform/types/index';
 	interface Props {
@@ -26,11 +25,7 @@
 		inspection = false
 	}: Props = $props();
 
-	const sorted = $derived(
-		gameId === 'rook'
-			? sortRookHand(cards, trumpSuit)
-			: sortHand(cards, trumpSuit as Suit | null | undefined)
-	);
+	const sorted = $derived(sortHand(cards, trumpSuit as Suit | null | undefined));
 	let containerWidth = $state(0);
 	let windowHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 800);
 

@@ -6,8 +6,6 @@
 
 	interface Props {
 		isOhWell: boolean;
-		isRook: boolean;
-		myTeam: number | null;
 		ctx: StatContext;
 		myId: string;
 		previousTotals: Record<string, number>;
@@ -18,8 +16,6 @@
 
 	let {
 		isOhWell,
-		isRook,
-		myTeam,
 		ctx,
 		myId,
 		previousTotals,
@@ -59,14 +55,6 @@
 			<div class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-background/60 border border-border">
 				<span class="text-muted-foreground">Score:</span>
 				<span class="font-bold text-foreground">{previousTotals[myId] ?? 0}</span>
-			</div>
-		{:else if isRook}
-			<div class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-background/60 border border-border">
-				<span class="{myTeam === 1 ? 'text-blue-400' : 'text-amber-400'} font-bold">Team {myTeam}</span>
-			</div>
-			<div class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-background/60 border border-border">
-				<span class="text-muted-foreground">Tricks:</span>
-				<span class="font-bold text-foreground">{myStatLine(ctx, myId)}</span>
 			</div>
 		{:else}
 			<div class="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-background/60 border border-border">

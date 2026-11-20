@@ -1,9 +1,29 @@
 use cards_core::canadian_salad::rules::HandType;
 use cards_core::{Card, GameKind, Play, Seat, Suit, Trick};
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Shown {
     pub plays: Vec<Play>,
     pub winner: Option<Seat>,
+    /// Position of this trick within the round, starting at 0.
+    pub index: usize,
+}
+
+/// Horizontal placement of the fixed trick slots: one per seat, in seat order.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Row {
+    pub step: f32,
+    pub width: f32,
+}
+
+/// The single message in the trick area's status row.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Status {
+    YourBid,
+    YourPlay,
+    YouWonYourLead,
+    Won(Seat),
+    Waiting { seat: Seat, bidding: bool },
 }
 
 pub struct Layout {
@@ -53,21 +73,62 @@ pub fn order_number(seat: Seat, leader: Seat, seats: usize) -> usize {
     (seat.index() + seats - leader.index()) % seats + 1
 }
 
-pub fn slot_of(seat: Seat, lead: Seat, seats: usize) -> usize {
-    order_number(seat, lead, seats) - 1
+/// Slots overlap evenly when the row would be wider than `avail`.
+pub fn trick_row(avail: f32, card_w: f32, seats: usize) -> Row {
+    if seats <= 1 {
+        return Row {
+            step: 0.0,
+            width: card_w,
+        };
+    }
+    let gaps = (seats - 1) as f32;
+    let step = (card_w + 8.0).min(((avail - card_w) / gaps).max(8.0));
+    Row {
+        step,
+        width: step * gaps + card_w,
+    }
+}
+
+/// How far a card in `slot` moves to reach the centre of the row.
+pub fn gather_offset(row: Row, slot: usize, card_w: f32) -> f32 {
+    (row.width - card_w) / 2.0 - row.step * slot as f32
+}
+
+/// A slight fan for the gathered stack, in degrees, by the order cards were played.
+pub fn gather_rotation(order: usize, count: usize) -> f32 {
+    let middle = count.saturating_sub(1) as f32 / 2.0;
+    (order as f32 - middle) * 4.0
+}
+
+pub fn status(
+    me: Seat,
+    actor: Option<Seat>,
+    bidding: bool,
+    winner: Option<Seat>,
+) -> Option<Status> {
+    match (actor, winner) {
+        (Some(a), Some(w)) if a == me && w == me => Some(Status::YouWonYourLead),
+        (Some(a), _) if a == me && bidding => Some(Status::YourBid),
+        (Some(a), _) if a == me => Some(Status::YourPlay),
+        (_, Some(w)) => Some(Status::Won(w)),
+        (Some(seat), None) => Some(Status::Waiting { seat, bidding }),
+        (None, None) => None,
+    }
 }
 
 /// The trick on the felt: the one in progress, else the last won one until the next card lands.
-pub fn displayed_trick(current: &[Play], last: Option<&Trick>) -> Option<Shown> {
+pub fn displayed_trick(current: &[Play], tricks: &[Trick]) -> Option<Shown> {
     if !current.is_empty() {
         return Some(Shown {
             plays: current.to_vec(),
             winner: None,
+            index: tricks.len(),
         });
     }
-    last.map(|t| Shown {
+    tricks.last().map(|t| Shown {
         plays: t.plays.clone(),
         winner: Some(t.winner),
+        index: tricks.len() - 1,
     })
 }
 
@@ -166,10 +227,80 @@ mod tests {
     }
 
     #[test]
-    fn slots_are_relative_to_the_trick_leader() {
-        assert_eq!(slot_of(Seat(2), Seat(2), 5), 0);
-        assert_eq!(slot_of(Seat(0), Seat(2), 5), 3);
-        assert_eq!(slot_of(Seat(1), Seat(2), 5), 4);
+    fn trick_rows_space_slots_and_overlap_when_narrow() {
+        assert_eq!(
+            trick_row(800.0, 80.0, 4),
+            Row {
+                step: 88.0,
+                width: 344.0
+            }
+        );
+        assert_eq!(
+            trick_row(300.0, 58.0, 7),
+            Row {
+                step: 242.0 / 6.0,
+                width: 300.0
+            }
+        );
+        assert_eq!(trick_row(60.0, 58.0, 7).step, 8.0);
+        assert_eq!(
+            trick_row(300.0, 58.0, 1),
+            Row {
+                step: 0.0,
+                width: 58.0
+            }
+        );
+    }
+
+    #[test]
+    fn gathering_moves_every_slot_to_the_centre() {
+        let row = trick_row(800.0, 80.0, 4);
+        let centres: Vec<f32> = (0..4)
+            .map(|slot| row.step * slot as f32 + gather_offset(row, slot, 80.0))
+            .collect();
+        assert!(
+            centres.iter().all(|c| (c - 132.0).abs() < 0.001),
+            "{centres:?}"
+        );
+        assert_eq!(
+            (0..3).map(|o| gather_rotation(o, 3)).collect::<Vec<_>>(),
+            [-4.0, 0.0, 4.0]
+        );
+        assert_eq!(gather_rotation(0, 1), 0.0);
+    }
+
+    #[test]
+    fn status_shows_one_message_for_the_viewer() {
+        let me = Seat(1);
+        let cases = [
+            (Some(me), true, None, Some(Status::YourBid)),
+            (Some(me), false, None, Some(Status::YourPlay)),
+            (Some(me), false, Some(me), Some(Status::YouWonYourLead)),
+            (
+                Some(Seat(2)),
+                false,
+                Some(Seat(2)),
+                Some(Status::Won(Seat(2))),
+            ),
+            (None, false, Some(Seat(0)), Some(Status::Won(Seat(0)))),
+            (
+                Some(Seat(3)),
+                true,
+                None,
+                Some(Status::Waiting {
+                    seat: Seat(3),
+                    bidding: true,
+                }),
+            ),
+            (None, false, None, None),
+        ];
+        for (actor, bidding, winner, expected) in cases {
+            assert_eq!(
+                status(me, actor, bidding, winner),
+                expected,
+                "{actor:?} {winner:?}"
+            );
+        }
     }
 
     #[test]
@@ -197,16 +328,21 @@ mod tests {
             plays: vec![play(0, 5), play(1, 9)],
             winner: Seat(1),
         };
+        let tricks = [last.clone(), last.clone()];
         let current = [play(1, 2)];
-        let live = displayed_trick(&current, Some(&last)).expect("live trick");
-        assert_eq!(live.plays, current);
-        assert_eq!(live.winner, None);
+        let live = displayed_trick(&current, &tricks).expect("live trick");
+        assert_eq!(
+            (live.plays.as_slice(), live.winner, live.index),
+            (&current[..], None, 2)
+        );
 
-        let won = displayed_trick(&[], Some(&last)).expect("won trick");
-        assert_eq!(won.plays, last.plays);
-        assert_eq!(won.winner, Some(Seat(1)));
+        let won = displayed_trick(&[], &tricks).expect("won trick");
+        assert_eq!(
+            (won.plays, won.winner, won.index),
+            (last.plays, Some(Seat(1)), 1)
+        );
 
-        assert!(displayed_trick(&[], None).is_none());
+        assert!(displayed_trick(&[], &[]).is_none());
     }
 
     #[test]

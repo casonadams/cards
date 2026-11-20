@@ -55,7 +55,7 @@ fn badge(ctx: Ctx, info: ReadSignal<SeatInfo>) -> impl IntoElement {
         .style_when(away, |s| s.opacity(0.5))
         .transition_colors()
         .duration(150.0)
-        .child(avatar(info, active, number))
+        .child(avatar(info, active, number, ctx.motion.badge(seat)))
         .child(
             view()
                 .child(
@@ -80,15 +80,26 @@ fn avatar(
     info: ReadSignal<SeatInfo>,
     active: impl Fn() -> bool + Copy + 'static,
     number: impl Fn() -> String + Copy + 'static,
+    target: Option<ElementRef>,
 ) -> impl IntoElement {
     view()
         .relative()
         .size_8()
+        .when_some(target, |v, r| v.element_ref(&r))
+        .child(when(active, || {
+            view()
+                .absolute()
+                .inset_0()
+                .rounded_full()
+                .bg(accent)
+                .animate_ping()
+        }))
         .child(
             view()
                 .size_8()
                 .rounded_full()
                 .border_1()
+                .bg(panel)
                 .border_color(accent)
                 .items_center()
                 .justify_center()
@@ -109,6 +120,7 @@ fn avatar(
                 .items_center()
                 .justify_center()
                 .bg(move || if active() { accent() } else { panel_border() })
+                .style_when(active, |s| s.animate_pulse())
                 .child(
                     text(number)
                         .text_size(px(10.0))

@@ -2,6 +2,7 @@ mod bidding;
 mod card;
 mod hand;
 mod model;
+mod motion;
 mod scores;
 mod seats;
 mod standings;
@@ -19,6 +20,7 @@ use crate::session::{Controller, Role, Status};
 struct Ctx {
     controller: Controller,
     snapshot: Memo<Option<Snapshot>>,
+    motion: motion::Motion,
 }
 
 impl Ctx {
@@ -60,11 +62,11 @@ fn name_of(snap: &Snapshot, seat: Seat) -> String {
         .unwrap_or_default()
 }
 
+/// What docks between the trick area and the hand, besides nothing while cards are played.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Bidding,
     RoundOver,
-    Play,
 }
 
 /// Short or narrow windows (phones in either orientation) use small cards and compact stats.
@@ -77,6 +79,7 @@ pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl 
     let ctx = Ctx {
         controller,
         snapshot,
+        motion: motion::Motion::new(),
     };
     let standings_open = signal(false);
     dynamic(move || {
@@ -91,11 +94,11 @@ pub fn screen(controller: Controller, snapshot: Memo<Option<Snapshot>>) -> impl 
 fn table(ctx: Ctx, standings_open: Signal<bool>) -> impl IntoElement {
     let mode = computed(move || {
         ctx.read(|_, v| match v.phase {
-            Phase::Bidding => Mode::Bidding,
-            Phase::RoundOver | Phase::GameOver => Mode::RoundOver,
-            Phase::Playing => Mode::Play,
+            Phase::Bidding => Some(Mode::Bidding),
+            Phase::RoundOver | Phase::GameOver => Some(Mode::RoundOver),
+            Phase::Playing => None,
         })
-        .unwrap_or(Mode::Play)
+        .flatten()
     });
     view()
         .flex_1()
@@ -127,9 +130,11 @@ fn table(ctx: Ctx, standings_open: Signal<bool>) -> impl IntoElement {
                     .child(seats::strip(ctx))
                     .child(trick::area(ctx))
                     .child(dynamic(move || match mode.get() {
-                        Mode::Bidding => bidding::console(ctx).into_element(),
-                        Mode::RoundOver => scores::round_panel(ctx, standings_open).into_element(),
-                        Mode::Play => view().into_element(),
+                        Some(Mode::Bidding) => bidding::console(ctx).into_element(),
+                        Some(Mode::RoundOver) => {
+                            scores::round_panel(ctx, standings_open).into_element()
+                        }
+                        None => view().into_element(),
                     })),
             ),
         )

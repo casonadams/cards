@@ -1,8 +1,8 @@
-use cards_core::{Action, Seat};
+use cards_core::{Action, Rejection, Seat};
 use nsh_core::prelude::*;
 
 use super::super::style::{accent, accent_ink, danger, ink, muted, panel, panel_border};
-use super::super::text::first_name;
+use super::super::text::{first_name, rejection};
 use super::Ctx;
 use crate::session::Command;
 
@@ -80,15 +80,13 @@ fn chip(ctx: Ctx, seat: ReadSignal<Seat>) -> impl IntoElement {
 }
 
 fn controls(ctx: Ctx) -> impl IntoElement {
-    let max = move || ctx.read(|_, v| v.cards_per_player).unwrap_or(0);
+    let max = move || {
+        ctx.read(|_, v| u8::try_from(v.cards_per_player).unwrap_or(u8::MAX))
+            .unwrap_or(0)
+    };
     let hook = move || {
-        ctx.read(|_, v| {
-            let missing: Vec<u8> = (0..=max() as u8)
-                .filter(|b| !v.legal_bids.contains(b))
-                .collect();
-            missing
-        })
-        .unwrap_or_default()
+        ctx.read(|_, v| (0..=max()).find(|b| !v.legal_bids.contains(b)))
+            .flatten()
     };
     when(
         move || ctx.my_turn(),
@@ -96,33 +94,21 @@ fn controls(ctx: Ctx) -> impl IntoElement {
             view()
                 .gap_2()
                 .child(
-                    view().flex_row().flex_wrap().gap_2().children(
-                        (0..=max()).map(|n| bid_button(ctx, n as u8)),
-                    ),
+                    view()
+                        .flex_row()
+                        .flex_wrap()
+                        .gap_2()
+                        .children((0..=max()).map(|n| bid_button(ctx, n))),
                 )
                 .child(dynamic(move || {
-                    let blocked = hook();
-                    blocked.first().map(|b| {
-                        text(format!(
-                            "Dealer hook: you cannot bid {b}, the bids would add up to the cards dealt."
-                        ))
-                        .text_xs()
-                        .text_color(danger)
+                    hook().map(|forbidden| {
+                        text(rejection(Rejection::HookBid { forbidden }))
+                            .text_xs()
+                            .text_color(danger)
                     })
                 }))
         },
     )
-    .otherwise(move || {
-        let who = move || {
-            ctx.read(|_, v| v.actor)
-                .flatten()
-                .map(|s| first_name(&ctx.name(s)).to_owned())
-                .unwrap_or_default()
-        };
-        text(move || format!("Waiting for {} to bid...", who()))
-            .text_sm()
-            .text_color(muted)
-    })
 }
 
 fn bid_button(ctx: Ctx, amount: u8) -> impl IntoElement {

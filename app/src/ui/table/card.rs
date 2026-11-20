@@ -4,7 +4,7 @@ use nsh_core::prelude::*;
 use super::super::style::{accent, accent_ink, suit_color};
 use super::super::text::{card_label, rank_glyph, suit_symbol};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Size {
     pub w: f32,
     pub h: f32,
